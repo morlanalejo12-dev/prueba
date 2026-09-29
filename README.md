@@ -21,6 +21,22 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 - Resultado final con puesto, percentil, **Outlier del minuto** y cuenta regresiva a la próxima ronda.
 - Historial local: rondas jugadas, mejor percentil y veces que fuiste Outlier.
 
+## Novedades
+
+### v0.2
+- **Chispas doradas** para juntar. Si agarrás varias seguidas, valen más (hasta x5).
+- **Cuenta regresiva** 3, 2, 1 antes de cada ronda.
+- **Tutorial guiado** en las dos primeras rondas.
+- **Niveles y XP**: cada ronda suma experiencia. Los títulos van de Chispa a Outlier.
+- **Estelas desbloqueables**: 6 colores que se ganan subiendo de nivel (Ámbar, Menta, Rosa, Hielo, Solar y Prisma).
+- **Racha diaria** de días jugados.
+- **Más impacto visual**: fondo con estelas en movimiento, muros con brillo, explosiones de partículas y destellos de pantalla.
+- **Resultados animados**: el puesto baja hasta el tuyo, la barra de XP se llena y aparece un aviso de récord personal.
+- Opción para apagar la vibración. Sonido y vibración se recuerdan entre sesiones.
+
+### v0.1
+- Primer prototipo jugable: túnel, bifurcaciones, variantes y 1.200 bots.
+
 ## Qué está simulado
 
 La multitud son **1.200 bots** que corren en el navegador; todavía no hay servidor. En cada bifurcación, cada bot usa una de cuatro estrategias:
