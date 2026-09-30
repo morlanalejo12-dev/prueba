@@ -9,6 +9,12 @@ import { ICON, emblem, skinPreview, trailPreview } from './icons.js';
 
 const RING = 106.8;
 
+// Enviar con Enter sin usar <form>: en páginas con sandbox (como el artifact) el envío de
+// formularios está bloqueado y el evento submit nunca llega.
+function onEnter(input, fn) {
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); fn(); } });
+}
+
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -37,8 +43,7 @@ export const TITLES_BY_KIND = {
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
 function redeemBox(env) {
-  const box = el('form', 'redeem');
-  box.noValidate = true;
+  const box = el('div', 'redeem');
   const label = el('label', 'redeem-label', 'Código promocional');
   const input = el('input', 'redeem-input');
   input.id = 'redeemInput';
@@ -46,21 +51,22 @@ function redeemBox(env) {
   Object.assign(input, { type: 'text', maxLength: 24, autocomplete: 'off', spellcheck: false, placeholder: 'EJ: ABCD1234' });
   input.setAttribute('autocapitalize', 'characters');
   const btn = el('button', 'btn btn-primary btn-sm', 'Canjear');
-  btn.type = 'submit';
+  btn.type = 'button';
   const msg = el('p', 'redeem-msg');
   msg.setAttribute('role', 'status');
   const row = el('div', 'redeem-row');
   row.append(input, btn);
   box.append(label, row, msg);
   input.addEventListener('input', () => { input.value = input.value.toUpperCase(); msg.textContent = ''; box.classList.remove('bad'); });
-  box.addEventListener('submit', e => {
-    e.preventDefault();
+  const redeem = () => {
     const r = env.h.onRedeem(input.value);
     if (r && !r.ok) {
       msg.textContent = r.error;
       box.classList.remove('bad'); void box.offsetWidth; box.classList.add('bad');
     }
-  });
+  };
+  btn.addEventListener('click', redeem);
+  onEnter(input, redeem);
   return box;
 }
 
@@ -166,8 +172,7 @@ const BUILDERS = {
   // Conexión: nombre, servidor y a qué sala entrar
   online(body, env, data) {
     const o = env.h.onlineState();
-    const form = el('form', 'online-form');
-    form.noValidate = true;
+    const form = el('div', 'online-form');
     const nameL = el('label', 'redeem-label', 'Tu nombre en la sala');
     const name = el('input', 'redeem-input name-input');
     name.id = 'onlineName';
@@ -190,10 +195,11 @@ const BUILDERS = {
       if (r && r.error) msg.textContent = r.error;
     };
     const global = el('button', 'btn btn-primary online-global');
-    global.type = 'submit';
+    global.type = 'button';
     global.innerHTML = '<span class="live-dot" aria-hidden="true"></span>';
     global.append(el('span', '', 'Minuto global'), el('small', '', o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : 'Una ronda al comenzar cada minuto'));
-    form.addEventListener('submit', e => { e.preventDefault(); go('global'); });
+    global.addEventListener('click', () => go('global'));
+    onEnter(name, () => go('global'));
     const create = el('button', 'btn btn-ghost', 'Crear sala privada');
     create.type = 'button';
     create.addEventListener('click', () => go('create'));
@@ -207,6 +213,8 @@ const BUILDERS = {
     const join = el('button', 'btn btn-ghost btn-sm', 'Unirme');
     join.type = 'button';
     join.addEventListener('click', () => go('join', code.value));
+    onEnter(code, () => go('join', code.value));
+    if (url) onEnter(url, () => go('global'));
     joinRow.append(code, join);
     form.append(global, create, el('p', 'redeem-label', 'O entrá a la sala de un amigo'), joinRow, msg);
     body.append(form);
