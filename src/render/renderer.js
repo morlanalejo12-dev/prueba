@@ -25,6 +25,12 @@ const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), p
 const THEME_RGB = THEMES.map(t => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, hexRgb(v)])));
 const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
+// Paleta Fundador: oro → rojo → magenta → violeta → cian y vuelta (nunca pasa por el verde)
+function novaHue(v) {
+  const f = v - Math.floor(v), s = f < 0.5 ? f * 2 : 2 - f * 2;
+  return (405 - s * 215) % 360;
+}
+
 export class Renderer {
   constructor(canvas) {
     this.cv = canvas;
@@ -328,6 +334,7 @@ export class Renderer {
       }
     };
     switch (trail.type) {
+      case 'supernova': this.drawSupernova(tr, n, Y, R, t, P); break;
       case 'ribbon': ribbon(P * 1.5, 0.75, tc, tc2); break;
       case 'comet':
         ribbon(P * 2.6, 0.35, tc, tc);
@@ -410,8 +417,135 @@ export class Renderer {
     }
   }
 
+  // Estela Fundador: cinta de plasma que cicla oro → magenta → cian, con núcleo
+  // incandescente y arcos eléctricos que chisporrotean alrededor.
+  drawSupernova(tr, n, Y, R, t, P) {
+    const { cx } = this;
+    if (n < 4) return;
+    cx.save();
+    cx.lineCap = 'round';
+    const hue = k => novaHue(t * 0.5 + (1 - k / n) * 0.9);
+    for (const [wMul, alpha, light] of [[4.2, 0.12, 60], [2.2, 0.35, 62], [1, 0.9, 75]]) {
+      for (let k = 2; k < n; k += 2) {
+        const a = k / n;
+        cx.strokeStyle = `hsl(${Math.round(hue(k))} 100% ${light}%)`;
+        cx.globalAlpha = alpha * a;
+        cx.lineWidth = P * wMul * (0.25 + a * 0.75) * (1 + 0.12 * Math.sin(t * 14 + k * 0.5));
+        cx.beginPath(); cx.moveTo(tr[k - 2], Y(tr[k - 1])); cx.lineTo(tr[k], Y(tr[k + 1])); cx.stroke();
+      }
+    }
+    // Núcleo blanco
+    cx.strokeStyle = '#fffbe8';
+    cx.globalAlpha = 0.95;
+    cx.lineWidth = 1.6;
+    cx.beginPath();
+    for (let k = Math.floor(n * 0.35) & ~1; k < n; k += 2) cx.lineTo(tr[k], Y(tr[k + 1]));
+    cx.lineTo(R.px, Y(R.pY));
+    cx.stroke();
+    // Arcos eléctricos
+    const flick = Math.floor(t * 20);
+    for (let j = 0; j < 2; j++) {
+      cx.strokeStyle = j ? '#ff9cf0' : '#9ff4ff';
+      cx.globalAlpha = 0.7;
+      cx.lineWidth = 1;
+      cx.beginPath();
+      for (let k = n - 2; k > n * 0.3; k -= 4) {
+        const s = Math.sin((k + flick * 13 + j * 71) * 12.9898) * 43758.5453;
+        const off = ((s - Math.floor(s)) - 0.5) * P * 3.2 * (k / n);
+        cx.lineTo(tr[k] + off, Y(tr[k + 1]));
+      }
+      cx.stroke();
+    }
+    cx.restore();
+    cx.globalAlpha = 1;
+  }
+
+  // Skin Fundador: un agujero negro con disco de acreción inclinado, anillo de fotones
+  // y destellos. Se dibuja en dos mitades (atrás / adelante del horizonte) para dar volumen.
+  drawSingularity(x, y, r, t) {
+    const { cx } = this;
+    r *= 1.25;
+    const pulse = 1 + Math.sin(t * 5) * 0.08 + this.pulse * 0.25;
+    cx.save();
+    cx.translate(x, y);
+    cx.globalCompositeOperation = 'lighter';
+    // Halo
+    const halo = cx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 4.2 * pulse);
+    halo.addColorStop(0, 'rgba(255,209,102,0.45)');
+    halo.addColorStop(0.4, 'rgba(180,140,255,0.22)');
+    halo.addColorStop(1, 'rgba(255,94,209,0)');
+    cx.fillStyle = halo;
+    cx.beginPath(); cx.arc(0, 0, r * 4.2 * pulse, 0, TAU); cx.fill();
+    // Destellos tipo lente
+    cx.save();
+    cx.rotate(t * 0.6);
+    for (let k = 0; k < 4; k++) {
+      cx.rotate(TAU / 4);
+      const len = r * (k % 2 ? 3.2 : 4.6) * pulse;
+      const g = cx.createLinearGradient(0, 0, len, 0);
+      g.addColorStop(0, 'rgba(255,241,200,0.8)');
+      g.addColorStop(1, 'rgba(255,241,200,0)');
+      cx.fillStyle = g;
+      cx.beginPath(); cx.moveTo(0, -1.2); cx.lineTo(len, 0); cx.lineTo(0, 1.2); cx.closePath(); cx.fill();
+    }
+    cx.restore();
+    // Disco de acreción (mitad trasera)
+    const tilt = 0.34, RX = r * 2.25, spin = t * 3.2;
+    const disk = (from, to) => {
+      const seg = 18;
+      for (let w = 0; w < 3; w++) {
+        const rx = RX * (0.72 + w * 0.16);
+        cx.lineWidth = w === 1 ? 2.6 : 1.4;
+        for (let k = 0; k < seg; k++) {
+          const a0 = from + (to - from) * k / seg, a1 = from + (to - from) * (k + 1) / seg;
+          const h = novaHue((a0 + spin) / TAU + w * 0.15);
+          cx.strokeStyle = `hsl(${Math.round(h)} 100% ${w === 1 ? 70 : 60}%)`;
+          cx.globalAlpha = 0.55 + 0.45 * Math.sin(a0 * 3 + spin * 2 + w);
+          cx.beginPath(); cx.ellipse(0, 0, rx, rx * tilt, -0.35, a0, a1); cx.stroke();
+        }
+      }
+    };
+    disk(Math.PI, TAU);
+    // Anillo de fotones
+    cx.globalAlpha = 1;
+    cx.shadowColor = '#ffd166';
+    cx.shadowBlur = 12;
+    cx.strokeStyle = '#fff1c2';
+    cx.lineWidth = 2;
+    cx.beginPath(); cx.arc(0, 0, r * 1.08, 0, TAU); cx.stroke();
+    cx.shadowBlur = 0;
+    // Horizonte de sucesos
+    cx.globalCompositeOperation = 'source-over';
+    const core = cx.createRadialGradient(0, 0, 0, 0, 0, r);
+    core.addColorStop(0, '#000000');
+    core.addColorStop(0.75, '#07030f');
+    core.addColorStop(1, '#2a1650');
+    cx.fillStyle = core;
+    cx.beginPath(); cx.arc(0, 0, r * 0.98, 0, TAU); cx.fill();
+    // Brillo interno que gira
+    cx.globalCompositeOperation = 'lighter';
+    cx.strokeStyle = '#b48cff';
+    cx.globalAlpha = 0.6;
+    cx.lineWidth = 1;
+    cx.beginPath(); cx.arc(0, 0, r * 0.62, -t * 4, -t * 4 + 1.6); cx.stroke();
+    // Disco (mitad delantera, pasa por delante del núcleo)
+    disk(0, Math.PI);
+    // Chispas en órbita
+    cx.globalAlpha = 1;
+    for (let k = 0; k < 6; k++) {
+      const a = t * (1.8 + k * 0.23) + k * TAU / 6, rr = RX * (0.95 + 0.25 * Math.sin(t * 2 + k));
+      const sx = Math.cos(a) * rr, sy = Math.sin(a) * rr * tilt;
+      const rx = sx * Math.cos(-0.35) - sy * Math.sin(-0.35), ry = sx * Math.sin(-0.35) + sy * Math.cos(-0.35);
+      cx.fillStyle = k % 2 ? '#ff9cf0' : '#fff1a8';
+      cx.beginPath(); cx.arc(rx, ry, 1.3 + (k % 3) * 0.4, 0, TAU); cx.fill();
+    }
+    cx.restore();
+    cx.globalAlpha = 1;
+  }
+
   drawShape(shape, x, y, r, col, col2, t) {
     const { cx, C } = this;
+    if (shape === 'singularity') { this.drawSingularity(x, y, r, t); return; }
     const core = col2 === col ? C.text : col2;
     cx.fillStyle = col;
     cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1;

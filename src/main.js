@@ -16,6 +16,7 @@ import { skinById, trailById, isOwned } from './game/skins.js';
 import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
+import { redeemCode } from './game/codes.js';
 
 const store = localStore();
 let save = loadSave(store);
@@ -110,6 +111,17 @@ const ui = createUI({
     ui.toast(isTrail ? 'Estela nueva' : 'Skin nueva', `${(isTrail ? trailById : skinById)(offer.id).name} · equipada`);
     refreshMenu();
     ui.refreshModal();
+  },
+  onRedeem: input => {
+    const r = redeemCode(save, input);
+    if (!r.ok) { audio.play('die'); buzz(40); return r; }
+    persist();
+    audio.play('rankup');
+    buzz([30, 40, 30, 40, 60]);
+    if (r.reward.item) ui.toast(r.reward.item.rarity === 'fundador' ? 'Rareza Fundador' : 'Código canjeado', `${r.reward.item.name} · equipada`);
+    refreshMenu();
+    ui.openModal('redeemed', r);
+    return r;
   },
   onClaimMission: i => {
     const r = claimMission(save, i);
@@ -410,7 +422,8 @@ function tensionTick(dt) {
 }
 
 // Partículas de las estelas especiales
-const EMIT_RATE = { spark: 0.03, fire: 0.012, bubbles: 0.07, stars: 0.035, embers: 0.02 };
+const EMIT_RATE = { spark: 0.03, fire: 0.012, bubbles: 0.07, stars: 0.035, embers: 0.02, supernova: 0.018 };
+let novaT = 0;
 function emitTrail(dt, sk, tr) {
   const rate = EMIT_RATE[tr.type];
   if (!rate || !R.pAlive || R.demo) return;
@@ -426,6 +439,13 @@ function emitTrail(dt, sk, tr) {
     case 'bubbles': fx.spawn(x + rx * 12, y, rx * 30, R.speed * 0.75, 0.9, col, 5 + Math.random() * 4, SHAPE.BUBBLE, 0); break;
     case 'stars': fx.spawn(x + rx * 20, y + rx * 10, rx * 40, R.speed * 0.6, 0.7, col, 6, SHAPE.STAR, 0); break;
     case 'embers': fx.spawn(x + rx * 10, y, rx * 70, R.speed * 0.5 - 40, 0.6, col, 3, SHAPE.CIRCLE, 120); break;
+    case 'supernova': {
+      const hue = Math.round((R.t * 120 + Math.random() * 90) % 360);
+      fx.spawn(x + rx * 16, y + rx * 6, rx * 160, R.speed * 0.55 - 30, 0.6, `hsl(${hue} 100% 70%)`, 5 + Math.random() * 3, Math.random() < 0.5 ? SHAPE.STAR : SHAPE.CIRCLE, 0);
+      novaT -= rate;
+      if (novaT <= 0) { novaT = 0.8; fx.ring(x, y, Math.random() < 0.5 ? '#ffd166' : '#ff5ed1', 70, 0.5, 2); }
+      break;
+    }
     default: break;
   }
 }

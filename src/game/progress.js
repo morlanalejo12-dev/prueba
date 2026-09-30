@@ -13,6 +13,8 @@ const DEFAULTS = {
   // v0.4
   coins: 0, pr: 0, peakPR: 0, owned: {}, missions: null, daily: { last: '', next: 0 }, trail: 'basica',
   forksSeen: 0, forksWon: 0, pathStreak: 0, bestPathStreak: 0, rivalsBeaten: 0, shopSeen: '',
+  // v0.7
+  codes: {}, name: '',
 };
 
 export { SKINS, TRAILS };
@@ -114,9 +116,10 @@ export function loadSave(store) {
     'forksSeen', 'forksWon', 'pathStreak', 'bestPathStreak', 'rivalsBeaten']) {
     if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = DEFAULTS[k];
   }
-  for (const k of ['ach', 'owned']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
+  for (const k of ['ach', 'owned', 'codes']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
   if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
+  if (typeof save.name !== 'string') save.name = '';
   if (!SKINS.some(k => k.id === save.skin)) save.skin = DEFAULTS.skin;
   if (!TRAILS.some(k => k.id === save.trail)) save.trail = DEFAULTS.trail;
   save.v = 4;
@@ -128,7 +131,7 @@ export function writeSave(store, save) {
 }
 
 export function resetSave(store) {
-  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, daily: { last: '', next: 0 } };
+  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, daily: { last: '', next: 0 } };
   writeSave(store, fresh);
   return fresh;
 }

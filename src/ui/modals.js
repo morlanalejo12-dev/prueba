@@ -32,8 +32,37 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso',
+  rankup: 'Ascenso', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
+
+// Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
+function redeemBox(env) {
+  const box = el('form', 'redeem');
+  box.noValidate = true;
+  const label = el('label', 'redeem-label', 'Código promocional');
+  const input = el('input', 'redeem-input');
+  input.id = 'redeemInput';
+  label.htmlFor = input.id;
+  Object.assign(input, { type: 'text', maxLength: 24, autocomplete: 'off', spellcheck: false, placeholder: 'EJ: ABCD1234' });
+  input.setAttribute('autocapitalize', 'characters');
+  const btn = el('button', 'btn btn-primary btn-sm', 'Canjear');
+  btn.type = 'submit';
+  const msg = el('p', 'redeem-msg');
+  msg.setAttribute('role', 'status');
+  const row = el('div', 'redeem-row');
+  row.append(input, btn);
+  box.append(label, row, msg);
+  input.addEventListener('input', () => { input.value = input.value.toUpperCase(); msg.textContent = ''; box.classList.remove('bad'); });
+  box.addEventListener('submit', e => {
+    e.preventDefault();
+    const r = env.h.onRedeem(input.value);
+    if (r && !r.ok) {
+      msg.textContent = r.error;
+      box.classList.remove('bad'); void box.offsetWidth; box.classList.add('bad');
+    }
+  });
+  return box;
+}
 
 export function buildModal(kind, body, env, data) {
   BUILDERS[kind](body, env, data);
@@ -131,6 +160,35 @@ const BUILDERS = {
       body.append(card);
     }
     body.append(el('p', 'note', 'Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria.'));
+    body.append(redeemBox(env));
+  },
+
+  codes(body, env) {
+    body.append(el('p', '', 'Si tenés un código de un evento o de los creadores, canjealo acá.'), redeemBox(env));
+  },
+
+  // Celebración al canjear: recompensa grande y animada
+  redeemed(body, env, data) {
+    const r = data.reward;
+    const hero = el('div', 'rank-hero redeemed' + (r.item && r.item.rarity === 'fundador' ? ' founder' : ''));
+    if (r.kind === 'coins') {
+      const c = el('div', 'redeem-coins');
+      c.innerHTML = ICON.coin;
+      hero.append(c, el('small', '', 'Recibiste'), el('strong', '', `${fmt(r.amount)} destellos`));
+    } else {
+      const it = r.item, rar = RARITY[it.rarity];
+      const prev = r.kind === 'skin' ? skinPreview(it) : trailPreview(it, skinById(env.save.skin).col || undefined);
+      prev.classList.add('big');
+      const tag = el('span', 'rarity', `${r.kind === 'skin' ? 'Skin' : 'Estela'} · ${rar.name}`);
+      tag.style.color = rar.col;
+      hero.append(prev, tag, el('strong', '', it.name));
+    }
+    body.append(hero);
+    if (r.item) body.append(el('p', 'unlock', `Ya la tenés equipada. ${r.item.rarity === 'fundador' ? 'Rareza Fundador: la más exclusiva del juego.' : ''}`));
+    const btn = el('button', 'btn btn-primary', '¡A jugar!');
+    btn.type = 'button';
+    btn.setAttribute('data-close', '');
+    body.append(btn);
   },
 
   collection(body, env, data) {
@@ -157,7 +215,7 @@ const BUILDERS = {
     const skinCol = skinById(save.skin).col || '#ff7ad9';
     for (const it of list) {
       const own = isOwned(it, ctx);
-      const card = el('button', 'col-card' + (own ? '' : ' locked'));
+      const card = el('button', 'col-card' + (own ? '' : ' locked') + (it.rarity === 'fundador' ? ' founder' : ''));
       card.type = 'button';
       card.setAttribute('role', 'radio');
       card.setAttribute('aria-checked', String(current === it.id));
@@ -332,6 +390,7 @@ const BUILDERS = {
       inst.addEventListener('click', () => env.h.onInstall());
       body.append(inst, el('p', 'note', 'Queda en tu pantalla de inicio y funciona sin conexión.'));
     }
+    body.append(redeemBox(env));
     const zone = el('div', 'danger-zone');
     const reset = el('button', 'btn btn-danger', 'Borrar mi progreso');
     reset.type = 'button';

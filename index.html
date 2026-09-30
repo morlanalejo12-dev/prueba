@@ -546,7 +546,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   padding: var(--s4) var(--s2) var(--s3); border-radius: var(--r2);
   background: var(--glass); border: 1px solid var(--edge); border-top: 3px solid var(--rc);
 }
-.col-card b { font-size: 14px; }
+.col-card b { font-size: clamp(12px, 3.5vw, 14px); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-card small { font: 600 11px/1.2 var(--f-mono); color: var(--muted); text-align: center; }
 .col-card[aria-checked="true"] { border-color: var(--spark); border-top-color: var(--spark); background: rgba(255, 181, 71, 0.08); }
 .col-card.locked { cursor: default; }
@@ -749,6 +749,84 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- v0.7 · Rareza Fundador y códigos ---------- */
+@property --spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes spin { to { --spin: 360deg; } }
+@keyframes spinT { to { transform: rotate(360deg); } }
+@keyframes hueShift { to { filter: hue-rotate(360deg) drop-shadow(0 0 10px #ffd166); } }
+@keyframes flow { to { background-position: 200% 0; } }
+@keyframes corePulse { 50% { box-shadow: 0 0 0 1.5px #fff1c2, 0 0 14px 3px #ffd166, 0 0 26px 6px rgba(180, 140, 255, 0.6); } }
+@keyframes shakeX { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+/* Skin Singularidad: disco de acreción cónico girando + horizonte negro */
+.sk-singularity::before {
+  width: 32px; height: 12px; border-radius: 50%;
+  background: conic-gradient(from 0deg, #ffd166, #ff5ed1, #8fd8ff, #b48cff, #ffd166);
+  transform: rotate(-20deg); filter: drop-shadow(0 0 8px #ffd166);
+  animation: hueShift 3s linear infinite;
+}
+.sk-singularity::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle, #000 0 60%, #2a1650 100%);
+  box-shadow: 0 0 0 1.5px #fff1c2, 0 0 10px 2px #ffd166, 0 0 20px 4px rgba(180, 140, 255, 0.45);
+  animation: corePulse 1.6s ease-in-out infinite;
+}
+.sk.big.sk-singularity::after { transform: scale(2.4); }
+
+/* Estela Supernova */
+.tr-supernova {
+  background: linear-gradient(90deg, transparent, #ffd166, #ff5ed1, #8fd8ff, #ffd166, #ff5ed1) 0 0 / 200% 100%;
+  clip-path: polygon(0 46%, 100% 5%, 100% 95%, 0 54%);
+  animation: flow 1.2s linear infinite;
+}
+.tr-supernova::after { background: #fffbe8; box-shadow: 0 0 10px #ffd166, 0 0 18px #ff5ed1; }
+.tr.big { width: 150px; height: 44px; margin: 14px 0; }
+.tr.big::after { width: 22px; height: 22px; margin-top: -11px; }
+
+/* Tarjetas Fundador: borde animado */
+.col-card.founder, .rank-hero.founder { position: relative; isolation: isolate; }
+.col-card.founder::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 2px; z-index: -1;
+  background: conic-gradient(from var(--spin), #ffd166, #ff5ed1, #8fd8ff, #b48cff, #ffd166);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: spin 3s linear infinite;
+}
+.col-card.founder { border-color: transparent; border-top-color: transparent; box-shadow: 0 0 22px rgba(255, 209, 102, 0.18); }
+.col-card.founder .rarity {
+  background: linear-gradient(90deg, #ffd166, #ff5ed1, #8fd8ff, #ffd166) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent !important; animation: flow 2s linear infinite;
+}
+.col-card.founder.locked .sk, .col-card.founder.locked .tr { opacity: 0.5; filter: grayscale(0.4); }
+
+.redeemed { padding: var(--s4) 0; }
+.redeemed > .sk, .redeemed > .tr, .redeemed > .redeem-coins { animation: emblemIn 0.8s cubic-bezier(.2, 1.4, .4, 1); }
+.redeemed.founder > .sk.big { width: 110px; height: 110px; margin: 10px 0; }
+.redeemed.founder > .sk.big::before { transform: rotate(-20deg) scale(3.3); }
+.redeemed.founder > .sk.big::after { transform: scale(3.3); }
+.redeemed.founder::before {
+  content: ""; position: absolute; left: 50%; top: 50px; width: 220px; height: 220px; margin-left: -110px; z-index: -1;
+  background: conic-gradient(from 0deg, transparent, rgba(255, 209, 102, 0.35), transparent 30%, rgba(255, 94, 209, 0.3), transparent 60%, rgba(143, 216, 255, 0.3), transparent);
+  border-radius: 50%; filter: blur(6px); animation: spinT 6s linear infinite;
+}
+.redeemed.founder strong {
+  font-size: 30px;
+  background: linear-gradient(90deg, #ffd166, #ff5ed1, #8fd8ff, #ffd166) 0 0 / 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: flow 2.4s linear infinite;
+}
+.redeem-coins .coin { width: 64px; height: 64px; filter: drop-shadow(0 0 18px var(--gold)); }
+
+.redeem { display: flex; flex-direction: column; gap: 8px; padding: var(--s3); border-radius: var(--r2); background: var(--glass); border: 1px dashed var(--edge); }
+.redeem-label { font: 700 11px/1 var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.redeem-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); }
+.redeem-input {
+  min-width: 0; padding: 10px 12px; border-radius: var(--r1, 10px); border: 1px solid var(--edge);
+  background: rgba(0, 0, 0, 0.25); color: var(--text); font: 700 15px/1 var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase;
+}
+.redeem-input:focus { outline: 2px solid var(--spark); outline-offset: 1px; }
+.redeem-msg { margin: 0; min-height: 1.2em; font-size: 13px; color: var(--danger); }
+.redeem.bad .redeem-row { animation: shakeX 0.35s; }
 </style>
 </head>
 <body>
@@ -2212,6 +2290,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   var THEME_RGB = THEMES.map((t) => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, hexRgb(v)])));
   var rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  function novaHue(v) {
+    const f = v - Math.floor(v), s = f < 0.5 ? f * 2 : 2 - f * 2;
+    return (405 - s * 215) % 360;
+  }
   var Renderer = class {
     constructor(canvas) {
       this.cv = canvas;
@@ -2520,6 +2602,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         }
       };
       switch (trail2.type) {
+        case "supernova":
+          this.drawSupernova(tr, n, Y, R2, t, P);
+          break;
         case "ribbon":
           ribbon(P * 1.5, 0.75, tc, tc2);
           break;
@@ -2618,8 +2703,146 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         cx.fill();
       }
     }
+    // Estela Fundador: cinta de plasma que cicla oro → magenta → cian, con núcleo
+    // incandescente y arcos eléctricos que chisporrotean alrededor.
+    drawSupernova(tr, n, Y, R2, t, P) {
+      const { cx } = this;
+      if (n < 4) return;
+      cx.save();
+      cx.lineCap = "round";
+      const hue = (k) => novaHue(t * 0.5 + (1 - k / n) * 0.9);
+      for (const [wMul, alpha, light] of [[4.2, 0.12, 60], [2.2, 0.35, 62], [1, 0.9, 75]]) {
+        for (let k = 2; k < n; k += 2) {
+          const a = k / n;
+          cx.strokeStyle = `hsl(${Math.round(hue(k))} 100% ${light}%)`;
+          cx.globalAlpha = alpha * a;
+          cx.lineWidth = P * wMul * (0.25 + a * 0.75) * (1 + 0.12 * Math.sin(t * 14 + k * 0.5));
+          cx.beginPath();
+          cx.moveTo(tr[k - 2], Y(tr[k - 1]));
+          cx.lineTo(tr[k], Y(tr[k + 1]));
+          cx.stroke();
+        }
+      }
+      cx.strokeStyle = "#fffbe8";
+      cx.globalAlpha = 0.95;
+      cx.lineWidth = 1.6;
+      cx.beginPath();
+      for (let k = Math.floor(n * 0.35) & ~1; k < n; k += 2) cx.lineTo(tr[k], Y(tr[k + 1]));
+      cx.lineTo(R2.px, Y(R2.pY));
+      cx.stroke();
+      const flick = Math.floor(t * 20);
+      for (let j = 0; j < 2; j++) {
+        cx.strokeStyle = j ? "#ff9cf0" : "#9ff4ff";
+        cx.globalAlpha = 0.7;
+        cx.lineWidth = 1;
+        cx.beginPath();
+        for (let k = n - 2; k > n * 0.3; k -= 4) {
+          const s = Math.sin((k + flick * 13 + j * 71) * 12.9898) * 43758.5453;
+          const off = (s - Math.floor(s) - 0.5) * P * 3.2 * (k / n);
+          cx.lineTo(tr[k] + off, Y(tr[k + 1]));
+        }
+        cx.stroke();
+      }
+      cx.restore();
+      cx.globalAlpha = 1;
+    }
+    // Skin Fundador: un agujero negro con disco de acreción inclinado, anillo de fotones
+    // y destellos. Se dibuja en dos mitades (atrás / adelante del horizonte) para dar volumen.
+    drawSingularity(x, y, r, t) {
+      const { cx } = this;
+      r *= 1.25;
+      const pulse = 1 + Math.sin(t * 5) * 0.08 + this.pulse * 0.25;
+      cx.save();
+      cx.translate(x, y);
+      cx.globalCompositeOperation = "lighter";
+      const halo = cx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 4.2 * pulse);
+      halo.addColorStop(0, "rgba(255,209,102,0.45)");
+      halo.addColorStop(0.4, "rgba(180,140,255,0.22)");
+      halo.addColorStop(1, "rgba(255,94,209,0)");
+      cx.fillStyle = halo;
+      cx.beginPath();
+      cx.arc(0, 0, r * 4.2 * pulse, 0, TAU);
+      cx.fill();
+      cx.save();
+      cx.rotate(t * 0.6);
+      for (let k = 0; k < 4; k++) {
+        cx.rotate(TAU / 4);
+        const len = r * (k % 2 ? 3.2 : 4.6) * pulse;
+        const g = cx.createLinearGradient(0, 0, len, 0);
+        g.addColorStop(0, "rgba(255,241,200,0.8)");
+        g.addColorStop(1, "rgba(255,241,200,0)");
+        cx.fillStyle = g;
+        cx.beginPath();
+        cx.moveTo(0, -1.2);
+        cx.lineTo(len, 0);
+        cx.lineTo(0, 1.2);
+        cx.closePath();
+        cx.fill();
+      }
+      cx.restore();
+      const tilt = 0.34, RX = r * 2.25, spin = t * 3.2;
+      const disk = (from, to) => {
+        const seg = 18;
+        for (let w = 0; w < 3; w++) {
+          const rx = RX * (0.72 + w * 0.16);
+          cx.lineWidth = w === 1 ? 2.6 : 1.4;
+          for (let k = 0; k < seg; k++) {
+            const a0 = from + (to - from) * k / seg, a1 = from + (to - from) * (k + 1) / seg;
+            const h = novaHue((a0 + spin) / TAU + w * 0.15);
+            cx.strokeStyle = `hsl(${Math.round(h)} 100% ${w === 1 ? 70 : 60}%)`;
+            cx.globalAlpha = 0.55 + 0.45 * Math.sin(a0 * 3 + spin * 2 + w);
+            cx.beginPath();
+            cx.ellipse(0, 0, rx, rx * tilt, -0.35, a0, a1);
+            cx.stroke();
+          }
+        }
+      };
+      disk(Math.PI, TAU);
+      cx.globalAlpha = 1;
+      cx.shadowColor = "#ffd166";
+      cx.shadowBlur = 12;
+      cx.strokeStyle = "#fff1c2";
+      cx.lineWidth = 2;
+      cx.beginPath();
+      cx.arc(0, 0, r * 1.08, 0, TAU);
+      cx.stroke();
+      cx.shadowBlur = 0;
+      cx.globalCompositeOperation = "source-over";
+      const core = cx.createRadialGradient(0, 0, 0, 0, 0, r);
+      core.addColorStop(0, "#000000");
+      core.addColorStop(0.75, "#07030f");
+      core.addColorStop(1, "#2a1650");
+      cx.fillStyle = core;
+      cx.beginPath();
+      cx.arc(0, 0, r * 0.98, 0, TAU);
+      cx.fill();
+      cx.globalCompositeOperation = "lighter";
+      cx.strokeStyle = "#b48cff";
+      cx.globalAlpha = 0.6;
+      cx.lineWidth = 1;
+      cx.beginPath();
+      cx.arc(0, 0, r * 0.62, -t * 4, -t * 4 + 1.6);
+      cx.stroke();
+      disk(0, Math.PI);
+      cx.globalAlpha = 1;
+      for (let k = 0; k < 6; k++) {
+        const a = t * (1.8 + k * 0.23) + k * TAU / 6, rr = RX * (0.95 + 0.25 * Math.sin(t * 2 + k));
+        const sx = Math.cos(a) * rr, sy = Math.sin(a) * rr * tilt;
+        const rx = sx * Math.cos(-0.35) - sy * Math.sin(-0.35), ry = sx * Math.sin(-0.35) + sy * Math.cos(-0.35);
+        cx.fillStyle = k % 2 ? "#ff9cf0" : "#fff1a8";
+        cx.beginPath();
+        cx.arc(rx, ry, 1.3 + k % 3 * 0.4, 0, TAU);
+        cx.fill();
+      }
+      cx.restore();
+      cx.globalAlpha = 1;
+    }
     drawShape(shape, x, y, r, col, col2, t) {
       const { cx, C: C2 } = this;
+      if (shape === "singularity") {
+        this.drawSingularity(x, y, r, t);
+        return;
+      }
       const core = col2 === col ? C2.text : col2;
       cx.fillStyle = col;
       cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1;
@@ -2893,9 +3116,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     rara: { name: "Rara", col: "#8fd8ff" },
     epica: { name: "Épica", col: "#ff7ad9" },
     legendaria: { name: "Legendaria", col: "#ffd166" },
-    mitica: { name: "Mítica", col: "#ff5470" }
+    mitica: { name: "Mítica", col: "#ff5470" },
+    fundador: { name: "Fundador", col: "#ffe08a" }
   };
-  var RARITY_ORDER = ["comun", "rara", "epica", "legendaria", "mitica"];
+  var RARITY_ORDER = ["comun", "rara", "epica", "legendaria", "mitica", "fundador"];
   var SKINS = [
     { id: "ambar", name: "Ámbar", rarity: "comun", col: "#ffb547", shape: "orb", src: { type: "level", lvl: 1 } },
     { id: "menta", name: "Menta", rarity: "comun", col: "#5ef2c2", shape: "orb", src: { type: "level", lvl: 2 } },
@@ -2924,7 +3148,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "tormenta", name: "Tormenta", rarity: "epica", col: "#5ef2c2", col2: "#e8f7ff", shape: "hex", src: { type: "rank", tier: 3 } },
     { id: "cristal", name: "Cristal", rarity: "legendaria", col: "#e8f7ff", col2: "#8fd8ff", shape: "diamond", src: { type: "rank", tier: 4 } },
     { id: "fenix", name: "Fénix", rarity: "legendaria", col: "#ff5d3d", col2: "#ffd166", shape: "star", src: { type: "rank", tier: 5 } },
-    { id: "eclipse", name: "Eclipse", rarity: "mitica", col: "#0d0a20", col2: "#ffd166", shape: "ring", src: { type: "rank", tier: 6 } }
+    { id: "eclipse", name: "Eclipse", rarity: "mitica", col: "#0d0a20", col2: "#ffd166", shape: "ring", src: { type: "rank", tier: 6 } },
+    // Rango Fundador: sólo por código promocional
+    { id: "singularidad", name: "Singularidad", rarity: "fundador", col: "#ffd166", col2: "#b48cff", shape: "singularity", src: { type: "code" } }
   ];
   var TRAILS = [
     { id: "basica", name: "Básica", rarity: "comun", type: "dots", col: null, src: { type: "level", lvl: 1 } },
@@ -2941,7 +3167,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "constelacion", name: "Constelación", rarity: "legendaria", type: "stars", col: "#e8f7ff", col2: "#8fd8ff", src: { type: "rank", tier: 4 } },
     { id: "brasas", name: "Brasas reales", rarity: "legendaria", type: "embers", col: "#ffd166", col2: "#ff5d3d", src: { type: "rank", tier: 5 } },
     { id: "vacio", name: "Vacío", rarity: "mitica", type: "void", col: "#ffd166", col2: "#0d0a20", src: { type: "rank", tier: 6 } },
-    { id: "boreal", name: "Boreal", rarity: "legendaria", type: "ribbon", col: "#5ef2c2", col2: "#b48cff", src: { type: "ach", id: "rival5" } }
+    { id: "boreal", name: "Boreal", rarity: "legendaria", type: "ribbon", col: "#5ef2c2", col2: "#b48cff", src: { type: "ach", id: "rival5" } },
+    { id: "supernova", name: "Supernova", rarity: "fundador", type: "supernova", col: "#ffd166", col2: "#ff5ed1", src: { type: "code" } }
   ];
   var skinById = (id) => SKINS.find((k) => k.id === id) || SKINS[0];
   var trailById = (id) => TRAILS.find((k) => k.id === id) || TRAILS[0];
@@ -2960,6 +3187,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (s.type === "rank") return `Liga ${TIER_NAMES[s.tier]}`;
     if (s.type === "ach") return ACH_TEXT[s.id] || "Logro";
     if (s.type === "daily") return "Premio del día 7";
+    if (s.type === "code") return "Código promocional";
     return `Tienda · ${s.price}`;
   }
   var SHOP_SKINS = SKINS.filter((k) => k.src.type === "shop");
@@ -3178,7 +3406,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     pathStreak: 0,
     bestPathStreak: 0,
     rivalsBeaten: 0,
-    shopSeen: ""
+    shopSeen: "",
+    // v0.7
+    codes: {},
+    name: ""
   };
   var TITLES = [
     { lvl: 1, name: "Chispa" },
@@ -3309,9 +3540,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ]) {
       if (typeof save2[k] !== "number" || !isFinite(save2[k])) save2[k] = DEFAULTS[k];
     }
-    for (const k of ["ach", "owned"]) if (!save2[k] || typeof save2[k] !== "object") save2[k] = {};
+    for (const k of ["ach", "owned", "codes"]) if (!save2[k] || typeof save2[k] !== "object") save2[k] = {};
     if (!save2.daily || typeof save2.daily !== "object") save2.daily = { last: "", next: 0 };
     if (!Array.isArray(save2.records)) save2.records = [];
+    if (typeof save2.name !== "string") save2.name = "";
     if (!SKINS.some((k) => k.id === save2.skin)) save2.skin = DEFAULTS.skin;
     if (!TRAILS.some((k) => k.id === save2.trail)) save2.trail = DEFAULTS.trail;
     save2.v = 4;
@@ -3321,7 +3553,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     store2.set(SAVE_KEY, JSON.stringify(save2));
   }
   function resetSave(store2) {
-    const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, daily: { last: "", next: 0 } };
+    const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, daily: { last: "", next: 0 } };
     writeSave(store2, fresh);
     return fresh;
   }
@@ -3471,8 +3703,43 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     settings: "Ajustes",
     share: "Compartir resultado",
     daily: "Recompensa diaria",
-    rankup: "Ascenso"
+    rankup: "Ascenso",
+    codes: "Canjear código",
+    redeemed: "¡Código canjeado!"
   };
+  function redeemBox(env2) {
+    const box = el("form", "redeem");
+    box.noValidate = true;
+    const label = el("label", "redeem-label", "Código promocional");
+    const input = el("input", "redeem-input");
+    input.id = "redeemInput";
+    label.htmlFor = input.id;
+    Object.assign(input, { type: "text", maxLength: 24, autocomplete: "off", spellcheck: false, placeholder: "EJ: ABCD1234" });
+    input.setAttribute("autocapitalize", "characters");
+    const btn = el("button", "btn btn-primary btn-sm", "Canjear");
+    btn.type = "submit";
+    const msg = el("p", "redeem-msg");
+    msg.setAttribute("role", "status");
+    const row = el("div", "redeem-row");
+    row.append(input, btn);
+    box.append(label, row, msg);
+    input.addEventListener("input", () => {
+      input.value = input.value.toUpperCase();
+      msg.textContent = "";
+      box.classList.remove("bad");
+    });
+    box.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const r = env2.h.onRedeem(input.value);
+      if (r && !r.ok) {
+        msg.textContent = r.error;
+        box.classList.remove("bad");
+        void box.offsetWidth;
+        box.classList.add("bad");
+      }
+    });
+    return box;
+  }
   function buildModal(kind, body, env2, data) {
     BUILDERS[kind](body, env2, data);
   }
@@ -3578,6 +3845,33 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         body.append(card);
       }
       body.append(el("p", "note", "Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria."));
+      body.append(redeemBox(env2));
+    },
+    codes(body, env2) {
+      body.append(el("p", "", "Si tenés un código de un evento o de los creadores, canjealo acá."), redeemBox(env2));
+    },
+    // Celebración al canjear: recompensa grande y animada
+    redeemed(body, env2, data) {
+      const r = data.reward;
+      const hero = el("div", "rank-hero redeemed" + (r.item && r.item.rarity === "fundador" ? " founder" : ""));
+      if (r.kind === "coins") {
+        const c = el("div", "redeem-coins");
+        c.innerHTML = ICON.coin;
+        hero.append(c, el("small", "", "Recibiste"), el("strong", "", `${fmt(r.amount)} destellos`));
+      } else {
+        const it = r.item, rar = RARITY[it.rarity];
+        const prev = r.kind === "skin" ? skinPreview(it) : trailPreview(it, skinById(env2.save.skin).col || void 0);
+        prev.classList.add("big");
+        const tag = el("span", "rarity", `${r.kind === "skin" ? "Skin" : "Estela"} · ${rar.name}`);
+        tag.style.color = rar.col;
+        hero.append(prev, tag, el("strong", "", it.name));
+      }
+      body.append(hero);
+      if (r.item) body.append(el("p", "unlock", `Ya la tenés equipada. ${r.item.rarity === "fundador" ? "Rareza Fundador: la más exclusiva del juego." : ""}`));
+      const btn = el("button", "btn btn-primary", "¡A jugar!");
+      btn.type = "button";
+      btn.setAttribute("data-close", "");
+      body.append(btn);
     },
     collection(body, env2, data) {
       const { save: save2 } = env2;
@@ -3603,7 +3897,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const skinCol = skinById(save2.skin).col || "#ff7ad9";
       for (const it of list) {
         const own = isOwned(it, ctx);
-        const card = el("button", "col-card" + (own ? "" : " locked"));
+        const card = el("button", "col-card" + (own ? "" : " locked") + (it.rarity === "fundador" ? " founder" : ""));
         card.type = "button";
         card.setAttribute("role", "radio");
         card.setAttribute("aria-checked", String(current === it.id));
@@ -3796,6 +4090,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         inst.addEventListener("click", () => env2.h.onInstall());
         body.append(inst, el("p", "note", "Queda en tu pantalla de inicio y funciona sin conexión."));
       }
+      body.append(redeemBox(env2));
       const zone = el("div", "danger-zone");
       const reset = el("button", "btn btn-danger", "Borrar mi progreso");
       reset.type = "button";
@@ -4319,6 +4614,44 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     };
   }
 
+  // src/game/codes.js
+  function cyrb53(str, seed = 24301) {
+    let h1 = 3735928559 ^ seed, h2 = 1103547991 ^ seed;
+    for (let i = 0, ch; i < str.length; i++) {
+      ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+    h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  var CODES = {
+    n1co6pem7o: { kind: "skin", id: "singularidad" },
+    k0jdfhewdk: { kind: "trail", id: "supernova" },
+    ozmy39to6l: { kind: "coins", amount: 250 }
+  };
+  var normalizeCode = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  function redeemCode(save2, input) {
+    const code = normalizeCode(input);
+    if (code.length < 4) return { ok: false, error: "Escribí un código." };
+    const h = cyrb53(code);
+    const reward = CODES[h];
+    if (!reward) return { ok: false, error: "Código inválido." };
+    if (!save2.codes || typeof save2.codes !== "object") save2.codes = {};
+    if (save2.codes[h]) return { ok: false, error: "Ya canjeaste este código." };
+    save2.codes[h] = Date.now();
+    if (reward.kind === "coins") {
+      save2.coins += reward.amount;
+      return { ok: true, reward: { ...reward } };
+    }
+    const item = reward.kind === "skin" ? skinById(reward.id) : trailById(reward.id);
+    save2.owned = { ...save2.owned, [item.id]: true };
+    if (reward.kind === "skin") save2.skin = item.id;
+    else save2.trail = item.id;
+    return { ok: true, reward: { ...reward, item } };
+  }
+
   // src/main.js
   var store = localStore();
   var save = loadSave(store);
@@ -4449,6 +4782,21 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       ui.toast(isTrail ? "Estela nueva" : "Skin nueva", `${(isTrail ? trailById : skinById)(offer.id).name} · equipada`);
       refreshMenu();
       ui.refreshModal();
+    },
+    onRedeem: (input) => {
+      const r = redeemCode(save, input);
+      if (!r.ok) {
+        audio.play("die");
+        buzz(40);
+        return r;
+      }
+      persist();
+      audio.play("rankup");
+      buzz([30, 40, 30, 40, 60]);
+      if (r.reward.item) ui.toast(r.reward.item.rarity === "fundador" ? "Rareza Fundador" : "Código canjeado", `${r.reward.item.name} · equipada`);
+      refreshMenu();
+      ui.openModal("redeemed", r);
+      return r;
     },
     onClaimMission: (i) => {
       const r = claimMission(save, i);
@@ -4781,7 +5129,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       audio.play("tick", p);
     }
   }
-  var EMIT_RATE = { spark: 0.03, fire: 0.012, bubbles: 0.07, stars: 0.035, embers: 0.02 };
+  var EMIT_RATE = { spark: 0.03, fire: 0.012, bubbles: 0.07, stars: 0.035, embers: 0.02, supernova: 0.018 };
+  var novaT = 0;
   function emitTrail(dt, sk, tr) {
     const rate = EMIT_RATE[tr.type];
     if (!rate || !R.pAlive || R.demo) return;
@@ -4807,6 +5156,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       case "embers":
         fx.spawn(x + rx * 10, y, rx * 70, R.speed * 0.5 - 40, 0.6, col, 3, SHAPE.CIRCLE, 120);
         break;
+      case "supernova": {
+        const hue = Math.round((R.t * 120 + Math.random() * 90) % 360);
+        fx.spawn(x + rx * 16, y + rx * 6, rx * 160, R.speed * 0.55 - 30, 0.6, `hsl(${hue} 100% 70%)`, 5 + Math.random() * 3, Math.random() < 0.5 ? SHAPE.STAR : SHAPE.CIRCLE, 0);
+        novaT -= rate;
+        if (novaT <= 0) {
+          novaT = 0.8;
+          fx.ring(x, y, Math.random() < 0.5 ? "#ffd166" : "#ff5ed1", 70, 0.5, 2);
+        }
+        break;
+      }
       default:
         break;
     }

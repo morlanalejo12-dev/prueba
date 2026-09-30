@@ -6,10 +6,11 @@ export const RARITY = {
   epica: { name: 'Épica', col: '#ff7ad9' },
   legendaria: { name: 'Legendaria', col: '#ffd166' },
   mitica: { name: 'Mítica', col: '#ff5470' },
+  fundador: { name: 'Fundador', col: '#ffe08a' },
 };
-export const RARITY_ORDER = ['comun', 'rara', 'epica', 'legendaria', 'mitica'];
+export const RARITY_ORDER = ['comun', 'rara', 'epica', 'legendaria', 'mitica', 'fundador'];
 
-// shape: orb | diamond | ring | star | square | hex
+// shape: orb | diamond | ring | star | square | hex | singularity
 export const SKINS = [
   { id: 'ambar', name: 'Ámbar', rarity: 'comun', col: '#ffb547', shape: 'orb', src: { type: 'level', lvl: 1 } },
   { id: 'menta', name: 'Menta', rarity: 'comun', col: '#5ef2c2', shape: 'orb', src: { type: 'level', lvl: 2 } },
@@ -42,9 +43,12 @@ export const SKINS = [
   { id: 'cristal', name: 'Cristal', rarity: 'legendaria', col: '#e8f7ff', col2: '#8fd8ff', shape: 'diamond', src: { type: 'rank', tier: 4 } },
   { id: 'fenix', name: 'Fénix', rarity: 'legendaria', col: '#ff5d3d', col2: '#ffd166', shape: 'star', src: { type: 'rank', tier: 5 } },
   { id: 'eclipse', name: 'Eclipse', rarity: 'mitica', col: '#0d0a20', col2: '#ffd166', shape: 'ring', src: { type: 'rank', tier: 6 } },
+
+  // Rango Fundador: sólo por código promocional
+  { id: 'singularidad', name: 'Singularidad', rarity: 'fundador', col: '#ffd166', col2: '#b48cff', shape: 'singularity', src: { type: 'code' } },
 ];
 
-// type: dots | spark | fire | ribbon | glitch | rainbow | comet | bubbles | bolt | stars | embers | void
+// type: dots | spark | fire | ribbon | glitch | rainbow | comet | bubbles | bolt | stars | embers | void | supernova
 // col: null = usa el color de la skin
 export const TRAILS = [
   { id: 'basica', name: 'Básica', rarity: 'comun', type: 'dots', col: null, src: { type: 'level', lvl: 1 } },
@@ -64,6 +68,7 @@ export const TRAILS = [
   { id: 'brasas', name: 'Brasas reales', rarity: 'legendaria', type: 'embers', col: '#ffd166', col2: '#ff5d3d', src: { type: 'rank', tier: 5 } },
   { id: 'vacio', name: 'Vacío', rarity: 'mitica', type: 'void', col: '#ffd166', col2: '#0d0a20', src: { type: 'rank', tier: 6 } },
   { id: 'boreal', name: 'Boreal', rarity: 'legendaria', type: 'ribbon', col: '#5ef2c2', col2: '#b48cff', src: { type: 'ach', id: 'rival5' } },
+  { id: 'supernova', name: 'Supernova', rarity: 'fundador', type: 'supernova', col: '#ffd166', col2: '#ff5ed1', src: { type: 'code' } },
 ];
 
 export const skinById = id => SKINS.find(k => k.id === id) || SKINS[0];
@@ -86,6 +91,7 @@ export function unlockText(item) {
   if (s.type === 'rank') return `Liga ${TIER_NAMES[s.tier]}`;
   if (s.type === 'ach') return ACH_TEXT[s.id] || 'Logro';
   if (s.type === 'daily') return 'Premio del día 7';
+  if (s.type === 'code') return 'Código promocional';
   return `Tienda · ${s.price}`;
 }
 
