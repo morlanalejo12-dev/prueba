@@ -59,6 +59,8 @@ wss.on('connection', ws => {
     me.skin = String(m.skin || me.skin).slice(0, 24);
     me.trail = String(m.trail || me.trail).slice(0, 24);
     me.nameStyle = String(m.nameStyle || me.nameStyle).slice(0, 24);
+    const lvl = Math.floor(+m.lvl);
+    if (lvl >= 1 && lvl <= 120) me.lvl = lvl;
   };
   const err = msg => me.send(JSON.stringify({ t: 'err', msg }));
 

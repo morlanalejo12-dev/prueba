@@ -60,7 +60,7 @@ export class Room {
     return {
       t: 'room', code: this.code, pub: this.pub, host: this.host, phase: this.phase,
       startAt: this.startAt, now, round: this.roundNo,
-      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, inRound: !!(this.round && this.round.byId.has(p.id)) })),
+      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, lvl: p.lvl || 1, inRound: !!(this.round && this.round.byId.has(p.id)) })),
     };
   }
 
@@ -75,7 +75,7 @@ export class Room {
   profileChanged(p) {
     if (this.round) {
       const h = this.round.byId.get(p.id);
-      if (h) Object.assign(h, { name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle });
+      if (h) Object.assign(h, { name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, lvl: p.lvl || 1 });
     }
     this.broadcastRoom();
   }
@@ -88,7 +88,7 @@ export class Room {
   }
 
   beginCountdown(at, now) {
-    const humans = [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle }));
+    const humans = [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, lvl: p.lvl || 1 }));
     const seed = (Math.random() * 4294967296) >>> 0;
     const R = new MultiRound({ seed, humans, bots: Math.max(200, CFG.BOTS - humans.length) });
     this.round = R;

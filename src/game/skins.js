@@ -6,7 +6,8 @@
 //  - Legendaria y Mítica: pase Premium (niveles 21 a 100) y Tienda Premium.
 //  - Fundador: solo con código.
 //
-// src.type: default | pass (lvl) | shop (price en destellos) | premium (usd) | rank (tier) | ach (id) | daily | code
+// src.type: default | level (nivel de cuenta) | pass (lvl) | shop (price en destellos) | premium (usd) | rank (tier) | ach (id) | daily | code
+// Cada cosmético se consigue de una sola forma: nunca aparece en dos lugares.
 export const RARITY = {
   comun: { name: 'Común', col: '#a69ecb' },
   rara: { name: 'Rara', col: '#8fd8ff' },
@@ -21,6 +22,17 @@ export const FREE_RARITIES = ['comun', 'rara', 'epica'];
 // shape: orb | diamond | ring | star | square | hex | tri | cross | crystal | plasma | singularity
 export const SKINS = [
   { id: 'ambar', name: 'Ámbar', rarity: 'comun', col: '#ffb547', shape: 'orb', src: { type: 'default' } },
+
+  // Niveles de cuenta (gratis, hasta Épica)
+  { id: 'guijarro', name: 'Guijarro', rarity: 'comun', col: '#9aa6c0', col2: '#e8ecf5', shape: 'orb', src: { type: 'level', lvl: 5 } },
+  { id: 'brote', name: 'Brote', rarity: 'comun', col: '#7bff6b', col2: '#e8ffd6', shape: 'tri', src: { type: 'level', lvl: 15 } },
+  { id: 'marejada', name: 'Marejada', rarity: 'rara', col: '#3d9bff', col2: '#c9f1ff', shape: 'hex', src: { type: 'level', lvl: 25 } },
+  { id: 'lucero', name: 'Lucero', rarity: 'rara', col: '#fff1c2', col2: '#8fd8ff', shape: 'star', src: { type: 'level', lvl: 35 } },
+  { id: 'torrente', name: 'Torrente', rarity: 'epica', col: '#5ef2c2', col2: '#3d9bff', shape: 'cross', src: { type: 'level', lvl: 50 } },
+  { id: 'leviatan', name: 'Leviatán', rarity: 'epica', col: '#2fd68a', col2: '#e8ffd6', shape: 'hex', src: { type: 'level', lvl: 70 } },
+  { id: 'tsunami', name: 'Tsunami', rarity: 'epica', col: '#3d9bff', col2: '#e8f7ff', shape: 'ring', src: { type: 'level', lvl: 90 } },
+  { id: 'deidad', name: 'Deidad', rarity: 'epica', col: '#ffd166', col2: '#ff5ed1', shape: 'star', src: { type: 'level', lvl: 110 } },
+  { id: 'soberano', name: 'Soberano', rarity: 'epica', col: '#fff1c2', col2: '#ffd166', shape: 'crystal', src: { type: 'level', lvl: 120 } },
 
   // Pase: gratis hasta el nivel 20
   { id: 'menta', name: 'Menta', rarity: 'comun', col: '#5ef2c2', shape: 'orb', src: { type: 'pass', lvl: 2 } },
@@ -37,6 +49,8 @@ export const SKINS = [
   { id: 'abisal', name: 'Abisal', rarity: 'rara', col: '#3d7bff', col2: '#5ef2c2', shape: 'orb', src: { type: 'pass', lvl: 36 } },
   { id: 'amatista', name: 'Amatista', rarity: 'epica', col: '#b48cff', col2: '#f3e8ff', shape: 'diamond', src: { type: 'pass', lvl: 45 } },
   { id: 'volcan', name: 'Volcán', rarity: 'epica', col: '#ff5d3d', col2: '#ffd166', shape: 'hex', src: { type: 'pass', lvl: 52 } },
+  { id: 'coral_negro', name: 'Coral Negro', rarity: 'epica', col: '#1a1333', col2: '#ff5d3d', shape: 'hex', src: { type: 'pass', lvl: 58 } },
+  { id: 'aurora_dorada', name: 'Aurora Dorada', rarity: 'legendaria', col: '#ffd166', col2: '#5ef2c2', shape: 'crystal', src: { type: 'pass', lvl: 70 } },
   { id: 'cristal', name: 'Cristal', rarity: 'legendaria', col: '#e8f7ff', col2: '#8fd8ff', shape: 'crystal', src: { type: 'pass', lvl: 56 } },
   { id: 'prisma_real', name: 'Prisma Real', rarity: 'legendaria', col: '#ffd166', col2: '#ff7ad9', shape: 'crystal', src: { type: 'pass', lvl: 64 } },
   { id: 'fenix', name: 'Fénix', rarity: 'legendaria', col: '#ff5d3d', col2: '#ffd166', shape: 'star', src: { type: 'pass', lvl: 76 } },
@@ -54,11 +68,15 @@ export const SKINS = [
   { id: 'glitch', name: 'Glitch', rarity: 'epica', col: '#ff5470', col2: '#5ef2c2', shape: 'square', src: { type: 'shop', price: 650 } },
   { id: 'pixel', name: 'Píxel', rarity: 'epica', col: '#7bff6b', col2: '#1d1747', shape: 'square', src: { type: 'shop', price: 680 } },
   { id: 'vertice_neon', name: 'Vértice Neón', rarity: 'epica', col: '#ff5ed1', col2: '#5ef2ff', shape: 'tri', src: { type: 'shop', price: 720 } },
+  { id: 'turquesa', name: 'Turquesa', rarity: 'comun', col: '#40e0d0', col2: '#e8fffb', shape: 'orb', src: { type: 'shop', price: 160 } },
+  { id: 'opalo', name: 'Ópalo', rarity: 'rara', col: '#f3e8ff', col2: '#ff9cf0', shape: 'diamond', src: { type: 'shop', price: 360 } },
   { id: 'cruz_rubi', name: 'Cruz Rubí', rarity: 'rara', col: '#ff3d6e', col2: '#ffd166', shape: 'cross', src: { type: 'shop', price: 380 } },
 
   // Tienda Premium (Legendarias y Míticas)
   { id: 'galaxia', name: 'Galaxia', rarity: 'legendaria', col: '#b48cff', col2: '#8fd8ff', shape: 'star', src: { type: 'premium', usd: 1.99 } },
   { id: 'diamante_eterno', name: 'Diamante Eterno', rarity: 'legendaria', col: '#ffffff', col2: '#5ef2ff', shape: 'crystal', src: { type: 'premium', usd: 1.99 } },
+  { id: 'nova_carmesi', name: 'Nova Carmesí', rarity: 'legendaria', col: '#ff3d6e', col2: '#ffd166', shape: 'crystal', src: { type: 'premium', usd: 1.99 } },
+  { id: 'dragon_estelar', name: 'Dragón Estelar', rarity: 'mitica', col: '#7bff6b', col2: '#ffd166', shape: 'plasma', src: { type: 'premium', usd: 3.49 } },
   { id: 'quasar', name: 'Quásar', rarity: 'mitica', col: '#ffd166', col2: '#b48cff', shape: 'plasma', src: { type: 'premium', usd: 3.49 } },
 
   // Recompensa diaria y logros (gratis)
@@ -81,12 +99,21 @@ export const SKINS = [
 // col: null = usa el color de la skin
 export const TRAILS = [
   { id: 'basica', name: 'Básica', rarity: 'comun', type: 'dots', col: null, src: { type: 'default' } },
+  { id: 'gotas', name: 'Gotas', rarity: 'comun', type: 'bubbles', col: '#c9f1ff', src: { type: 'level', lvl: 10 } },
+  { id: 'onda', name: 'Onda', rarity: 'rara', type: 'ribbon', col: '#5ef2c2', col2: '#c9fff0', src: { type: 'level', lvl: 20 } },
+  { id: 'espiral', name: 'Espiral', rarity: 'epica', type: 'spark', col: '#ffb547', col2: '#fff1a8', src: { type: 'level', lvl: 40 } },
+  { id: 'relampago_violeta', name: 'Relámpago Violeta', rarity: 'epica', type: 'bolt', col: '#d9b8ff', col2: '#ffffff', src: { type: 'level', lvl: 60 } },
+  { id: 'estela_maremoto', name: 'Maremoto', rarity: 'epica', type: 'comet', col: '#3d9bff', src: { type: 'level', lvl: 80 } },
+  { id: 'corona_espuma', name: 'Corona de Espuma', rarity: 'epica', type: 'stars', col: '#e8f7ff', col2: '#5ef2c2', src: { type: 'level', lvl: 100 } },
   { id: 'chispas', name: 'Chispas', rarity: 'rara', type: 'spark', col: null, src: { type: 'pass', lvl: 5 } },
   { id: 'burbujas', name: 'Burbujas', rarity: 'rara', type: 'bubbles', col: '#8fd8ff', src: { type: 'pass', lvl: 12 } },
   { id: 'arcoiris', name: 'Arcoíris', rarity: 'epica', type: 'rainbow', col: null, src: { type: 'pass', lvl: 18 } },
   { id: 'marea', name: 'Marea', rarity: 'rara', type: 'ribbon', col: '#3d9bff', col2: '#5ef2c2', src: { type: 'pass', lvl: 28 } },
   { id: 'escarcha', name: 'Escarcha', rarity: 'rara', type: 'spark', col: '#e8f7ff', col2: '#8fd8ff', src: { type: 'pass', lvl: 33 } },
   { id: 'pulsos', name: 'Pulsos', rarity: 'epica', type: 'bolt', col: '#b48cff', col2: '#ff7ad9', src: { type: 'pass', lvl: 48 } },
+  { id: 'plancton', name: 'Plancton', rarity: 'rara', type: 'bubbles', col: '#7bff6b', src: { type: 'pass', lvl: 38 } },
+  { id: 'luz_polar', name: 'Luz Polar', rarity: 'epica', type: 'ribbon', col: '#8fd8ff', col2: '#b48cff', src: { type: 'pass', lvl: 62 } },
+  { id: 'polvo_estelar', name: 'Polvo Estelar', rarity: 'mitica', type: 'stars', col: '#ff5ed1', col2: '#ffd166', src: { type: 'pass', lvl: 96 } },
   { id: 'constelacion', name: 'Constelación', rarity: 'legendaria', type: 'stars', col: '#e8f7ff', col2: '#8fd8ff', src: { type: 'pass', lvl: 60 } },
   { id: 'brasas', name: 'Brasas reales', rarity: 'legendaria', type: 'embers', col: '#ffd166', col2: '#ff5d3d', src: { type: 'pass', lvl: 72 } },
   { id: 'vacio', name: 'Vacío', rarity: 'mitica', type: 'void', col: '#ffd166', col2: '#0d0a20', src: { type: 'pass', lvl: 92 } },
@@ -97,6 +124,9 @@ export const TRAILS = [
   { id: 'interferencia', name: 'Interferencia', rarity: 'epica', type: 'glitch', col: '#ff5470', col2: '#5ef2c2', src: { type: 'shop', price: 640 } },
   { id: 'polvo', name: 'Polvo de hada', rarity: 'epica', type: 'spark', col: '#ff7ad9', col2: '#fff1a8', src: { type: 'shop', price: 560 } },
 
+  { id: 'serpentina', name: 'Serpentina', rarity: 'rara', type: 'ribbon', col: '#ff7ad9', col2: '#ffd166', src: { type: 'shop', price: 300 } },
+
+  { id: 'cola_dragon', name: 'Cola de Dragón', rarity: 'legendaria', type: 'fire', col: '#7bff6b', col2: '#ffd166', src: { type: 'premium', usd: 1.49 } },
   { id: 'cometa_dorado', name: 'Cometa Dorado', rarity: 'legendaria', type: 'comet', col: '#ffd166', src: { type: 'premium', usd: 1.49 } },
   { id: 'gusano', name: 'Agujero de Gusano', rarity: 'mitica', type: 'void', col: '#b48cff', col2: '#05030d', src: { type: 'premium', usd: 2.99 } },
 
@@ -129,12 +159,12 @@ const ACH_TEXT = { outlier: 'Logro Outlier del minuto', path10: 'Logro Imparable
 export function unlockText(item) {
   const s = item.src;
   if (s.type === 'default') return 'Inicial';
-  if (s.type === 'level') return `Nivel ${s.lvl}`;
+  if (s.type === 'level') return `Nivel de cuenta ${s.lvl}`;
   if (s.type === 'pass') return s.lvl > 20 ? `Pase Premium · Nv ${s.lvl}` : `Pase · Nv ${s.lvl}`;
   if (s.type === 'rank') return `Liga ${TIER_NAMES[s.tier]}`;
   if (s.type === 'ach') return ACH_TEXT[s.id] || 'Logro';
   if (s.type === 'daily') return 'Premio del día 7';
-  if (s.type === 'code') return 'Código promocional';
+  if (s.type === 'code') return 'Exclusivo de los creadores';
   if (s.type === 'premium') return `Tienda Premium · ${usd(s.usd)}`;
   return `Tienda · ${s.price}`;
 }

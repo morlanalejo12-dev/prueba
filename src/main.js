@@ -10,7 +10,7 @@ import { Renderer, skinColor } from './render/renderer.js';
 import { Fx, SHAPE } from './render/fx.js';
 import { renderShareCard, shareText } from './render/share.js';
 import {
-  loadSave, writeSave, resetSave, applyRound, claimMission, localStore, levelInfo, titleOf,
+  loadSave, writeSave, resetSave, applyRound, claimMission, localStore, levelInfo, titleOf, levelBadgeOf,
   dayKey, yesterdayOf, ownedCtx,
 } from './game/progress.js';
 import { skinById, trailById, isOwned } from './game/skins.js';
@@ -278,6 +278,21 @@ const ui = createUI({
   onRedeem: input => {
     const r = redeemCode(save, input);
     if (!r.ok) { audio.play('die'); buzz(40); return r; }
+    if (r.reward.kind === 'reset') {
+      // Cuenta nueva para probar el progreso desde cero (se conservan solo los ajustes)
+      const keep = {};
+      for (const k of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server']) keep[k] = save[k];
+      leaveOnline();
+      save = resetSave(store, keep);
+      ensureMissions(save, env().today);
+      previewTrack = null;
+      applyTrack();
+      dailyOffered = false;
+      refreshMenu();
+      audio.play('ui');
+      ui.openModal('redeemed', r);
+      return r;
+    }
     persist();
     audio.play('rankup');
     buzz([30, 40, 30, 40, 60]);
@@ -411,7 +426,7 @@ function onlineGo(nameRaw, url, action, code) {
 }
 
 function profile() {
-  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId };
+  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, lvl: levelInfo(save.xp).level };
 }
 const kindOf = item => (item.shape ? 'skin' : item.track ? 'music' : item.fx ? 'name' : 'trail');
 function playerNameStyle() {
@@ -598,6 +613,7 @@ function finishRound({ quick = false } = {}) {
   ui.renderResults(lastSum, rep, R.outlier);
   ui.showScreen('results');
   nextT = CFG.NEXT_S;
+  sendProfile();
   if (online.invite) { const inv = online.invite; online.invite = null; setTimeout(() => ui.openModal('invite', inv), 1200); }
   if (R.online) {
     ui.renderStandings(R.standings, net && net.id);
@@ -605,7 +621,19 @@ function finishRound({ quick = false } = {}) {
   } else ui.setAgain('Jugar otra', nextT);
 
   if (lastSum.outlier) { audio.play('outlier'); buzz([30, 50, 30, 50, 60]); }
-  if (rep.after.level > rep.before.level) setTimeout(() => { audio.play('levelup'); buzz([20, 30, 20]); }, 700);
+  if (rep.after.level > rep.before.level) {
+    setTimeout(() => { audio.play('levelup'); buzz([20, 30, 20]); }, 700);
+    // Título o distintivo nuevo: festejo con su ventana
+    const b0 = levelBadgeOf(rep.before.level), b1 = levelBadgeOf(rep.after.level);
+    const t0 = titleOf(rep.before.level), t1 = titleOf(rep.after.level);
+    if (b1.tier > b0.tier || t1 !== t0) {
+      setTimeout(() => {
+        if (state !== 'results' || ui.modalOpen) { ui.toast('Subiste de nivel', `Nivel ${rep.after.level} · ${t1}`); return; }
+        audio.play('rankup');
+        ui.openModal('levelup', { level: rep.after.level, badge: b1, newBadge: b1.tier > b0.tier, title: t1, newTitle: t1 !== t0 });
+      }, 1300);
+    }
+  }
   let delay = 1000;
   const later = fn => { setTimeout(fn, delay); delay += 800; };
   for (const a of rep.newAch) later(() => { ui.toast('Logro desbloqueado', `${a.name} · reclamá tu premio en el perfil`); audio.play('ach'); });

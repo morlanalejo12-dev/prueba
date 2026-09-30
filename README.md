@@ -41,13 +41,23 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 - Tarjeta de resultado para compartir.
 - **Online:** Minuto global (una ronda pública al comenzar cada minuto) y salas privadas con código de 4 letras.
 - **Códigos promocionales** en Ajustes y en la Tienda.
-- Catálogo de **música** (8 temas) y **estilos de nombre** (21).
+- **129 cosméticos:** skins, estelas, 10 temas de música y 28 estilos de nombre.
+- **Niveles de cuenta hasta el 120**, con títulos y distintivos.
 - **Pase de temporada** de 100 niveles (20 gratis), **Tienda Premium** (se habilita en la v1.0) y **amigos**.
 
 ## Novedades
 
+### v0.10
+- **Niveles de cuenta hasta el 120** (antes 12). Cada nivel da destellos, y en los niveles clave hay cosméticos propios de la cuenta.
+- **27 títulos** que crecen con el progreso: de *Chispa* (nivel 1) a *Soberano Absoluto de la Corriente* (nivel 120).
+- **Distintivo de nivel:** cambia cada 10 niveles (Gota, Onda, Remolino, Espiral, Marea, Tormenta, Vórtice, Maremoto, Abismo, Corona del Mar, Eclipse Oceánico y Soberano). Suma olas, rayos, gema, corona y, en el 120, un halo animado. Se ve en el perfil, en la sala online y en la tabla final.
+- Pestaña **Niveles** en el perfil, con todo el recorrido, y festejo al ganar un título o un distintivo nuevo.
+- **38 cosméticos nuevos** (129 en total): skins, estelas, estilos de nombre y dos temas nuevos, *Oleaje* (trance) y *Horizonte* (future bass).
+- **Cada cosmético es único:** un solo nombre y una sola forma de conseguirlo (nivel de cuenta, pase, liga, logro, premio diario, tienda de destellos o Tienda Premium). Se renombraron los que repetían nombre entre tipos.
+- **Códigos:** se borraron todos menos BIENVENIDA. Hay dos códigos privados de los creadores (no están en este documento): uno deja **absolutamente todo al máximo** y otro **borra el progreso** como si fuera una cuenta nueva.
+
 ### v0.9
-- **DKO · Play Me** (código DKO01): ahora es la canción *Play Me* (SETO / Albert Harvey), adaptada al juego. En el menú y lejos de las bifurcaciones suena un tramo tranquilo en loop; cuando sube la tensión entra el drop (16 compases en loop). Los cambios caen siempre al empezar un compás. Viene dentro del `index.html` y en el sitio se descarga aparte, solo si se usa.
+- **DKO · Play Me** (exclusivo de los creadores): ahora es la canción *Play Me* (SETO / Albert Harvey), adaptada al juego. En el menú y lejos de las bifurcaciones suena un tramo tranquilo en loop; cuando sube la tensión entra el drop (16 compases en loop). Los cambios caen siempre al empezar un compás. Viene dentro del `index.html` y en el sitio se descarga aparte, solo si se usa.
 - **Pase de temporada de 100 niveles:** del 1 al 20 es gratis; del 21 al 100 es el **pase Premium (US$ 3,99)**, con skins Legendarias y una **Mítica en el nivel 100** (Núcleo de Plasma), además de música, estelas, estilos de nombre y destellos. Todos los premios se reclaman a mano (hay un botón para reclamar todo).
 - **Tienda Premium:** skins, estelas y estilos Legendarios y Míticos con su precio en dólares. Las compras se habilitan en la versión 1.0.
 - **Calidades:** jugando gratis se consigue hasta calidad Épica (pase gratuito, ligas, logros, recompensa diaria y tienda de destellos). Legendaria y Mítica son de pago. Fundador sigue siendo solo por código y es la calidad más alta. **Todos los cosméticos son solo visuales: no dan ninguna ventaja.**

@@ -60,3 +60,37 @@ export function nameTag(text, style) {
 
 // Ícono de nota musical para los temas
 export const MUSIC_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
+
+// Distintivo de nivel de cuenta. deco=true dibuja solo los adornos (para rodear el anillo del perfil).
+// Cada 10 niveles suma algo: olas, más olas, rayos, gema, corona y, en el 120, un halo animado.
+export function levelEmblem(level, badge, size = 44, deco = false) {
+  const t = badge.tier, c = badge.col, gold = '#ffd166';
+  const gid = 'lg' + t + (deco ? 'd' : '') + Math.random().toString(36).slice(2, 7);
+  const stroke = t >= 10 ? `url(#${gid})` : c;
+  let s = `<svg class="lvl-emblem${t >= 12 ? ' lb-max' : ''}" viewBox="0 0 60 60" width="${size}" height="${size}" aria-hidden="true">`;
+  s += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${gold}"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${t >= 11 ? '#8fd8ff' : gold}"/></linearGradient></defs>`;
+  // Olas a los costados (1 a 3 pares)
+  const waves = t >= 1 ? Math.min(3, 1 + Math.floor((t - 1) / 3)) : 0;
+  for (let i = 0; i < waves; i++) {
+    const y = 44 - i * 7, w = 1.8;
+    s += `<path d="M${9 - i} ${y} q4 -6 8 0" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`;
+    s += `<path d="M${43 + i} ${y} q4 -6 8 0" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`;
+  }
+  // Rayos
+  if (t >= 4) {
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4 + Math.PI / 8, r1 = 24, r2 = 28;
+      s += `<line x1="${30 + Math.cos(a) * r1}" y1="${30 + Math.sin(a) * r1}" x2="${30 + Math.cos(a) * r2}" y2="${30 + Math.sin(a) * r2}" stroke="${stroke}" stroke-width="1.6" stroke-linecap="round"/>`;
+    }
+  }
+  // Gema o corona arriba
+  if (t >= 10) s += `<path d="M20 9 L22 2 L26 6 L30 0 L34 6 L38 2 L40 9 Z" fill="url(#${gid})" stroke="#fff4" stroke-width="0.6"/>`;
+  else if (t >= 7) s += `<path d="M30 1 L35 6 L30 11 L25 6 Z" fill="${c}"/>`;
+  // Halo máximo
+  if (t >= 12) s += `<circle class="lb-halo" cx="30" cy="30" r="27" fill="none" stroke="url(#${gid})" stroke-width="1.2" stroke-dasharray="3 4"/>`;
+  if (!deco) {
+    s += `<circle cx="30" cy="30" r="17" fill="#120e2a" stroke="${stroke}" stroke-width="${2 + t * 0.15}"/>`;
+    s += `<text stroke="none" x="30" y="35" text-anchor="middle" font-size="${level >= 100 ? 13 : 15}" font-weight="800" fill="${t >= 10 ? gold : c}" font-family="system-ui, sans-serif">${level}</text>`;
+  }
+  return s + '</svg>';
+}

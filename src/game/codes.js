@@ -3,6 +3,7 @@
 import { skinById, trailById } from './skins.js';
 import { musicById } from './music.js';
 import { nameStyleById } from './names.js';
+import { unlockEverything } from './progress.js';
 
 export function cyrb53(str, seed = 0x5eed) {
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -16,13 +17,12 @@ export function cyrb53(str, seed = 0x5eed) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
+// Solo quedan: BIENVENIDA (destellos para jugadores nuevos) y los dos de dueños,
+// que se pueden usar las veces que haga falta para probar el juego.
 const CODES = {
-  n1co6pem7o: { kind: 'skin', id: 'singularidad' },
-  k0jdfhewdk: { kind: 'trail', id: 'supernova' },
   ozmy39to6l: { kind: 'coins', amount: 250 },
-  '2a83psrjeng': { kind: 'music', id: 'mus-voltaje' },
-  '19evwxxecmi': { kind: 'name', id: 'nm-fundador' },
-  sshihw12mt: { kind: 'owner' },
+  vzzecr301l: { kind: 'owner', repeat: true },
+  '1bktvhoc5ec': { kind: 'reset', repeat: true },
 };
 
 export const normalizeCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -35,15 +35,12 @@ export function redeemCode(save, input) {
   const reward = CODES[h];
   if (!reward) return { ok: false, error: 'Código inválido.' };
   if (!save.codes || typeof save.codes !== 'object') save.codes = {};
-  if (save.codes[h]) return { ok: false, error: 'Ya canjeaste este código.' };
-  save.codes[h] = Date.now();
-  // Dueños: todos los cosméticos, el pase Premium y destellos para probar la tienda
-  if (reward.kind === 'owner') {
-    save.ownerAll = true;
-    save.premiumPass = true;
-    save.coins += 20000;
-    return { ok: true, reward: { ...reward } };
-  }
+  if (save.codes[h] && !reward.repeat) return { ok: false, error: 'Ya canjeaste este código.' };
+  if (!reward.repeat) save.codes[h] = Date.now();
+  // Dueños: todo al máximo (cuenta, pase, liga, logros y cosméticos)
+  if (reward.kind === 'owner') { unlockEverything(save); return { ok: true, reward: { ...reward } }; }
+  // Dueños: borrar el progreso (lo aplica main, que reemplaza el guardado por uno nuevo)
+  if (reward.kind === 'reset') return { ok: true, reward: { ...reward } };
   if (reward.kind === 'coins') {
     save.coins += reward.amount;
     return { ok: true, reward: { ...reward } };

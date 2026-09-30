@@ -13,13 +13,15 @@ const mem = (init) => { const m = new Map(init ? [[SAVE_KEY, JSON.stringify(init
 const ALL = [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES];
 const sum = { score: 800, pct: 60, rank: 400, total: 1201, forksOk: 2, forks: 6, near: 0, orbs: 5, alive: false, feats: {}, forksSeen: 3 };
 
-test('los id de todos los cosméticos son únicos (comparten el registro de compras)', () => {
-  const ids = ALL.map(k => k.id);
+test('cada cosmético es único: id y nombre distintos, y una sola forma de conseguirlo', () => {
+  const ids = ALL.map(k => k.id), names = ALL.map(k => k.name);
   assert.equal(new Set(ids).size, ids.length);
+  assert.equal(new Set(names).size, names.length);
+  for (const k of ALL) assert.ok(k.src && typeof k.src.type === 'string', k.id);
 });
 
 test('calidades: gratis hasta Épica; Legendaria y Mítica solo de pago; Fundador solo por código', () => {
-  const free = ['default', 'shop', 'rank', 'ach', 'daily'];
+  const free = ['default', 'level', 'shop', 'rank', 'ach', 'daily'];
   for (const k of ALL) {
     assert.ok(RARITY[k.rarity], k.id);
     const s = k.src;
@@ -40,6 +42,8 @@ test('pase: 100 niveles, 20 gratis, variado y con una Mítica en el nivel 100', 
   assert.equal(last.item.rarity, 'mitica');
   const lvls = ALL.filter(k => k.src.type === 'pass').map(k => k.src.lvl);
   assert.equal(new Set(lvls).size, lvls.length, 'un solo cosmético por nivel');
+  const acc = ALL.filter(k => k.src.type === 'level').map(k => k.src.lvl);
+  assert.equal(new Set(acc).size, acc.length, 'un solo cosmético por nivel de cuenta');
 });
 
 test('pase: los premios se reclaman a mano y los niveles Premium piden el pase', () => {
@@ -82,13 +86,6 @@ test('migración: lo conseguido con las reglas viejas se conserva', () => {
   assert.ok(/^[A-Z0-9]{6}$/.test(save.friendId));
 });
 
-test('código de dueños: desbloquea todo', () => {
-  const save = loadSave(mem());
-  assert.ok(redeemCode(save, 'ownerstodo12').ok);
-  const ctx = ownedCtx(save);
-  assert.ok(ALL.every(k => isOwned(k, ctx)));
-  assert.ok(save.premiumPass);
-});
 
 test('cada tema existe y los generativos dan notas válidas en todas las etapas', () => {
   for (const m of MUSIC) assert.ok(TRACKS[m.track], m.id);

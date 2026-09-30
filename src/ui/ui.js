@@ -2,14 +2,14 @@
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch } from '../game/progress.js';
+import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch, levelBadgeOf } from '../game/progress.js';
 import { claimablePass, passInfo } from '../game/pass.js';
 import { SKINS, TRAILS, skinById } from '../game/skins.js';
 import { MUSIC } from '../game/music.js';
 import { NAME_STYLES, nameStyleById } from '../game/names.js';
 import { TIERS, rankOf } from '../game/ranks.js';
 import { claimableMissions, dailyState, missionText } from '../game/meta.js';
-import { ICON, emblem, nameTag, skinPreview, MUSIC_ICON } from './icons.js';
+import { ICON, emblem, nameTag, skinPreview, MUSIC_ICON, levelEmblem } from './icons.js';
 import { buildModal, TITLES_BY_KIND } from './modals.js';
 
 export const $ = id => document.getElementById(id);
@@ -199,6 +199,7 @@ export function createUI(h) {
       if (p.id === myId) li.className = 'me';
       const n = document.createElement('b'); n.textContent = '#' + fmt(p.rank);
       const nm = document.createElement('span');
+      if (p.lvl) { const lv = document.createElement('span'); lv.innerHTML = levelEmblem(p.lvl, levelBadgeOf(p.lvl), 22); nm.append(lv.firstChild); }
       nm.append(skinPreview(skinById(p.skin)), nameTag(p.name, nameStyleById(p.nameStyle)));
       if (p.id === myId) nm.append(' (vos)');
       const sc = document.createElement('em'); sc.textContent = fmt(p.score) + ' pts';
@@ -255,6 +256,11 @@ export function createUI(h) {
     $('bMissions').textContent = claim;
     $('bShop').hidden = save.shopSeen === env.today;
     $('tSkins').textContent = `${ownedSkins(save).length + ownedTrails(save).length}/${SKINS.length + TRAILS.length}`;
+    // Distintivo de nivel alrededor del anillo
+    const lb = levelBadgeOf(li.level);
+    $('pBadge').innerHTML = lb.tier ? levelEmblem(li.level, lb, 58, true) : '';
+    $('profileBtn').querySelector('.ring').style.setProperty('--lb', lb.tier ? lb.col : '');
+    if (li.max) $('pXp').textContent = 'Nivel máximo';
     const passN = claimablePass(save).length, achN = claimableAch(save).length;
     $('bSeason').hidden = !passN;
     $('bSeason').textContent = passN;

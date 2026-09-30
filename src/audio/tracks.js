@@ -161,7 +161,49 @@ export const TRACKS = {
     },
   },
 
-  // Exclusivo (código DKO01): la canción del archivo music/dko.mp3, adaptada al juego.
+  // Trance: bajo rodante en contratiempo, pads con compuerta y arpegio que sube con la tensión
+  oleaje: {
+    bpm: 138, bpmStep: 2, bars: 4,
+    step(E, s, t, STEP, L, S) {
+      const prog = [CH.Am, CH.F, CH.C, CH.G], bar = s >> 4, k = s & 15, out = E.music, u = up(S);
+      const ch = prog[bar];
+      if (k % 4 === 0) { E.kick(out, t, 0.42 + 0.15 * L); E.duck(t, 0.5, STEP * 2); }
+      if (k % 4 !== 0) E.voice(out, hz(ch[0] - 24 + u), 'sawtooth', 0.05, STEP * 0.8, t);
+      // Pad con compuerta en semicorcheas
+      if ((L > 0.35 || S >= 1) && k % 2 === 0) ch.forEach(m => E.supersaw(out, hz(m + 12 + u), 0.006 + 0.006 * L, STEP * 0.7, t, 0.01, 2, 0.003));
+      if (k % 4 === 2) E.openHat(out, t, 0.035);
+      if ((L > 0.5 || S >= 2) && (k === 4 || k === 12)) E.clap(out, t, 0.07);
+      if (L > 0.3 || S >= 1) {
+        const arp = [0, 1, 2, 3, 2, 1, 0, 2];
+        const n = arp[k % 8];
+        E.pluck(out, hz((n === 3 ? ch[0] + 12 : ch[n]) + 24 + u), 0.03 + 0.015 * L, STEP * 1.1, t);
+      }
+      if (S >= 4 && L > 0.4 && k === 0) E.supersaw(out, hz(ch[2] + 24 + u), 0.02, STEP * 14, t, 0.012, 3, 0.2);
+      if (bar === 3 && k >= 8 && L > 0.6) E.snare(out, t, 0.02 + 0.05 * (k - 8) / 8);
+    },
+  },
+
+  // Future bass: medio tiempo, acordes gigantes que "respiran" con el sidechain y un lead que tartamudea
+  horizonte: {
+    bpm: 150, bpmStep: 2, bars: 4,
+    step(E, s, t, STEP, L, S) {
+      const prog = [CH.Fmaj7, CH.Em7, CH.Dm7, CH.Cmaj7], bar = s >> 4, k = s & 15, out = E.music, u = up(S);
+      const ch = prog[bar];
+      if (k === 0 || k === 10 || (L > 0.6 && k === 7)) { E.kick(out, t, 0.5); E.duck(t, 0.7, STEP * 3); }
+      if (k === 8) { E.snare(out, t, 0.11); E.clap(out, t, 0.06); }
+      // Acordes con volumen en rampa (el "wub" típico del género)
+      if (k % 2 === 0 && (L > 0.25 || S >= 1)) ch.forEach(m => E.supersaw(out, hz(m + 12 + u), 0.008 + 0.012 * L, STEP * 1.8, t, 0.014, 3, STEP * 1.2));
+      if (k === 0) E.voice(out, hz(ch[0] - 24 + u), 'sine', 0.26, STEP * 14, t, 0.02);
+      if ((L > 0.4 || S >= 2) && k % 2 === 1) E.hat(out, t, 0.022);
+      if (S >= 3 || L > 0.55) {
+        const mel = [12, -1, 12, 14, -1, 12, 9, -1, 7, -1, 9, 12, -1, 14, 16, -1];
+        if (mel[k] >= 0) E.pluck(out, hz(ch[0] + mel[k] + 12 + u), 0.035, STEP * 1.2, t);
+      }
+      if (k === 4 && bar === 3) E.riser(out, t, STEP * 12, 0.04);
+    },
+  },
+
+  // Exclusivo de los creadores (Fundador): la canción del archivo music/dko.mp3, adaptada al juego.
   // Dos loops de 16 compases: el tramo tranquilo suena en el menú y lejos de las bifurcaciones,
   // y el drop entra cuando sube la tensión. Los cambios caen siempre al empezar un compás.
   voltaje: {

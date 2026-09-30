@@ -23,7 +23,18 @@ test('niveles: los límites caen donde corresponde', () => {
 test('títulos por nivel', () => {
   assert.equal(titleOf(1), 'Chispa');
   assert.equal(titleOf(4), 'Destello');
-  assert.equal(titleOf(12), 'Outlier');
+  assert.equal(titleOf(40), 'Outlier');
+  assert.equal(titleOf(120), 'Soberano Absoluto de la Corriente');
+});
+
+test('niveles de cuenta hasta el 120 con distintivos cada 10', async () => {
+  const { MAX_LEVEL, levelBadgeOf, TITLES } = await import('../src/game/progress.js');
+  assert.equal(MAX_LEVEL, 120);
+  assert.equal(levelInfo(1e9).level, 120, 'el nivel se detiene en 120');
+  assert.equal(levelBadgeOf(1).tier, 0);
+  assert.equal(levelBadgeOf(59).name, 'Marea');
+  assert.equal(levelBadgeOf(120).name, 'Soberano');
+  for (let i = 1; i < TITLES.length; i++) assert.ok(TITLES[i].lvl > TITLES[i - 1].lvl);
 });
 
 test('una ronda suma XP, desbloquea logros y guarda el récord', () => {

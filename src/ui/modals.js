@@ -1,12 +1,12 @@
 // Contenido de cada ventana. Cada constructor recibe el cuerpo vacío, el guardado y los callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText } from '../util/math.js';
-import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx, achItem } from '../game/progress.js';
+import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx, achItem, levelBadgeOf, LEVEL_BADGES, MAX_LEVEL, levelCoinsAt } from '../game/progress.js';
 import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards, usd } from '../game/skins.js';
 import { PASS, PASS_FREE, PASS_PRICE_USD, passInfo } from '../game/pass.js';
 import { TIERS, TIER_PERKS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
 import { SEASON, shopOffers, dailyState, DAILY_REWARDS, missionText, missionReward, MISSION_XP, msToMidnight } from '../game/meta.js';
-import { ICON, emblem, skinPreview, trailPreview, nameTag, MUSIC_ICON } from './icons.js';
+import { ICON, emblem, skinPreview, trailPreview, nameTag, MUSIC_ICON, levelEmblem } from './icons.js';
 import { MUSIC, musicById } from '../game/music.js';
 import { NAME_STYLES, nameStyleById } from '../game/names.js';
 
@@ -41,7 +41,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -254,8 +254,11 @@ const BUILDERS = {
       const pv = el('span', 'rp-look');
       pv.append(trailPreview(tr, skinCol(sk)), skinPreview(sk));
       const who = el('span', 'rp-who');
-      who.append(nameTag(p.name, nameStyleById(p.nameStyle)));
-      who.append(el('small', '', `${sk.name} · ${tr.name}${p.id === o.myId ? ' · vos' : ''}`));
+      const nmRow = el('span', 'rp-name');
+      if (p.lvl) { const lv = el('span', 'rp-lvl'); lv.innerHTML = levelEmblem(p.lvl, levelBadgeOf(p.lvl), 26); nmRow.append(lv); }
+      nmRow.append(nameTag(p.name, nameStyleById(p.nameStyle)));
+      who.append(nmRow);
+      who.append(el('small', '', `${p.lvl ? titleOf(p.lvl) + ' · ' : ''}${sk.name} · ${tr.name}${p.id === o.myId ? ' · vos' : ''}`));
       li.append(pv, who);
       if (p.id === r.host) li.append(el('em', '', 'Anfitrión'));
       else if (p.inRound) li.append(el('em', 'live', 'Jugando'));
@@ -370,6 +373,15 @@ const BUILDERS = {
   redeemed(body, env, data) {
     const r = data.reward;
     const hero = el('div', 'rank-hero redeemed' + (r.item && r.item.rarity === 'fundador' ? ' founder' : ''));
+    if (r.kind === 'reset') {
+      hero.append(el('strong', '', 'Cuenta nueva'), el('small', '', 'Borraste todo el progreso'));
+      body.append(hero, el('p', '', 'Empezás de cero como un jugador nuevo: nivel 1, sin cosméticos, sin pase y sin logros. Se conservaron solo los ajustes.'));
+      const ok = el('button', 'btn btn-primary', 'Empezar');
+      ok.type = 'button';
+      ok.setAttribute('data-close', '');
+      body.append(ok);
+      return;
+    }
     if (r.kind === 'owner') {
       const c = el('div', 'redeem-coins');
       c.innerHTML = ICON.trophy;
@@ -555,6 +567,19 @@ const BUILDERS = {
 
   prize(body, env, data) { BUILDERS.redeemed(body, env, data); },
 
+  levelup(body, env, data) {
+    const hero = el('div', 'rank-hero rankup');
+    const em = el('div', 'levelup-emblem');
+    em.innerHTML = levelEmblem(data.level, data.badge, 120);
+    hero.append(em, el('small', '', data.newBadge ? `Nuevo distintivo: ${data.badge.name}` : `Nivel ${data.level}`), el('strong', '', data.title));
+    body.append(hero);
+    if (data.newTitle) body.append(el('p', 'unlock', `Nuevo título: ${data.title}.`));
+    const ok = el('button', 'btn btn-primary', '¡Vamos!');
+    ok.type = 'button';
+    ok.setAttribute('data-close', '');
+    body.append(ok);
+  },
+
   invite(body, env, data) {
     const hero = el('div', 'rank-hero');
     hero.append(el('small', '', 'Te invitan a jugar'), nameTag(data.from || 'Un amigo', nameStyleById(data.nameStyle || 'nm-blanco')), el('strong', 'room-code', data.code));
@@ -716,10 +741,10 @@ const BUILDERS = {
 
   profile(body, env, data) {
     const { save } = env;
-    const tabs = el('div', 'tabs');
+    const tabs = el('div', 'tabs four');
     tabs.setAttribute('role', 'tablist');
     const panel = el('div', 'tab-panel');
-    const names = [['sum', 'Resumen'], ['ach', 'Logros'], ['rec', 'Récords']];
+    const names = [['sum', 'Resumen'], ['lvl', 'Niveles'], ['ach', 'Logros'], ['rec', 'Récords']];
     const show = key => {
       [...tabs.children].forEach(b => b.setAttribute('aria-selected', String(b.dataset.k === key)));
       panel.innerHTML = '';
@@ -843,6 +868,47 @@ const PROFILE_TABS = {
       ul.append(item);
     }
     panel.append(head, grid, el('p', '', 'El Instinto es el porcentaje de bifurcaciones que superaste en toda tu historia.'), el('h3', '', 'Títulos'), ul);
+  },
+  // Recorrido de la cuenta hasta el nivel 120: títulos, distintivos y premios
+  lvl(panel, save) {
+    const li = levelInfo(save.xp), lb = levelBadgeOf(li.level);
+    const card = el('div', 'level-card');
+    card.innerHTML = levelEmblem(li.level, lb, 64);
+    const d = el('div');
+    const next = TITLES.find(t => t.lvl > li.level), nextB = LEVEL_BADGES.find(b => b.lvl > li.level);
+    d.append(el('b', '', titleOf(li.level)), el('small', '', `Nivel ${li.level} de ${MAX_LEVEL} · distintivo ${lb.name}`),
+      el('small', '', li.max ? '¡Llegaste al nivel máximo!' : `${fmt(li.into)} / ${fmt(li.need)} XP · próximo título: ${next ? next.name + ' (Nv ' + next.lvl + ')' : '—'}`));
+    const bar = el('div', 'xpbar');
+    const f = el('span'); f.style.width = (li.into / li.need * 100) + '%'; bar.append(f);
+    d.append(bar);
+    card.append(d);
+    panel.append(card, el('p', '', `Cada nivel da ${fmt(levelCoinsAt(2))} a ${fmt(levelCoinsAt(MAX_LEVEL))} destellos. Cada 10 niveles cambia tu distintivo${nextB ? ` (próximo: ${nextB.name}, Nv ${nextB.lvl})` : ''}.`));
+    // Hitos: niveles con título nuevo, distintivo nuevo o cosmético
+    const items = [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES].filter(k => k.src.type === 'level');
+    const lvls = new Set([...TITLES.map(t => t.lvl), ...LEVEL_BADGES.map(b => b.lvl), ...items.map(k => k.src.lvl)]);
+    const ul = el('ul', 'track level-track');
+    for (const L of [...lvls].sort((a, b) => a - b)) {
+      if (L === 1) continue;
+      const b = levelBadgeOf(L), got = li.level >= L;
+      const row = el('li', got ? 'got' : '');
+      const em = el('span');
+      em.innerHTML = levelEmblem(L, b, 40);
+      const rw = el('span', 'rw');
+      const title = TITLES.find(t => t.lvl === L), badge = LEVEL_BADGES.find(x => x.lvl === L);
+      rw.append(el('b', '', title ? `Título: ${title.name}` : badge ? `Distintivo ${badge.name}` : `Nivel ${L}`));
+      if (title && badge) rw.append(el('small', '', `Distintivo ${badge.name}`));
+      const prizes = el('span', 'prizes');
+      for (const k of items.filter(x => x.src.lvl === L)) {
+        if (k.shape) prizes.append(skinPreview(k), `Skin ${k.name}`);
+        else if (k.track) prizes.append(`Música: ${k.name}`);
+        else if (k.fx) prizes.append(nameTag(save.name || k.name, k), ' estilo');
+        else prizes.append(trailPreview(k, skinById(save.skin).col || undefined), `Estela ${k.name}`);
+      }
+      if (prizes.childNodes.length) rw.append(prizes);
+      row.append(em, rw, el('span', 'st', got ? 'Logrado' : `Nv ${L}`));
+      ul.append(row);
+    }
+    panel.append(ul);
   },
   ach(panel, save, env) {
     const got = Object.keys(save.ach).length;

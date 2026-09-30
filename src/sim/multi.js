@@ -21,7 +21,7 @@ export class MultiRound extends Round {
     super({ seed, demo: true, bots });
     this.rival = -1;
     this.humans = humans.map((h, idx) => ({
-      id: h.id, name: h.name, skin: h.skin, trail: h.trail, nameStyle: h.nameStyle, idx,
+      id: h.id, name: h.name, skin: h.skin, trail: h.trail, nameStyle: h.nameStyle, lvl: h.lvl || 1, idx,
       x: CFG.W / 2, y: 0, alive: true, lane: -1, laneFork: -1, ng: 0, gateMin: Infinity,
       ngDone: -1, ngMin: Infinity, orb: 0, taken: new Set(),
       score: 0, near: 0, combo: 0, maxCombo: 0, orbs: 0, orbChain: 0, lastOrbT: -9,
@@ -374,7 +374,7 @@ export class MultiRound extends Round {
 
   standings() {
     return this.humans
-      .map(h => ({ id: h.id, name: h.name, skin: h.skin, nameStyle: h.nameStyle, rank: h.rank, score: Math.round(h.score), alive: h.alive }))
+      .map(h => ({ id: h.id, name: h.name, skin: h.skin, nameStyle: h.nameStyle, lvl: h.lvl, rank: h.rank, score: Math.round(h.score), alive: h.alive }))
       .sort((a, b) => a.rank - b.rank || b.score - a.score);
   }
 }

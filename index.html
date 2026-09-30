@@ -1039,6 +1039,36 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .friend-list li.on .rp-who small { color: var(--mint); }
 .friend-acts { display: flex; align-items: center; gap: 6px; }
 .friend-del { width: 32px; height: 32px; font-size: 18px; }
+
+/* ---------- v0.10 · Niveles de cuenta ---------- */
+@keyframes lbSpin { to { transform: rotate(360deg); } }
+@keyframes lbGlow { 50% { filter: drop-shadow(0 0 6px #ffd166) drop-shadow(0 0 2px #ff5ed1); } }
+.lvl-emblem { display: block; flex: none; overflow: visible; }
+.lvl-emblem.lb-max { animation: lbGlow 2s ease-in-out infinite; }
+.lvl-emblem .lb-halo { transform-origin: 30px 30px; animation: lbSpin 8s linear infinite; }
+.ring .lb-deco { position: absolute; inset: -9px; pointer-events: none; }
+.ring .lb-deco svg { width: 100%; height: 100%; transform: none; }
+.ring { --lb: var(--spark); }
+.ring .ring-fg { stroke: var(--lb); }
+.ring b { color: var(--lb); }
+.level-card { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); }
+.level-card div { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.level-card b { font: 800 16px/1.15 var(--f-display); }
+.level-card small { font: 600 12px/1.3 var(--f-mono); color: var(--muted); }
+.level-track li { grid-template-columns: 56px minmax(0, 1fr) auto; }
+.level-track li .lvl-emblem { width: 40px; height: 40px; }
+.level-track .rw { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.level-track .rw b { font-size: 14px; }
+.level-track .rw small { font: 600 11px/1.3 var(--f-mono); color: var(--muted); }
+.level-track .rw .prizes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+.level-track .rw .prizes .sk { width: 24px; height: 24px; }
+.level-track .rw .prizes .tr { width: 34px; height: 14px; }
+.rp-lvl { display: inline-flex; vertical-align: middle; margin-right: 4px; }
+.rp-lvl svg { width: 26px; height: 26px; }
+.standings li span .lvl-emblem { width: 22px; height: 22px; }
+.tabs.four { grid-template-columns: repeat(4, 1fr); }
+.rp-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.levelup-emblem { display: grid; place-items: center; padding: 10px; animation: emblemIn 0.8s cubic-bezier(.2, 1.4, .4, 1); }
 </style>
 </head>
 <body>
@@ -1083,6 +1113,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   <header class="topbar">
     <button id="profileBtn" class="chip-profile" type="button" aria-label="Ver perfil"><em id="bProfile" class="badge" hidden>!</em>
       <span class="ring" aria-hidden="true">
+        <span id="pBadge" class="lb-deco"></span>
         <svg viewBox="0 0 40 40"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="ringFill" class="ring-fg" cx="20" cy="20" r="17"/></svg>
         <b id="pLevel">1</b>
       </span>
@@ -1267,7 +1298,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     // Motor
     FIXED_DT: 1 / 120,
     // Servidor online por defecto cuando el juego se abre como archivo o dentro de un artifact
-    VERSION: true ? "0.9.0" : "dev",
+    VERSION: true ? "0.10.0" : "dev",
     ONLINE_URL: "wss://contracorriente.onrender.com/ws"
   });
   var BOT = Object.freeze({ HERD: 0, CONTRA: 1, STUB: 2, LATE: 3 });
@@ -2359,7 +2390,58 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         if (k === 0 && bar === 0) E.noise(out, t, 0.06, 1.2, "highpass", 5e3);
       }
     },
-    // Exclusivo (código DKO01): la canción del archivo music/dko.mp3, adaptada al juego.
+    // Trance: bajo rodante en contratiempo, pads con compuerta y arpegio que sube con la tensión
+    oleaje: {
+      bpm: 138,
+      bpmStep: 2,
+      bars: 4,
+      step(E, s, t, STEP, L, S) {
+        const prog = [CH.Am, CH.F, CH.C, CH.G], bar = s >> 4, k = s & 15, out = E.music, u = up(S);
+        const ch = prog[bar];
+        if (k % 4 === 0) {
+          E.kick(out, t, 0.42 + 0.15 * L);
+          E.duck(t, 0.5, STEP * 2);
+        }
+        if (k % 4 !== 0) E.voice(out, hz(ch[0] - 24 + u), "sawtooth", 0.05, STEP * 0.8, t);
+        if ((L > 0.35 || S >= 1) && k % 2 === 0) ch.forEach((m) => E.supersaw(out, hz(m + 12 + u), 6e-3 + 6e-3 * L, STEP * 0.7, t, 0.01, 2, 3e-3));
+        if (k % 4 === 2) E.openHat(out, t, 0.035);
+        if ((L > 0.5 || S >= 2) && (k === 4 || k === 12)) E.clap(out, t, 0.07);
+        if (L > 0.3 || S >= 1) {
+          const arp = [0, 1, 2, 3, 2, 1, 0, 2];
+          const n = arp[k % 8];
+          E.pluck(out, hz((n === 3 ? ch[0] + 12 : ch[n]) + 24 + u), 0.03 + 0.015 * L, STEP * 1.1, t);
+        }
+        if (S >= 4 && L > 0.4 && k === 0) E.supersaw(out, hz(ch[2] + 24 + u), 0.02, STEP * 14, t, 0.012, 3, 0.2);
+        if (bar === 3 && k >= 8 && L > 0.6) E.snare(out, t, 0.02 + 0.05 * (k - 8) / 8);
+      }
+    },
+    // Future bass: medio tiempo, acordes gigantes que "respiran" con el sidechain y un lead que tartamudea
+    horizonte: {
+      bpm: 150,
+      bpmStep: 2,
+      bars: 4,
+      step(E, s, t, STEP, L, S) {
+        const prog = [CH.Fmaj7, CH.Em7, CH.Dm7, CH.Cmaj7], bar = s >> 4, k = s & 15, out = E.music, u = up(S);
+        const ch = prog[bar];
+        if (k === 0 || k === 10 || L > 0.6 && k === 7) {
+          E.kick(out, t, 0.5);
+          E.duck(t, 0.7, STEP * 3);
+        }
+        if (k === 8) {
+          E.snare(out, t, 0.11);
+          E.clap(out, t, 0.06);
+        }
+        if (k % 2 === 0 && (L > 0.25 || S >= 1)) ch.forEach((m) => E.supersaw(out, hz(m + 12 + u), 8e-3 + 0.012 * L, STEP * 1.8, t, 0.014, 3, STEP * 1.2));
+        if (k === 0) E.voice(out, hz(ch[0] - 24 + u), "sine", 0.26, STEP * 14, t, 0.02);
+        if ((L > 0.4 || S >= 2) && k % 2 === 1) E.hat(out, t, 0.022);
+        if (S >= 3 || L > 0.55) {
+          const mel = [12, -1, 12, 14, -1, 12, 9, -1, 7, -1, 9, 12, -1, 14, 16, -1];
+          if (mel[k] >= 0) E.pluck(out, hz(ch[0] + mel[k] + 12 + u), 0.035, STEP * 1.2, t);
+        }
+        if (k === 4 && bar === 3) E.riser(out, t, STEP * 12, 0.04);
+      }
+    },
+    // Exclusivo de los creadores (Fundador): la canción del archivo music/dko.mp3, adaptada al juego.
     // Dos loops de 16 compases: el tramo tranquilo suena en el menú y lejos de las bifurcaciones,
     // y el drop entra cuando sube la tensión. Los cambios caen siempre al empezar un compás.
     voltaje: {
@@ -2881,6 +2963,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var RARITY_ORDER = ["comun", "rara", "epica", "legendaria", "mitica", "fundador"];
   var SKINS = [
     { id: "ambar", name: "Ámbar", rarity: "comun", col: "#ffb547", shape: "orb", src: { type: "default" } },
+    // Niveles de cuenta (gratis, hasta Épica)
+    { id: "guijarro", name: "Guijarro", rarity: "comun", col: "#9aa6c0", col2: "#e8ecf5", shape: "orb", src: { type: "level", lvl: 5 } },
+    { id: "brote", name: "Brote", rarity: "comun", col: "#7bff6b", col2: "#e8ffd6", shape: "tri", src: { type: "level", lvl: 15 } },
+    { id: "marejada", name: "Marejada", rarity: "rara", col: "#3d9bff", col2: "#c9f1ff", shape: "hex", src: { type: "level", lvl: 25 } },
+    { id: "lucero", name: "Lucero", rarity: "rara", col: "#fff1c2", col2: "#8fd8ff", shape: "star", src: { type: "level", lvl: 35 } },
+    { id: "torrente", name: "Torrente", rarity: "epica", col: "#5ef2c2", col2: "#3d9bff", shape: "cross", src: { type: "level", lvl: 50 } },
+    { id: "leviatan", name: "Leviatán", rarity: "epica", col: "#2fd68a", col2: "#e8ffd6", shape: "hex", src: { type: "level", lvl: 70 } },
+    { id: "tsunami", name: "Tsunami", rarity: "epica", col: "#3d9bff", col2: "#e8f7ff", shape: "ring", src: { type: "level", lvl: 90 } },
+    { id: "deidad", name: "Deidad", rarity: "epica", col: "#ffd166", col2: "#ff5ed1", shape: "star", src: { type: "level", lvl: 110 } },
+    { id: "soberano", name: "Soberano", rarity: "epica", col: "#fff1c2", col2: "#ffd166", shape: "crystal", src: { type: "level", lvl: 120 } },
     // Pase: gratis hasta el nivel 20
     { id: "menta", name: "Menta", rarity: "comun", col: "#5ef2c2", shape: "orb", src: { type: "pass", lvl: 2 } },
     { id: "coral", name: "Coral", rarity: "comun", col: "#ff8f70", shape: "square", src: { type: "pass", lvl: 6 } },
@@ -2896,6 +2988,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "abisal", name: "Abisal", rarity: "rara", col: "#3d7bff", col2: "#5ef2c2", shape: "orb", src: { type: "pass", lvl: 36 } },
     { id: "amatista", name: "Amatista", rarity: "epica", col: "#b48cff", col2: "#f3e8ff", shape: "diamond", src: { type: "pass", lvl: 45 } },
     { id: "volcan", name: "Volcán", rarity: "epica", col: "#ff5d3d", col2: "#ffd166", shape: "hex", src: { type: "pass", lvl: 52 } },
+    { id: "coral_negro", name: "Coral Negro", rarity: "epica", col: "#1a1333", col2: "#ff5d3d", shape: "hex", src: { type: "pass", lvl: 58 } },
+    { id: "aurora_dorada", name: "Aurora Dorada", rarity: "legendaria", col: "#ffd166", col2: "#5ef2c2", shape: "crystal", src: { type: "pass", lvl: 70 } },
     { id: "cristal", name: "Cristal", rarity: "legendaria", col: "#e8f7ff", col2: "#8fd8ff", shape: "crystal", src: { type: "pass", lvl: 56 } },
     { id: "prisma_real", name: "Prisma Real", rarity: "legendaria", col: "#ffd166", col2: "#ff7ad9", shape: "crystal", src: { type: "pass", lvl: 64 } },
     { id: "fenix", name: "Fénix", rarity: "legendaria", col: "#ff5d3d", col2: "#ffd166", shape: "star", src: { type: "pass", lvl: 76 } },
@@ -2912,10 +3006,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "glitch", name: "Glitch", rarity: "epica", col: "#ff5470", col2: "#5ef2c2", shape: "square", src: { type: "shop", price: 650 } },
     { id: "pixel", name: "Píxel", rarity: "epica", col: "#7bff6b", col2: "#1d1747", shape: "square", src: { type: "shop", price: 680 } },
     { id: "vertice_neon", name: "Vértice Neón", rarity: "epica", col: "#ff5ed1", col2: "#5ef2ff", shape: "tri", src: { type: "shop", price: 720 } },
+    { id: "turquesa", name: "Turquesa", rarity: "comun", col: "#40e0d0", col2: "#e8fffb", shape: "orb", src: { type: "shop", price: 160 } },
+    { id: "opalo", name: "Ópalo", rarity: "rara", col: "#f3e8ff", col2: "#ff9cf0", shape: "diamond", src: { type: "shop", price: 360 } },
     { id: "cruz_rubi", name: "Cruz Rubí", rarity: "rara", col: "#ff3d6e", col2: "#ffd166", shape: "cross", src: { type: "shop", price: 380 } },
     // Tienda Premium (Legendarias y Míticas)
     { id: "galaxia", name: "Galaxia", rarity: "legendaria", col: "#b48cff", col2: "#8fd8ff", shape: "star", src: { type: "premium", usd: 1.99 } },
     { id: "diamante_eterno", name: "Diamante Eterno", rarity: "legendaria", col: "#ffffff", col2: "#5ef2ff", shape: "crystal", src: { type: "premium", usd: 1.99 } },
+    { id: "nova_carmesi", name: "Nova Carmesí", rarity: "legendaria", col: "#ff3d6e", col2: "#ffd166", shape: "crystal", src: { type: "premium", usd: 1.99 } },
+    { id: "dragon_estelar", name: "Dragón Estelar", rarity: "mitica", col: "#7bff6b", col2: "#ffd166", shape: "plasma", src: { type: "premium", usd: 3.49 } },
     { id: "quasar", name: "Quásar", rarity: "mitica", col: "#ffd166", col2: "#b48cff", shape: "plasma", src: { type: "premium", usd: 3.49 } },
     // Recompensa diaria y logros (gratis)
     { id: "aurora", name: "Aurora", rarity: "epica", col: "#5ef2c2", col2: "#b48cff", shape: "orb", src: { type: "daily" } },
@@ -2932,12 +3030,21 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   ];
   var TRAILS = [
     { id: "basica", name: "Básica", rarity: "comun", type: "dots", col: null, src: { type: "default" } },
+    { id: "gotas", name: "Gotas", rarity: "comun", type: "bubbles", col: "#c9f1ff", src: { type: "level", lvl: 10 } },
+    { id: "onda", name: "Onda", rarity: "rara", type: "ribbon", col: "#5ef2c2", col2: "#c9fff0", src: { type: "level", lvl: 20 } },
+    { id: "espiral", name: "Espiral", rarity: "epica", type: "spark", col: "#ffb547", col2: "#fff1a8", src: { type: "level", lvl: 40 } },
+    { id: "relampago_violeta", name: "Relámpago Violeta", rarity: "epica", type: "bolt", col: "#d9b8ff", col2: "#ffffff", src: { type: "level", lvl: 60 } },
+    { id: "estela_maremoto", name: "Maremoto", rarity: "epica", type: "comet", col: "#3d9bff", src: { type: "level", lvl: 80 } },
+    { id: "corona_espuma", name: "Corona de Espuma", rarity: "epica", type: "stars", col: "#e8f7ff", col2: "#5ef2c2", src: { type: "level", lvl: 100 } },
     { id: "chispas", name: "Chispas", rarity: "rara", type: "spark", col: null, src: { type: "pass", lvl: 5 } },
     { id: "burbujas", name: "Burbujas", rarity: "rara", type: "bubbles", col: "#8fd8ff", src: { type: "pass", lvl: 12 } },
     { id: "arcoiris", name: "Arcoíris", rarity: "epica", type: "rainbow", col: null, src: { type: "pass", lvl: 18 } },
     { id: "marea", name: "Marea", rarity: "rara", type: "ribbon", col: "#3d9bff", col2: "#5ef2c2", src: { type: "pass", lvl: 28 } },
     { id: "escarcha", name: "Escarcha", rarity: "rara", type: "spark", col: "#e8f7ff", col2: "#8fd8ff", src: { type: "pass", lvl: 33 } },
     { id: "pulsos", name: "Pulsos", rarity: "epica", type: "bolt", col: "#b48cff", col2: "#ff7ad9", src: { type: "pass", lvl: 48 } },
+    { id: "plancton", name: "Plancton", rarity: "rara", type: "bubbles", col: "#7bff6b", src: { type: "pass", lvl: 38 } },
+    { id: "luz_polar", name: "Luz Polar", rarity: "epica", type: "ribbon", col: "#8fd8ff", col2: "#b48cff", src: { type: "pass", lvl: 62 } },
+    { id: "polvo_estelar", name: "Polvo Estelar", rarity: "mitica", type: "stars", col: "#ff5ed1", col2: "#ffd166", src: { type: "pass", lvl: 96 } },
     { id: "constelacion", name: "Constelación", rarity: "legendaria", type: "stars", col: "#e8f7ff", col2: "#8fd8ff", src: { type: "pass", lvl: 60 } },
     { id: "brasas", name: "Brasas reales", rarity: "legendaria", type: "embers", col: "#ffd166", col2: "#ff5d3d", src: { type: "pass", lvl: 72 } },
     { id: "vacio", name: "Vacío", rarity: "mitica", type: "void", col: "#ffd166", col2: "#0d0a20", src: { type: "pass", lvl: 92 } },
@@ -2946,6 +3053,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "llamas", name: "Llamas", rarity: "epica", type: "fire", col: "#ff8a3d", col2: "#ffd166", src: { type: "shop", price: 620 } },
     { id: "interferencia", name: "Interferencia", rarity: "epica", type: "glitch", col: "#ff5470", col2: "#5ef2c2", src: { type: "shop", price: 640 } },
     { id: "polvo", name: "Polvo de hada", rarity: "epica", type: "spark", col: "#ff7ad9", col2: "#fff1a8", src: { type: "shop", price: 560 } },
+    { id: "serpentina", name: "Serpentina", rarity: "rara", type: "ribbon", col: "#ff7ad9", col2: "#ffd166", src: { type: "shop", price: 300 } },
+    { id: "cola_dragon", name: "Cola de Dragón", rarity: "legendaria", type: "fire", col: "#7bff6b", col2: "#ffd166", src: { type: "premium", usd: 1.49 } },
     { id: "cometa_dorado", name: "Cometa Dorado", rarity: "legendaria", type: "comet", col: "#ffd166", src: { type: "premium", usd: 1.49 } },
     { id: "gusano", name: "Agujero de Gusano", rarity: "mitica", type: "void", col: "#b48cff", col2: "#05030d", src: { type: "premium", usd: 2.99 } },
     { id: "plata", name: "Estela plateada", rarity: "rara", type: "ribbon", col: "#e8ecf5", col2: "#9aa6c0", src: { type: "rank", tier: 1 } },
@@ -2971,12 +3080,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   function unlockText(item) {
     const s = item.src;
     if (s.type === "default") return "Inicial";
-    if (s.type === "level") return `Nivel ${s.lvl}`;
+    if (s.type === "level") return `Nivel de cuenta ${s.lvl}`;
     if (s.type === "pass") return s.lvl > 20 ? `Pase Premium · Nv ${s.lvl}` : `Pase · Nv ${s.lvl}`;
     if (s.type === "rank") return `Liga ${TIER_NAMES[s.tier]}`;
     if (s.type === "ach") return ACH_TEXT[s.id] || "Logro";
     if (s.type === "daily") return "Premio del día 7";
-    if (s.type === "code") return "Código promocional";
+    if (s.type === "code") return "Exclusivo de los creadores";
     if (s.type === "premium") return `Tienda Premium · ${usd(s.usd)}`;
     return `Tienda · ${s.price}`;
   }
@@ -2990,25 +3099,32 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   // src/game/names.js
   var NAME_STYLES = [
     { id: "nm-blanco", name: "Blanco", rarity: "comun", fx: "solid", cols: ["#f3efff"], src: { type: "default" } },
-    { id: "nm-menta", name: "Menta", rarity: "comun", fx: "solid", cols: ["#5ef2c2"], src: { type: "pass", lvl: 4 } },
-    { id: "nm-ambar", name: "Ámbar", rarity: "comun", fx: "solid", cols: ["#ffb547"], src: { type: "pass", lvl: 8 } },
+    { id: "nm-menta", name: "Hierbabuena", rarity: "comun", fx: "solid", cols: ["#5ef2c2"], src: { type: "pass", lvl: 4 } },
+    { id: "nm-ambar", name: "Miel", rarity: "comun", fx: "solid", cols: ["#ffb547"], src: { type: "pass", lvl: 8 } },
     { id: "nm-cielo", name: "Cielo", rarity: "comun", fx: "solid", cols: ["#8fd8ff"], src: { type: "pass", lvl: 13 } },
     { id: "nm-lavanda", name: "Lavanda", rarity: "comun", fx: "solid", cols: ["#b48cff"], src: { type: "pass", lvl: 16 } },
-    { id: "nm-rosa", name: "Rosa", rarity: "comun", fx: "solid", cols: ["#ff7ad9"], src: { type: "shop", price: 120 } },
-    { id: "nm-coral", name: "Coral", rarity: "comun", fx: "solid", cols: ["#ff8f70"], src: { type: "shop", price: 120 } },
+    { id: "nm-rosa", name: "Chicle", rarity: "comun", fx: "solid", cols: ["#ff7ad9"], src: { type: "shop", price: 120 } },
+    { id: "nm-coral", name: "Salmón", rarity: "comun", fx: "solid", cols: ["#ff8f70"], src: { type: "shop", price: 120 } },
     { id: "nm-lima", name: "Lima", rarity: "comun", fx: "solid", cols: ["#b8ff5e"], src: { type: "shop", price: 120 } },
     { id: "nm-atardecer", name: "Atardecer", rarity: "rara", fx: "grad", cols: ["#ffb547", "#ff5e8a", "#b48cff"], src: { type: "shop", price: 300 } },
     { id: "nm-oceano", name: "Océano", rarity: "rara", fx: "grad", cols: ["#5ef2c2", "#3d9bff", "#8fd8ff"], src: { type: "shop", price: 300 } },
     { id: "nm-toxico", name: "Tóxico", rarity: "rara", fx: "toxic", cols: ["#b8ff5e", "#2fd68a"], src: { type: "shop", price: 350 } },
-    { id: "nm-arcoiris", name: "Arcoíris", rarity: "epica", fx: "grad", cols: ["#ff7ad9", "#ffd166", "#5ef2c2", "#8fd8ff", "#b48cff"], src: { type: "pass", lvl: 19 } },
-    { id: "nm-neon", name: "Neón", rarity: "epica", fx: "neon", cols: ["#ff5ed1", "#ffffff"], src: { type: "shop", price: 600 } },
-    { id: "nm-glitch", name: "Glitch", rarity: "epica", fx: "glitch", cols: ["#f3efff", "#ff3d6e", "#3de0ff"], src: { type: "shop", price: 700 } },
-    { id: "nm-hielo", name: "Escarcha", rarity: "epica", fx: "frost", cols: ["#e8f7ff", "#8fd8ff", "#ffffff"], src: { type: "pass", lvl: 26 } },
+    { id: "nm-arcoiris", name: "Espectro", rarity: "epica", fx: "grad", cols: ["#ff7ad9", "#ffd166", "#5ef2c2", "#8fd8ff", "#b48cff"], src: { type: "pass", lvl: 19 } },
+    { id: "nm-neon", name: "Letrero Neón", rarity: "epica", fx: "neon", cols: ["#ff5ed1", "#ffffff"], src: { type: "shop", price: 600 } },
+    { id: "nm-glitch", name: "Error de Señal", rarity: "epica", fx: "glitch", cols: ["#f3efff", "#ff3d6e", "#3de0ff"], src: { type: "shop", price: 700 } },
+    { id: "nm-hielo", name: "Nevada", rarity: "epica", fx: "frost", cols: ["#e8f7ff", "#8fd8ff", "#ffffff"], src: { type: "pass", lvl: 26 } },
     { id: "nm-fuego", name: "Fuego", rarity: "legendaria", fx: "fire", cols: ["#fff1a8", "#ffb547", "#ff5d3d"], src: { type: "pass", lvl: 43 } },
     { id: "nm-oro", name: "Oro puro", rarity: "legendaria", fx: "shine", cols: ["#ffd166", "#fff1c2", "#c98a1d"], src: { type: "pass", lvl: 68 } },
-    { id: "nm-galaxia", name: "Galaxia", rarity: "mitica", fx: "galaxy", cols: ["#b48cff", "#ff7ad9", "#8fd8ff"], src: { type: "pass", lvl: 88 } },
-    { id: "nm-diamante", name: "Diamante", rarity: "legendaria", fx: "shine", cols: ["#bff6ff", "#ffffff", "#5ec8ff"], src: { type: "premium", usd: 0.99 } },
+    { id: "nm-galaxia", name: "Vía Láctea", rarity: "mitica", fx: "galaxy", cols: ["#b48cff", "#ff7ad9", "#8fd8ff"], src: { type: "pass", lvl: 88 } },
+    { id: "nm-diamante", name: "Brillante", rarity: "legendaria", fx: "shine", cols: ["#bff6ff", "#ffffff", "#5ec8ff"], src: { type: "premium", usd: 0.99 } },
     { id: "nm-sakura", name: "Sakura", rarity: "rara", fx: "grad", cols: ["#ffc2e2", "#ff7ad9", "#fff1f8"], src: { type: "pass", lvl: 34 } },
+    { id: "nm-ceniza", name: "Ceniza", rarity: "comun", fx: "solid", cols: ["#c9c4dd"], src: { type: "level", lvl: 12 } },
+    { id: "nm-aurora", name: "Aurora Polar", rarity: "rara", fx: "grad", cols: ["#5ef2c2", "#8fd8ff", "#b48cff"], src: { type: "level", lvl: 45 } },
+    { id: "nm-magma", name: "Magma", rarity: "epica", fx: "fire", cols: ["#ffd166", "#ff5d3d", "#8a1a2b"], src: { type: "level", lvl: 65 } },
+    { id: "nm-voltio", name: "Voltio", rarity: "epica", fx: "neon", cols: ["#5ef2ff", "#ffffff"], src: { type: "level", lvl: 85 } },
+    { id: "nm-prisma", name: "Prisma Vivo", rarity: "epica", fx: "grad", cols: ["#ff5ed1", "#ffd166", "#5ef2c2", "#8fd8ff"], src: { type: "level", lvl: 105 } },
+    { id: "nm-hielo-azul", name: "Hielo Azul", rarity: "rara", fx: "grad", cols: ["#c9f1ff", "#3d9bff", "#e8f7ff"], src: { type: "pass", lvl: 42 } },
+    { id: "nm-oro-rosa", name: "Oro Rosa", rarity: "legendaria", fx: "shine", cols: ["#ffc2d1", "#ffffff", "#e58fa8"], src: { type: "premium", usd: 0.99 } },
     { id: "nm-fundador", name: "Corona Fundadora", rarity: "fundador", fx: "founder", cols: ["#ffd166", "#ff5ed1", "#8fd8ff", "#b48cff"], src: { type: "code" } }
   ];
   var nameStyleById = (id) => NAME_STYLES.find((k) => k.id === id) || NAME_STYLES[0];
@@ -4124,7 +4240,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "mus-neon", track: "neon", name: "Neón Nocturno", genre: "Synthwave", bpm: 104, rarity: "rara", src: { type: "shop", price: 400 } },
     { id: "mus-pulso", track: "pulso", name: "Pulso Profundo", genre: "Deep house", bpm: 120, rarity: "epica", src: { type: "shop", price: 650 } },
     { id: "mus-vertigo", track: "vertigo", name: "Vértigo", genre: "Drum & bass", bpm: 168, rarity: "epica", src: { type: "rank", tier: 2 } },
-    { id: "mus-tormenta", track: "tormenta", name: "Tormenta", genre: "Techno ácido", bpm: 128, rarity: "legendaria", src: { type: "pass", lvl: 40 } },
+    { id: "mus-tormenta", track: "tormenta", name: "Tempestad Ácida", genre: "Techno ácido", bpm: 128, rarity: "legendaria", src: { type: "pass", lvl: 40 } },
+    { id: "mus-oleaje", track: "oleaje", name: "Oleaje", genre: "Trance", bpm: 138, rarity: "epica", src: { type: "level", lvl: 30 } },
+    { id: "mus-horizonte", track: "horizonte", name: "Horizonte", genre: "Future bass", bpm: 150, rarity: "legendaria", src: { type: "pass", lvl: 50 } },
     { id: "mus-voltaje", track: "voltaje", name: "DKO · Play Me", genre: "Electro house", bpm: 129, rarity: "fundador", src: { type: "code" } }
   ];
   var musicById = (id) => MUSIC.find((m) => m.id === id) || MUSIC[0];
@@ -4415,13 +4533,56 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   };
   var FRIEND_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   var newFriendId = () => Array.from({ length: 6 }, () => FRIEND_CHARS[Math.floor(Math.random() * FRIEND_CHARS.length)]).join("");
+  var MAX_LEVEL = 120;
   var TITLES = [
     { lvl: 1, name: "Chispa" },
     { lvl: 3, name: "Destello" },
-    { lvl: 5, name: "Corriente" },
-    { lvl: 8, name: "Contracorriente" },
-    { lvl: 12, name: "Outlier" }
+    { lvl: 5, name: "Gota" },
+    { lvl: 8, name: "Arroyo" },
+    { lvl: 12, name: "Corriente" },
+    { lvl: 16, name: "Remolino" },
+    { lvl: 20, name: "Contracorriente" },
+    { lvl: 25, name: "Oleaje" },
+    { lvl: 30, name: "Rompeolas" },
+    { lvl: 35, name: "Marejada" },
+    { lvl: 40, name: "Outlier" },
+    { lvl: 45, name: "Vórtice" },
+    { lvl: 50, name: "Torrente" },
+    { lvl: 55, name: "Tormenta viva" },
+    { lvl: 60, name: "Maremoto" },
+    { lvl: 65, name: "Ciclón" },
+    { lvl: 70, name: "Leviatán" },
+    { lvl: 75, name: "Titán de las mareas" },
+    { lvl: 80, name: "Señor del abismo" },
+    { lvl: 85, name: "Voz del océano" },
+    { lvl: 90, name: "Tsunami" },
+    { lvl: 95, name: "Emperador del torrente" },
+    { lvl: 100, name: "Leyenda eterna" },
+    { lvl: 105, name: "Mito de la corriente" },
+    { lvl: 110, name: "Deidad del caos" },
+    { lvl: 115, name: "Origen de las mareas" },
+    { lvl: 120, name: "Soberano Absoluto de la Corriente" }
   ];
+  var LEVEL_BADGES = [
+    { lvl: 1, name: "Novato", col: "#a69ecb" },
+    { lvl: 10, name: "Gota", col: "#8fd8ff" },
+    { lvl: 20, name: "Onda", col: "#5ef2c2" },
+    { lvl: 30, name: "Remolino", col: "#2fd68a" },
+    { lvl: 40, name: "Espiral", col: "#ffb547" },
+    { lvl: 50, name: "Marea", col: "#ff8f70" },
+    { lvl: 60, name: "Tormenta", col: "#ff7ad9" },
+    { lvl: 70, name: "Vórtice", col: "#b48cff" },
+    { lvl: 80, name: "Maremoto", col: "#ff5470" },
+    { lvl: 90, name: "Abismo", col: "#3d9bff" },
+    { lvl: 100, name: "Corona del Mar", col: "#ffd166" },
+    { lvl: 110, name: "Eclipse Oceánico", col: "#ff5ed1" },
+    { lvl: 120, name: "Soberano", col: "#fff1c2" }
+  ];
+  function levelBadgeOf(level) {
+    let t = 0;
+    for (let i = 0; i < LEVEL_BADGES.length; i++) if (level >= LEVEL_BADGES[i].lvl) t = i;
+    return { tier: t, ...LEVEL_BADGES[t] };
+  }
   var ACHIEVEMENTS = [
     { id: "first", name: "Primera caída", desc: "Jugá tu primera ronda.", test: () => true, coins: 50 },
     { id: "fork1", name: "A contracorriente", desc: "Sobreviví a una bifurcación.", test: (s) => s.forksOk >= 1, coins: 50 },
@@ -4454,14 +4615,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (item) save2.owned[item.id] = true;
     return { coins: a.coins, item };
   }
-  var levelNeed = (n) => 120 + (n - 1) * 60;
+  var levelNeed = (n) => 100 + (n - 1) * 25;
   function levelInfo(xp) {
     let level = 1, need = levelNeed(1);
-    while (xp >= need) {
+    while (xp >= need && level < MAX_LEVEL) {
       xp -= need;
       level++;
       need = levelNeed(level);
     }
+    if (level >= MAX_LEVEL) return { level: MAX_LEVEL, into: need, need, max: true };
     return { level, into: xp, need };
   }
   function titleOf(level) {
@@ -4591,17 +4753,43 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   function writeSave(store2, save2) {
     store2.set(SAVE_KEY, JSON.stringify(save2));
   }
-  function resetSave(store2) {
-    const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: "", next: 0 } };
+  function resetSave(store2, keep = {}) {
+    const fresh = { ...DEFAULTS, ...keep, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: "", next: 0 } };
     writeSave(store2, fresh);
     return fresh;
+  }
+  var levelCoinsAt = (l) => 20 + l * 2;
+  var xpToLevel = (n) => {
+    let x = 0;
+    for (let l = 1; l < n; l++) x += levelNeed(l);
+    return x;
+  };
+  function unlockEverything(save2) {
+    save2.ownerAll = true;
+    save2.premiumPass = true;
+    save2.xp = Math.max(save2.xp, xpToLevel(MAX_LEVEL));
+    save2.passXp = Math.max(save2.passXp || 0, PASS_STEP * (PASS_LEVELS - 1));
+    for (let l = 1; l <= PASS_LEVELS; l++) save2.passClaimed[l] = true;
+    for (const k of [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES]) save2.owned[k.id] = true;
+    const today = dayKey(/* @__PURE__ */ new Date());
+    for (const a of ACHIEVEMENTS) {
+      if (!save2.ach[a.id]) save2.ach[a.id] = today;
+      save2.achClaimed[a.id] = true;
+    }
+    save2.pr = Math.max(save2.pr, LEGEND_PR + 500);
+    save2.peakPR = Math.max(save2.peakPR, save2.pr);
+    save2.coins = Math.max(save2.coins, 0) + 5e4;
+    return save2;
   }
   function addXP(save2, xp) {
     const before = levelInfo(save2.xp), passBefore = passInfo(save2.passXp).level;
     save2.xp += xp;
     save2.passXp += xp;
     const after = levelInfo(save2.xp), passAfter = passInfo(save2.passXp).level;
-    return { before, after, passBefore, passAfter };
+    let levelCoins = 0;
+    for (let l = before.level + 1; l <= after.level; l++) levelCoins += levelCoinsAt(l);
+    save2.coins += levelCoins;
+    return { before, after, passBefore, passAfter, levelCoins };
   }
   function claimMission(save2, index) {
     const m = save2.missions && save2.missions.list[index];
@@ -4659,6 +4847,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       gain,
       coins,
       predCoins,
+      levelCoins: lv.levelCoins,
       before: lv.before,
       after: lv.after,
       passBefore: lv.passBefore,
@@ -4728,6 +4917,33 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return el2;
   }
   var MUSIC_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
+  function levelEmblem(level, badge, size = 44, deco = false) {
+    const t = badge.tier, c = badge.col, gold = "#ffd166";
+    const gid = "lg" + t + (deco ? "d" : "") + Math.random().toString(36).slice(2, 7);
+    const stroke = t >= 10 ? `url(#${gid})` : c;
+    let s = `<svg class="lvl-emblem${t >= 12 ? " lb-max" : ""}" viewBox="0 0 60 60" width="${size}" height="${size}" aria-hidden="true">`;
+    s += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${gold}"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${t >= 11 ? "#8fd8ff" : gold}"/></linearGradient></defs>`;
+    const waves = t >= 1 ? Math.min(3, 1 + Math.floor((t - 1) / 3)) : 0;
+    for (let i = 0; i < waves; i++) {
+      const y = 44 - i * 7, w = 1.8;
+      s += `<path d="M${9 - i} ${y} q4 -6 8 0" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`;
+      s += `<path d="M${43 + i} ${y} q4 -6 8 0" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`;
+    }
+    if (t >= 4) {
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4 + Math.PI / 8, r1 = 24, r2 = 28;
+        s += `<line x1="${30 + Math.cos(a) * r1}" y1="${30 + Math.sin(a) * r1}" x2="${30 + Math.cos(a) * r2}" y2="${30 + Math.sin(a) * r2}" stroke="${stroke}" stroke-width="1.6" stroke-linecap="round"/>`;
+      }
+    }
+    if (t >= 10) s += `<path d="M20 9 L22 2 L26 6 L30 0 L34 6 L38 2 L40 9 Z" fill="url(#${gid})" stroke="#fff4" stroke-width="0.6"/>`;
+    else if (t >= 7) s += `<path d="M30 1 L35 6 L30 11 L25 6 Z" fill="${c}"/>`;
+    if (t >= 12) s += `<circle class="lb-halo" cx="30" cy="30" r="27" fill="none" stroke="url(#${gid})" stroke-width="1.2" stroke-dasharray="3 4"/>`;
+    if (!deco) {
+      s += `<circle cx="30" cy="30" r="17" fill="#120e2a" stroke="${stroke}" stroke-width="${2 + t * 0.15}"/>`;
+      s += `<text stroke="none" x="30" y="35" text-anchor="middle" font-size="${level >= 100 ? 13 : 15}" font-weight="800" fill="${t >= 10 ? gold : c}" font-family="system-ui, sans-serif">${level}</text>`;
+    }
+    return s + "</svg>";
+  }
 
   // src/ui/modals.js
   var RING = 106.8;
@@ -4776,6 +4992,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     friends: "Amigos",
     prize: "¡Premio!",
     invite: "Invitación",
+    levelup: "¡Subiste de nivel!",
     codes: "Canjear código",
     redeemed: "¡Código canjeado!"
   };
@@ -5006,8 +5223,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         const pv = el("span", "rp-look");
         pv.append(trailPreview(tr, skinCol(sk)), skinPreview(sk));
         const who = el("span", "rp-who");
-        who.append(nameTag(p.name, nameStyleById(p.nameStyle)));
-        who.append(el("small", "", `${sk.name} · ${tr.name}${p.id === o.myId ? " · vos" : ""}`));
+        const nmRow = el("span", "rp-name");
+        if (p.lvl) {
+          const lv = el("span", "rp-lvl");
+          lv.innerHTML = levelEmblem(p.lvl, levelBadgeOf(p.lvl), 26);
+          nmRow.append(lv);
+        }
+        nmRow.append(nameTag(p.name, nameStyleById(p.nameStyle)));
+        who.append(nmRow);
+        who.append(el("small", "", `${p.lvl ? titleOf(p.lvl) + " · " : ""}${sk.name} · ${tr.name}${p.id === o.myId ? " · vos" : ""}`));
         li.append(pv, who);
         if (p.id === r.host) li.append(el("em", "", "Anfitrión"));
         else if (p.inRound) li.append(el("em", "live", "Jugando"));
@@ -5135,6 +5359,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     redeemed(body, env2, data) {
       const r = data.reward;
       const hero = el("div", "rank-hero redeemed" + (r.item && r.item.rarity === "fundador" ? " founder" : ""));
+      if (r.kind === "reset") {
+        hero.append(el("strong", "", "Cuenta nueva"), el("small", "", "Borraste todo el progreso"));
+        body.append(hero, el("p", "", "Empezás de cero como un jugador nuevo: nivel 1, sin cosméticos, sin pase y sin logros. Se conservaron solo los ajustes."));
+        const ok = el("button", "btn btn-primary", "Empezar");
+        ok.type = "button";
+        ok.setAttribute("data-close", "");
+        body.append(ok);
+        return;
+      }
       if (r.kind === "owner") {
         const c = el("div", "redeem-coins");
         c.innerHTML = ICON.trophy;
@@ -5354,6 +5587,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     prize(body, env2, data) {
       BUILDERS.redeemed(body, env2, data);
     },
+    levelup(body, env2, data) {
+      const hero = el("div", "rank-hero rankup");
+      const em = el("div", "levelup-emblem");
+      em.innerHTML = levelEmblem(data.level, data.badge, 120);
+      hero.append(em, el("small", "", data.newBadge ? `Nuevo distintivo: ${data.badge.name}` : `Nivel ${data.level}`), el("strong", "", data.title));
+      body.append(hero);
+      if (data.newTitle) body.append(el("p", "unlock", `Nuevo título: ${data.title}.`));
+      const ok = el("button", "btn btn-primary", "¡Vamos!");
+      ok.type = "button";
+      ok.setAttribute("data-close", "");
+      body.append(ok);
+    },
     invite(body, env2, data) {
       const hero = el("div", "rank-hero");
       hero.append(el("small", "", "Te invitan a jugar"), nameTag(data.from || "Un amigo", nameStyleById(data.nameStyle || "nm-blanco")), el("strong", "room-code", data.code));
@@ -5538,10 +5783,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     },
     profile(body, env2, data) {
       const { save: save2 } = env2;
-      const tabs = el("div", "tabs");
+      const tabs = el("div", "tabs four");
       tabs.setAttribute("role", "tablist");
       const panel = el("div", "tab-panel");
-      const names = [["sum", "Resumen"], ["ach", "Logros"], ["rec", "Récords"]];
+      const names = [["sum", "Resumen"], ["lvl", "Niveles"], ["ach", "Logros"], ["rec", "Récords"]];
       const show = (key) => {
         [...tabs.children].forEach((b) => b.setAttribute("aria-selected", String(b.dataset.k === key)));
         panel.innerHTML = "";
@@ -5671,6 +5916,51 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         ul.append(item);
       }
       panel.append(head, grid, el("p", "", "El Instinto es el porcentaje de bifurcaciones que superaste en toda tu historia."), el("h3", "", "Títulos"), ul);
+    },
+    // Recorrido de la cuenta hasta el nivel 120: títulos, distintivos y premios
+    lvl(panel, save2) {
+      const li = levelInfo(save2.xp), lb = levelBadgeOf(li.level);
+      const card = el("div", "level-card");
+      card.innerHTML = levelEmblem(li.level, lb, 64);
+      const d = el("div");
+      const next = TITLES.find((t) => t.lvl > li.level), nextB = LEVEL_BADGES.find((b) => b.lvl > li.level);
+      d.append(
+        el("b", "", titleOf(li.level)),
+        el("small", "", `Nivel ${li.level} de ${MAX_LEVEL} · distintivo ${lb.name}`),
+        el("small", "", li.max ? "¡Llegaste al nivel máximo!" : `${fmt(li.into)} / ${fmt(li.need)} XP · próximo título: ${next ? next.name + " (Nv " + next.lvl + ")" : "—"}`)
+      );
+      const bar = el("div", "xpbar");
+      const f = el("span");
+      f.style.width = li.into / li.need * 100 + "%";
+      bar.append(f);
+      d.append(bar);
+      card.append(d);
+      panel.append(card, el("p", "", `Cada nivel da ${fmt(levelCoinsAt(2))} a ${fmt(levelCoinsAt(MAX_LEVEL))} destellos. Cada 10 niveles cambia tu distintivo${nextB ? ` (próximo: ${nextB.name}, Nv ${nextB.lvl})` : ""}.`));
+      const items = [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES].filter((k) => k.src.type === "level");
+      const lvls = /* @__PURE__ */ new Set([...TITLES.map((t) => t.lvl), ...LEVEL_BADGES.map((b) => b.lvl), ...items.map((k) => k.src.lvl)]);
+      const ul = el("ul", "track level-track");
+      for (const L of [...lvls].sort((a, b) => a - b)) {
+        if (L === 1) continue;
+        const b = levelBadgeOf(L), got = li.level >= L;
+        const row = el("li", got ? "got" : "");
+        const em = el("span");
+        em.innerHTML = levelEmblem(L, b, 40);
+        const rw = el("span", "rw");
+        const title = TITLES.find((t) => t.lvl === L), badge = LEVEL_BADGES.find((x) => x.lvl === L);
+        rw.append(el("b", "", title ? `Título: ${title.name}` : badge ? `Distintivo ${badge.name}` : `Nivel ${L}`));
+        if (title && badge) rw.append(el("small", "", `Distintivo ${badge.name}`));
+        const prizes = el("span", "prizes");
+        for (const k of items.filter((x) => x.src.lvl === L)) {
+          if (k.shape) prizes.append(skinPreview(k), `Skin ${k.name}`);
+          else if (k.track) prizes.append(`Música: ${k.name}`);
+          else if (k.fx) prizes.append(nameTag(save2.name || k.name, k), " estilo");
+          else prizes.append(trailPreview(k, skinById(save2.skin).col || void 0), `Estela ${k.name}`);
+        }
+        if (prizes.childNodes.length) rw.append(prizes);
+        row.append(em, rw, el("span", "st", got ? "Logrado" : `Nv ${L}`));
+        ul.append(row);
+      }
+      panel.append(ul);
     },
     ach(panel, save2, env2) {
       const got = Object.keys(save2.ach).length;
@@ -5901,6 +6191,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         const n = document.createElement("b");
         n.textContent = "#" + fmt(p.rank);
         const nm = document.createElement("span");
+        if (p.lvl) {
+          const lv = document.createElement("span");
+          lv.innerHTML = levelEmblem(p.lvl, levelBadgeOf(p.lvl), 22);
+          nm.append(lv.firstChild);
+        }
         nm.append(skinPreview(skinById(p.skin)), nameTag(p.name, nameStyleById(p.nameStyle)));
         if (p.id === myId) nm.append(" (vos)");
         const sc = document.createElement("em");
@@ -5954,6 +6249,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       $("bMissions").textContent = claim;
       $("bShop").hidden = save2.shopSeen === env3.today;
       $("tSkins").textContent = `${ownedSkins(save2).length + ownedTrails(save2).length}/${SKINS.length + TRAILS.length}`;
+      const lb = levelBadgeOf(li.level);
+      $("pBadge").innerHTML = lb.tier ? levelEmblem(li.level, lb, 58, true) : "";
+      $("profileBtn").querySelector(".ring").style.setProperty("--lb", lb.tier ? lb.col : "");
+      if (li.max) $("pXp").textContent = "Nivel máximo";
       const passN = claimablePass(save2).length, achN = claimableAch(save2).length;
       $("bSeason").hidden = !passN;
       $("bSeason").textContent = passN;
@@ -6192,12 +6491,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
   }
   var CODES = {
-    n1co6pem7o: { kind: "skin", id: "singularidad" },
-    k0jdfhewdk: { kind: "trail", id: "supernova" },
     ozmy39to6l: { kind: "coins", amount: 250 },
-    "2a83psrjeng": { kind: "music", id: "mus-voltaje" },
-    "19evwxxecmi": { kind: "name", id: "nm-fundador" },
-    sshihw12mt: { kind: "owner" }
+    vzzecr301l: { kind: "owner", repeat: true },
+    "1bktvhoc5ec": { kind: "reset", repeat: true }
   };
   var normalizeCode = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   function redeemCode(save2, input) {
@@ -6207,14 +6503,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     const reward = CODES[h];
     if (!reward) return { ok: false, error: "Código inválido." };
     if (!save2.codes || typeof save2.codes !== "object") save2.codes = {};
-    if (save2.codes[h]) return { ok: false, error: "Ya canjeaste este código." };
-    save2.codes[h] = Date.now();
+    if (save2.codes[h] && !reward.repeat) return { ok: false, error: "Ya canjeaste este código." };
+    if (!reward.repeat) save2.codes[h] = Date.now();
     if (reward.kind === "owner") {
-      save2.ownerAll = true;
-      save2.premiumPass = true;
-      save2.coins += 2e4;
+      unlockEverything(save2);
       return { ok: true, reward: { ...reward } };
     }
+    if (reward.kind === "reset") return { ok: true, reward: { ...reward } };
     if (reward.kind === "coins") {
       save2.coins += reward.amount;
       return { ok: true, reward: { ...reward } };
@@ -7035,6 +7330,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         buzz(40);
         return r;
       }
+      if (r.reward.kind === "reset") {
+        const keep = {};
+        for (const k of ["sfx", "music", "vib", "notif", "relTouch", "server"]) keep[k] = save[k];
+        leaveOnline();
+        save = resetSave(store, keep);
+        ensureMissions(save, env().today);
+        previewTrack = null;
+        applyTrack();
+        dailyOffered = false;
+        refreshMenu();
+        audio.play("ui");
+        ui.openModal("redeemed", r);
+        return r;
+      }
       persist();
       audio.play("rankup");
       buzz([30, 40, 30, 40, 60]);
@@ -7171,7 +7480,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return {};
   }
   function profile() {
-    return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId };
+    return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, lvl: levelInfo(save.xp).level };
   }
   var kindOf = (item) => item.shape ? "skin" : item.track ? "music" : item.fx ? "name" : "trail";
   function playerNameStyle() {
@@ -7389,6 +7698,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ui.renderResults(lastSum, rep, R.outlier);
     ui.showScreen("results");
     nextT = CFG.NEXT_S;
+    sendProfile();
     if (online.invite) {
       const inv = online.invite;
       online.invite = null;
@@ -7402,10 +7712,24 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       audio.play("outlier");
       buzz([30, 50, 30, 50, 60]);
     }
-    if (rep.after.level > rep.before.level) setTimeout(() => {
-      audio.play("levelup");
-      buzz([20, 30, 20]);
-    }, 700);
+    if (rep.after.level > rep.before.level) {
+      setTimeout(() => {
+        audio.play("levelup");
+        buzz([20, 30, 20]);
+      }, 700);
+      const b0 = levelBadgeOf(rep.before.level), b1 = levelBadgeOf(rep.after.level);
+      const t0 = titleOf(rep.before.level), t1 = titleOf(rep.after.level);
+      if (b1.tier > b0.tier || t1 !== t0) {
+        setTimeout(() => {
+          if (state !== "results" || ui.modalOpen) {
+            ui.toast("Subiste de nivel", `Nivel ${rep.after.level} · ${t1}`);
+            return;
+          }
+          audio.play("rankup");
+          ui.openModal("levelup", { level: rep.after.level, badge: b1, newBadge: b1.tier > b0.tier, title: t1, newTitle: t1 !== t0 });
+        }, 1300);
+      }
+    }
     let delay = 1e3;
     const later = (fn) => {
       setTimeout(fn, delay);

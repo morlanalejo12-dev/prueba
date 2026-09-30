@@ -3,9 +3,9 @@
 import { SKINS, TRAILS, isOwned } from './skins.js';
 import { MUSIC } from './music.js';
 import { NAME_STYLES } from './names.js';
-import { rankOf, prDelta, applyPR, TIER_PERKS } from './ranks.js';
+import { rankOf, prDelta, applyPR, TIER_PERKS, LEGEND_PR } from './ranks.js';
 import { progressMissions, ensureMissions, MISSION_XP, missionReward } from './meta.js';
-import { passInfo, claimablePass } from './pass.js';
+import { passInfo, claimablePass, PASS_STEP, PASS_LEVELS } from './pass.js';
 
 export const SAVE_KEY = 'cc-save-v3';
 const LEGACY_KEY = 'cc-stats';
@@ -36,13 +36,40 @@ export const newFriendId = () => Array.from({ length: 6 }, () => FRIEND_CHARS[Ma
 
 export { SKINS, TRAILS, MUSIC, NAME_STYLES };
 
+// Títulos de cuenta: del básico al más épico, a medida que subís hasta el nivel 120
+export const MAX_LEVEL = 120;
 export const TITLES = [
-  { lvl: 1, name: 'Chispa' },
-  { lvl: 3, name: 'Destello' },
-  { lvl: 5, name: 'Corriente' },
-  { lvl: 8, name: 'Contracorriente' },
-  { lvl: 12, name: 'Outlier' },
+  { lvl: 1, name: 'Chispa' }, { lvl: 3, name: 'Destello' }, { lvl: 5, name: 'Gota' }, { lvl: 8, name: 'Arroyo' },
+  { lvl: 12, name: 'Corriente' }, { lvl: 16, name: 'Remolino' }, { lvl: 20, name: 'Contracorriente' }, { lvl: 25, name: 'Oleaje' },
+  { lvl: 30, name: 'Rompeolas' }, { lvl: 35, name: 'Marejada' }, { lvl: 40, name: 'Outlier' }, { lvl: 45, name: 'Vórtice' },
+  { lvl: 50, name: 'Torrente' }, { lvl: 55, name: 'Tormenta viva' }, { lvl: 60, name: 'Maremoto' }, { lvl: 65, name: 'Ciclón' },
+  { lvl: 70, name: 'Leviatán' }, { lvl: 75, name: 'Titán de las mareas' }, { lvl: 80, name: 'Señor del abismo' },
+  { lvl: 85, name: 'Voz del océano' }, { lvl: 90, name: 'Tsunami' }, { lvl: 95, name: 'Emperador del torrente' },
+  { lvl: 100, name: 'Leyenda eterna' }, { lvl: 105, name: 'Mito de la corriente' }, { lvl: 110, name: 'Deidad del caos' },
+  { lvl: 115, name: 'Origen de las mareas' }, { lvl: 120, name: 'Soberano Absoluto de la Corriente' },
 ];
+
+// Distintivo de cuenta: cambia cada 10 niveles (se dibuja alrededor del nivel)
+export const LEVEL_BADGES = [
+  { lvl: 1, name: 'Novato', col: '#a69ecb' },
+  { lvl: 10, name: 'Gota', col: '#8fd8ff' },
+  { lvl: 20, name: 'Onda', col: '#5ef2c2' },
+  { lvl: 30, name: 'Remolino', col: '#2fd68a' },
+  { lvl: 40, name: 'Espiral', col: '#ffb547' },
+  { lvl: 50, name: 'Marea', col: '#ff8f70' },
+  { lvl: 60, name: 'Tormenta', col: '#ff7ad9' },
+  { lvl: 70, name: 'Vórtice', col: '#b48cff' },
+  { lvl: 80, name: 'Maremoto', col: '#ff5470' },
+  { lvl: 90, name: 'Abismo', col: '#3d9bff' },
+  { lvl: 100, name: 'Corona del Mar', col: '#ffd166' },
+  { lvl: 110, name: 'Eclipse Oceánico', col: '#ff5ed1' },
+  { lvl: 120, name: 'Soberano', col: '#fff1c2' },
+];
+export function levelBadgeOf(level) {
+  let t = 0;
+  for (let i = 0; i < LEVEL_BADGES.length; i++) if (level >= LEVEL_BADGES[i].lvl) t = i;
+  return { tier: t, ...LEVEL_BADGES[t] };
+}
 
 // reward: destellos que se reclaman a mano, y a veces un cosmético (item)
 export const ACHIEVEMENTS = [
@@ -81,11 +108,12 @@ export function claimAchievement(save, id) {
 }
 
 // ---------- Niveles ----------
-export const levelNeed = n => 120 + (n - 1) * 60; // XP para pasar del nivel n al siguiente
+export const levelNeed = n => 100 + (n - 1) * 25; // XP para pasar del nivel n al siguiente
 
 export function levelInfo(xp) {
   let level = 1, need = levelNeed(1);
-  while (xp >= need) { xp -= need; level++; need = levelNeed(level); }
+  while (xp >= need && level < MAX_LEVEL) { xp -= need; level++; need = levelNeed(level); }
+  if (level >= MAX_LEVEL) return { level: MAX_LEVEL, into: need, need, max: true };
   return { level, into: xp, need };
 }
 
@@ -180,10 +208,30 @@ export function writeSave(store, save) {
   store.set(SAVE_KEY, JSON.stringify(save));
 }
 
-export function resetSave(store) {
-  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: '', next: 0 } };
+// keep: ajustes que se conservan (sonido, control, servidor); todo lo demás vuelve a cero
+export function resetSave(store, keep = {}) {
+  const fresh = { ...DEFAULTS, ...keep, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: '', next: 0 } };
   writeSave(store, fresh);
   return fresh;
+}
+
+export const levelCoinsAt = l => 20 + l * 2;
+const xpToLevel = n => { let x = 0; for (let l = 1; l < n; l++) x += levelNeed(l); return x; };
+
+// Dueños: absolutamente todo al máximo (cuenta 120, pase 100 reclamado, Leyenda, logros y cosméticos)
+export function unlockEverything(save) {
+  save.ownerAll = true;
+  save.premiumPass = true;
+  save.xp = Math.max(save.xp, xpToLevel(MAX_LEVEL));
+  save.passXp = Math.max(save.passXp || 0, PASS_STEP * (PASS_LEVELS - 1));
+  for (let l = 1; l <= PASS_LEVELS; l++) save.passClaimed[l] = true;
+  for (const k of [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES]) save.owned[k.id] = true;
+  const today = dayKey(new Date());
+  for (const a of ACHIEVEMENTS) { if (!save.ach[a.id]) save.ach[a.id] = today; save.achClaimed[a.id] = true; }
+  save.pr = Math.max(save.pr, LEGEND_PR + 500);
+  save.peakPR = Math.max(save.peakPR, save.pr);
+  save.coins = Math.max(save.coins, 0) + 50000;
+  return save;
 }
 
 // Suma XP al nivel del jugador y al pase de temporada (los premios del pase se reclaman a mano)
@@ -192,7 +240,11 @@ function addXP(save, xp) {
   save.xp += xp;
   save.passXp += xp;
   const after = levelInfo(save.xp), passAfter = passInfo(save.passXp).level;
-  return { before, after, passBefore, passAfter };
+  // Cada nivel de cuenta da destellos (y a veces un cosmético o un distintivo nuevo)
+  let levelCoins = 0;
+  for (let l = before.level + 1; l <= after.level; l++) levelCoins += levelCoinsAt(l);
+  save.coins += levelCoins;
+  return { before, after, passBefore, passAfter, levelCoins };
 }
 
 export function claimMission(save, index) {
@@ -261,7 +313,7 @@ export function applyRound(save, sum, now = new Date()) {
   const promoted = rankAfter.tier > rankBefore.tier || (rankAfter.tier === rankBefore.tier && rankAfter.div < rankBefore.div);
 
   return {
-    gain, coins, predCoins, before: lv.before, after: lv.after, passBefore: lv.passBefore, passAfter: lv.passAfter,
+    gain, coins, predCoins, levelCoins: lv.levelCoins, before: lv.before, after: lv.after, passBefore: lv.passBefore, passAfter: lv.passAfter,
     passClaimable: claimablePass(save).length, achClaimable: claimableAch(save).length, newAch, newSkins, newTrails, newMusic, newNames, missionsDone,
     recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
     pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
