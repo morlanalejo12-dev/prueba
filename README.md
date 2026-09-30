@@ -13,15 +13,24 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 
 ## Qué incluye
 
-- Túnel con muros para esquivar. Pasar muy cerca de un muro suma puntos y encadena combos.
-- 6 bifurcaciones por ronda, de 2 o 3 caminos. El más poblado colapsa.
-- Variantes de bifurcación: **camino dorado** (x2 puntos, pero todos lo ven), **camino angosto** (difícil de pasar) y **niebla** (no se ve a la multitud).
-- Antes de cada bifurcación se ve la intención de la multitud en porcentajes. Dentro de los carriles se ve cuánta gente se comprometió con cada uno.
-- Cámara lenta, sonido y vibración al resolverse cada bifurcación.
-- Resultado final con puesto, percentil, **Outlier del minuto** y cuenta regresiva a la próxima ronda.
-- Historial local: rondas jugadas, mejor percentil y veces que fuiste Outlier.
+- Túnel con cinco tipos de muro: **fijo**, **móvil**, **doble**, **puertas** que se alternan y **pinza** (dos muros seguidos).
+- 6 bifurcaciones por ronda, de 2, 3 o 4 caminos. El más poblado colapsa.
+- Variantes: **camino dorado** (x2), **angosto**, **niebla** e **inversión** (esa vez cae el camino con menos gente).
+- Chispas coleccionables, pasadas justas con combos y cámara lenta en cada colapso.
+- Música generativa que se intensifica con la tensión, efectos de sonido y vibración.
+- Niveles, títulos, 6 estelas, 14 logros, racha diaria y tabla de récords.
+- Tarjeta de resultado para compartir.
 
 ## Novedades
+
+### v0.3
+- **Menú rediseñado**: centrado, sin scroll, con perfil, secciones y estadísticas. Ventanas para Reglas, Estelas, Logros, Récords, Perfil y Ajustes.
+- **Muros nuevos**: doble, puertas alternas y pinza. Bifurcaciones de **4 caminos**.
+- **Inversión**: en algunas rondas, una bifurcación hace caer el camino con MENOS gente.
+- **Música generativa** que acompaña la tensión de la ronda (se puede apagar aparte del sonido).
+- **14 logros** con avisos, **récords** (tus 5 mejores rondas) y **compartir** resultado con imagen y texto.
+- HUD nuevo con el progreso de las 6 bifurcaciones y el combo.
+- **Código profesional**: módulos separados (simulación, render, audio, interfaz), simulación determinista y tests automáticos.
 
 ### v0.2
 - **Chispas doradas** para juntar. Si agarrás varias seguidas, valen más (hasta x5).
@@ -50,9 +59,28 @@ La multitud son **1.200 bots** que corren en el navegador; todavía no hay servi
 
 En pruebas automáticas, cada bifurcación elimina cerca de la mitad, las rondas duran unos 43 segundos y quedan entre 2 y 20 sobrevivientes. Un jugador que solo sigue a la minoría pierde más de la mitad de las veces en la primera bifurcación: hay que leer cómo se mueve la multitud, no solo mirar el porcentaje.
 
-## Cómo ajustar el balance
+## Para desarrolladores
 
-Todos los parámetros están en el objeto `CFG`, al principio del `<script>` de `index.html`: cantidad de bots, velocidad, largo de las zonas de decisión, mezcla de estrategias y probabilidad de muerte en el camino angosto.
+El juego se escribe en módulos dentro de `src/` y se arma en un solo `index.html` autocontenido:
+
+```bash
+npm install      # una sola vez
+npm test         # tests de simulación y progreso
+npm run build    # genera index.html (y dist/artifact.html)
+```
+
+| Carpeta | Qué hay |
+| --- | --- |
+| `src/config.js` | Todos los parámetros de balance (bots, velocidad, estrategias, probabilidades) |
+| `src/sim/` | Simulación pura y determinista: nivel, muros, multitud y ronda. No usa el DOM. |
+| `src/game/progress.js` | Niveles, logros, récords, racha y guardado |
+| `src/render/` | Dibujo en canvas, partículas y tarjeta para compartir |
+| `src/audio/` | Efectos y música sintetizados con Web Audio |
+| `src/ui/` | Menú, HUD, resultados y ventanas |
+| `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |
+| `test/` | Tests con `node --test` |
+
+La simulación publica eventos (`orb`, `nearMiss`, `forkResolved`, `playerDied`…) y la presentación reacciona a ellos. Así la lógica se puede testear sin navegador y más adelante correr en un servidor.
 
 ## Qué medir con testers
 
