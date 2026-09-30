@@ -2,9 +2,10 @@
 # Requiere activar Pages en Settings → Pages → Source: "GitHub Actions".
 name: Publicar el juego
 
+# Corre al subir cambios a main, o a mano desde la pestaña Actions ("Run workflow").
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
