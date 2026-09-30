@@ -71,8 +71,17 @@ test('balance: cada bifurcación elimina a una parte razonable y la ronda dura l
   }
   const avgKill = kills / forks, avgDur = dur / rounds, avgSurv = survivors / rounds;
   assert.ok(avgKill > 0.35 && avgKill < 0.7, `mortalidad por bifurcación ${avgKill.toFixed(2)}`);
-  assert.ok(avgDur > 33 && avgDur < 55, `duración ${avgDur.toFixed(1)} s`);
-  assert.ok(avgSurv >= 1 && avgSurv < 60, `sobrevivientes ${avgSurv.toFixed(1)}`);
+  assert.ok(avgDur > 33 && avgDur < 80, `duración ${avgDur.toFixed(1)} s`);
+  assert.ok(avgSurv <= 1, `sobrevivientes ${avgSurv.toFixed(1)}`);
+});
+
+test('muerte súbita: la ronda sigue hasta que queda uno solo', () => {
+  for (let s = 1; s <= 8; s++) {
+    const R = new Round({ seed: s * 31337, demo: true });
+    R.runToEnd();
+    assert.ok(R.aliveTotal <= 1, `quedaron ${R.aliveTotal}`);
+    assert.ok(R.outlier && R.outlier.name);
+  }
 });
 
 test('un jugador que no se mueve choca con algún muro', () => {

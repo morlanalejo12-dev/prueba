@@ -2,10 +2,10 @@
 import { CFG } from '../config.js';
 import { fmt, pctText } from '../util/math.js';
 import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx } from '../game/progress.js';
-import { SKINS, RARITY, isOwned, unlockText, skinById } from '../game/skins.js';
-import { TIERS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
+import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards } from '../game/skins.js';
+import { TIERS, TIER_PERKS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
 import { SEASON, seasonTrack, shopOffers, dailyState, DAILY_REWARDS, missionText, missionReward, MISSION_XP, msToMidnight } from '../game/meta.js';
-import { ICON, emblem, skinPreview } from './icons.js';
+import { ICON, emblem, skinPreview, trailPreview } from './icons.js';
 
 const RING = 106.8;
 
@@ -110,11 +110,11 @@ const BUILDERS = {
     body.append(head);
     const ctx = ownedCtx(save);
     for (const offer of shopOffers(today)) {
-      const sk = skinById(offer.id);
+      const sk = offer.kind === 'trail' ? trailById(offer.id) : skinById(offer.id);
       const card = el('div', 'offer');
       card.style.setProperty('--rc', RARITY[sk.rarity].col);
       const info = el('div');
-      const rar = el('span', 'rarity', RARITY[sk.rarity].name);
+      const rar = el('span', 'rarity', `${offer.kind === 'trail' ? 'Estela' : 'Skin'} · ${RARITY[sk.rarity].name}`);
       rar.style.color = RARITY[sk.rarity].col;
       const price = el('span', 'price');
       price.innerHTML = ICON.coin;
@@ -127,33 +127,46 @@ const BUILDERS = {
       if (owned) { btn.textContent = 'Tuya'; btn.disabled = true; }
       else if (save.coins < offer.price) { btn.textContent = `Faltan ${fmt(offer.price - save.coins)}`; btn.disabled = true; btn.className = 'btn btn-sm btn-ghost'; }
       else { btn.textContent = 'Comprar'; btn.addEventListener('click', () => env.h.onBuy(offer)); }
-      card.append(skinPreview(sk), info, btn);
+      card.append(offer.kind === 'trail' ? trailPreview(sk, skinById(save.skin).col || undefined) : skinPreview(sk), info, btn);
       body.append(card);
     }
     body.append(el('p', 'note', 'Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria.'));
   },
 
-  collection(body, env) {
+  collection(body, env, data) {
     const { save } = env;
     const ctx = ownedCtx(save);
-    const got = SKINS.filter(k => isOwned(k, ctx)).length;
-    body.append(el('p', '', `Tenés ${got} de ${SKINS.length} skins. Tocá una para usarla.`));
+    const tab = (data && data.tab) || 'skins';
+    const tabs = el('div', 'tabs two');
+    tabs.setAttribute('role', 'tablist');
+    for (const [k, n] of [['skins', 'Skins'], ['trails', 'Estelas']]) {
+      const list = k === 'skins' ? SKINS : TRAILS;
+      const b = el('button', '', `${n} ${list.filter(x => isOwned(x, ctx)).length}/${list.length}`);
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(k === tab));
+      b.addEventListener('click', () => env.h.onCollectionTab(k));
+      tabs.append(b);
+    }
+    body.append(tabs, el('p', '', tab === 'skins' ? 'La skin es tu núcleo. Tocá una para usarla.' : 'La estela es el rastro que dejás. Se combina con cualquier skin.'));
     const grid = el('div', 'col-grid');
     grid.setAttribute('role', 'radiogroup');
-    grid.setAttribute('aria-label', 'Tu skin');
-    const order = ['comun', 'rara', 'epica', 'legendaria'];
-    const list = [...SKINS].sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity));
-    for (const sk of list) {
-      const own = isOwned(sk, ctx);
+    const isSkin = tab === 'skins';
+    const list = [...(isSkin ? SKINS : TRAILS)].sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
+    const current = isSkin ? save.skin : save.trail;
+    const skinCol = skinById(save.skin).col || '#ff7ad9';
+    for (const it of list) {
+      const own = isOwned(it, ctx);
       const card = el('button', 'col-card' + (own ? '' : ' locked'));
       card.type = 'button';
       card.setAttribute('role', 'radio');
-      card.setAttribute('aria-checked', String(save.skin === sk.id));
-      card.style.setProperty('--rc', RARITY[sk.rarity].col);
-      const rar = el('span', 'rarity', RARITY[sk.rarity].name);
-      rar.style.color = RARITY[sk.rarity].col;
-      card.append(skinPreview(sk), el('b', '', sk.name), rar, el('small', '', own ? (save.skin === sk.id ? 'En uso' : 'Usar') : unlockText(sk)));
-      if (own) card.addEventListener('click', () => env.h.onSelectSkin(sk.id));
+      card.setAttribute('aria-checked', String(current === it.id));
+      card.style.setProperty('--rc', RARITY[it.rarity].col);
+      const rar = el('span', 'rarity', RARITY[it.rarity].name);
+      rar.style.color = RARITY[it.rarity].col;
+      card.append(isSkin ? skinPreview(it) : trailPreview(it, skinCol), el('b', '', it.name), rar,
+        el('small', '', own ? (current === it.id ? 'En uso' : 'Usar') : unlockText(it)));
+      if (own) card.addEventListener('click', () => (isSkin ? env.h.onSelectSkin(it.id) : env.h.onSelectTrail(it.id)));
       else card.setAttribute('aria-disabled', 'true');
       grid.append(card);
     }
@@ -176,6 +189,7 @@ const BUILDERS = {
       const item = el('li', got ? 'got' : r.lvl === li.level + 1 ? 'next' : '');
       const rw = el('span', 'rw');
       if (r.type === 'skin') { const sk = skinById(r.skin); rw.append(skinPreview(sk), `Skin ${sk.name}`); }
+      else if (r.type === 'trail') { const tr = trailById(r.trail); rw.append(trailPreview(tr, skinById(save.skin).col || undefined), `Estela ${tr.name}`); }
       else rw.append(coinAmount(r.coins), ' destellos');
       item.append(el('span', 'lv', `Nv ${r.lvl}`), rw, el('span', 'st', got ? 'Obtenida' : r.lvl === li.level + 1 ? 'Siguiente' : ''));
       ul.append(item);
@@ -196,22 +210,47 @@ const BUILDERS = {
     hero.append(el('strong', '', rk.label), el('small', '', rk.need ? `${fmt(rk.into)} / ${fmt(rk.need)} PR · total ${fmt(save.pr)}` : `${fmt(save.pr)} PR`), bar,
       el('small', '', `Máximo alcanzado: ${rankOf(save.peakPR).label}`));
     body.append(hero);
-    const ul = el('ul', 'tiers');
+    body.append(el('h3', '', 'Recompensas de liga'));
+    const peak = rankOf(save.peakPR).tier;
+    const ul = el('ul', 'tier-rows');
     TIERS.forEach((t, i) => {
-      const li = el('li', i === rk.tier ? 'on' : '');
-      li.innerHTML = emblem(i, 32);
+      const li = el('li', (i === rk.tier ? 'on ' : '') + (i <= peak ? 'got' : ''));
+      li.innerHTML = emblem(i, 36);
       const d = el('div');
       const from = i < 5 ? i * DIV_PR * 3 : i === 5 ? MASTER_PR : LEGEND_PR;
-      d.append(el('b', '', t.name), el('small', '', `desde ${fmt(from)} PR`));
-      li.append(d);
+      d.append(el('b', '', `${t.name} · ${fmt(from)} PR`), el('small', '', TIER_PERKS[i].perk));
+      const items = el('span', 'tier-items');
+      for (const r of rankRewards(i)) {
+        items.append(r.kind === 'skin' ? skinPreview(r.item) : trailPreview(r.item));
+        items.title = rankRewards(i).map(x => `${x.kind === 'skin' ? 'Skin' : 'Estela'} ${x.item.name}`).join(' · ');
+      }
+      const names = rankRewards(i).map(x => x.item.name).join(' · ');
+      if (names) d.append(el('small', 'tier-names', names));
+      li.append(d, items);
       ul.append(li);
     });
-    body.append(ul, el('p', '', 'Superar al 50% de los jugadores te deja en cero; más arriba sumás, más abajo restás. Sobrevivir bifurcaciones, llegar al final y ganarle a tu rival dan PR extra.'));
+    body.append(ul, el('p', '', 'Las recompensas de liga se quedan para siempre, aunque después bajes. Superar al 50% de los jugadores te deja en cero PR; más arriba sumás, más abajo restás.'));
   },
 
-  daily(body, env) {
+  daily(body, env, data) {
     const { save, today, yesterday } = env;
     const st = dailyState(save, today, yesterday);
+    if (data && data.claimed) {
+      // Recién reclamada: mostrar el premio en grande
+      const r = data.claimed;
+      const hero = el('div', 'rank-hero claim-hero');
+      hero.append(el('small', '', `Día ${r.index + 1} de 7`));
+      if (r.skin) { const sk = skinById(r.skin); const pv = skinPreview(sk); pv.classList.add('big'); hero.append(pv, el('strong', '', `Skin ${sk.name}`)); }
+      else { const c = coinAmount(r.coins, '+'); c.classList.add('big-coins'); hero.append(c); }
+      const next = DAILY_REWARDS[(r.index + 1) % 7];
+      hero.append(el('p', '', `Mañana: ${typeof next === 'number' ? `${next} destellos` : 'skin Aurora'}. Si te salteás un día, vuelve a empezar.`));
+      body.append(hero);
+      const ok = el('button', 'btn btn-primary', '¡Listo!');
+      ok.type = 'button';
+      ok.setAttribute('data-close', '');
+      body.append(ok);
+      return;
+    }
     body.append(el('p', '', st.available ? 'Volvé cada día para que la recompensa crezca. Si te salteás un día, vuelve a empezar.' : 'Ya reclamaste la de hoy. Volvé mañana.'));
     const grid = el('div', 'daily-grid');
     DAILY_REWARDS.forEach((r, i) => {
@@ -223,10 +262,10 @@ const BUILDERS = {
       grid.append(d);
     });
     body.append(grid);
-    const btn = el('button', 'btn btn-primary', st.available ? 'Reclamar' : 'Volvé mañana');
+    const btn = el('button', 'btn ' + (st.available ? 'btn-primary' : 'btn-ghost'), st.available ? 'Reclamar' : 'Cerrar · volvé mañana');
     btn.type = 'button';
-    btn.disabled = !st.available;
     if (st.available) btn.addEventListener('click', () => env.h.onClaimDaily());
+    else btn.setAttribute('data-close', '');
     body.append(btn);
   },
 
@@ -345,7 +384,7 @@ const PROFILE_TABS = {
     const d = el('div');
     const bar = el('div', 'xpbar');
     const f = el('span'); f.style.width = (li.into / li.need * 100) + '%'; bar.append(f);
-    d.append(el('strong', '', titleOf(li.level)), el('small', '', `Nivel ${li.level} · ${rk.label} · ${skinById(save.skin).name}`), bar);
+    d.append(el('strong', '', titleOf(li.level)), el('small', '', `Nivel ${li.level} · ${rk.label} · ${skinById(save.skin).name} + ${trailById(save.trail).name}`), bar);
     head.append(d);
     const st = streakNow(save);
     const cells = [

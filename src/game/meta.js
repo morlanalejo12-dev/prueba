@@ -1,7 +1,7 @@
 // Sistemas de retorno: misiones diarias, recompensa por día jugado, tienda rotativa y pase de temporada.
 // Todo es determinista por fecha, así dos jugadores ven las mismas misiones y ofertas el mismo día.
 import { fmt } from '../util/math.js';
-import { SKINS, SHOP_POOL } from './skins.js';
+import { SKINS, TRAILS, SHOP_SKINS, SHOP_TRAILS } from './skins.js';
 
 export const SEASON = { number: 1, name: 'Primera corriente', maxLevel: 20 };
 
@@ -84,20 +84,28 @@ export function claimDaily(save, today, yesterday) {
   return { index: st.index, coins, skin };
 }
 
-// ---------- Tienda rotativa ----------
+// ---------- Tienda rotativa: 2 skins y 2 estelas por día, una en oferta ----------
+function pick(pool, h, n) {
+  // Recorre el catálogo con un paso lineal; el límite evita bucles si el catálogo es chico
+  const out = [];
+  for (let k = 0; out.length < n && k < pool.length * 4; k++) {
+    const it = pool[(h + k) % pool.length];
+    if (!out.includes(it)) out.push(it);
+  }
+  return out;
+}
+
 export function shopOffers(day) {
   const h = hashStr('shop' + day);
-  const ids = [];
-  for (let k = 0; ids.length < 3; k++) {
-    const sk = SHOP_POOL[(h + k * 5) % SHOP_POOL.length];
-    if (!ids.includes(sk.id)) ids.push(sk.id);
-  }
-  // Una de las tres está en oferta
-  const saleIdx = h % 3;
-  return ids.map((id, i) => {
-    const sk = SKINS.find(k => k.id === id);
-    const price = i === saleIdx ? Math.round(sk.src.price * 0.75 / 10) * 10 : sk.src.price;
-    return { id, price, sale: i === saleIdx, full: sk.src.price };
+  const items = [
+    ...pick(SHOP_SKINS, h % 997, 2).map(item => ({ kind: 'skin', item })),
+    ...pick(SHOP_TRAILS, (h >>> 9) % 997, 2).map(item => ({ kind: 'trail', item })),
+  ];
+  const saleIdx = h % items.length;
+  return items.map(({ kind, item }, i) => {
+    const full = item.src.price;
+    const price = i === saleIdx ? Math.round(full * 0.75 / 10) * 10 : full;
+    return { id: item.id, kind, price, sale: i === saleIdx, full };
   });
 }
 
@@ -113,7 +121,10 @@ export function seasonTrack() {
   const out = [];
   for (let lvl = 2; lvl <= SEASON.maxLevel; lvl++) {
     const sk = SKINS.find(k => k.src.type === 'level' && k.src.lvl === lvl);
-    out.push(sk ? { lvl, type: 'skin', skin: sk.id } : { lvl, type: 'coins', coins: 40 + lvl * 10 });
+    const tr = TRAILS.find(k => k.src.type === 'level' && k.src.lvl === lvl);
+    if (sk) out.push({ lvl, type: 'skin', skin: sk.id });
+    else if (tr) out.push({ lvl, type: 'trail', trail: tr.id });
+    else out.push({ lvl, type: 'coins', coins: 40 + lvl * 10 });
   }
   return out;
 }

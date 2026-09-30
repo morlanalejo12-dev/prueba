@@ -6,14 +6,14 @@ import { hash01 } from './util/rng.js';
 import { Round } from './sim/round.js';
 import { AudioEngine } from './audio/audio.js';
 import { Renderer, skinColor } from './render/renderer.js';
-import { Fx } from './render/fx.js';
+import { Fx, SHAPE } from './render/fx.js';
 import { renderShareCard, shareText } from './render/share.js';
 import {
   loadSave, writeSave, resetSave, applyRound, claimMission, localStore, levelInfo, titleOf,
   dayKey, yesterdayOf, ownedCtx,
 } from './game/progress.js';
-import { skinById, isOwned } from './game/skins.js';
-import { rankOf, botRankLabel } from './game/ranks.js';
+import { skinById, trailById, isOwned } from './game/skins.js';
+import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
 
@@ -35,6 +35,7 @@ let countT = 0, endAt = null, nextT = 0, tickT = 0, emitT = 0;
 let lastSum = null;
 let tutorial = null;
 let dailyOffered = false;
+let riserFork = -1;
 const trail = [];
 const TRAIL_LEN = 44;
 const LANE = ['A', 'B', 'C', 'D'];
@@ -51,6 +52,11 @@ function buzz(pattern) {
 function playerSkin() {
   const sk = skinById(save.skin);
   return isOwned(sk, ownedCtx(save)) ? sk : skinById('ambar');
+}
+
+function playerTrail() {
+  const tr = trailById(save.trail);
+  return isOwned(tr, ownedCtx(save)) ? tr : trailById('basica');
 }
 
 function refreshMenu() {
@@ -72,13 +78,16 @@ const ui = createUI({
   },
   onModalClosed: () => {},
   onSelectSkin: id => { save.skin = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); },
+  onSelectTrail: id => { save.trail = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); },
+  onCollectionTab: tab => { audio.play('ui'); ui.openModal('collection', { tab }); },
   onBuy: offer => {
     if (!buySkin(save, offer)) return;
-    save.skin = offer.id;
+    const isTrail = offer.kind === 'trail';
+    if (isTrail) save.trail = offer.id; else save.skin = offer.id;
     persist();
     audio.play('buy');
     buzz([20, 30, 20]);
-    ui.toast('Skin nueva', `${skinById(offer.id).name} · equipada`);
+    ui.toast(isTrail ? 'Estela nueva' : 'Skin nueva', `${(isTrail ? trailById : skinById)(offer.id).name} · equipada`);
     refreshMenu();
     ui.refreshModal();
   },
@@ -100,9 +109,8 @@ const ui = createUI({
     persist();
     audio.play('claim');
     buzz([20, 40, 20]);
-    ui.toast(`Día ${r.index + 1} reclamado`, r.skin ? `Skin ${skinById(r.skin).name}` : `+${fmt(r.coins)} destellos`);
     refreshMenu();
-    ui.refreshModal();
+    ui.openModal('daily', { claimed: r });
   },
   onToggle: key => {
     save[key] = !save[key];
@@ -126,7 +134,7 @@ const ui = createUI({
 function resetView() {
   fx.reset();
   trail.length = 0;
-  acc = 0; slow = 1; slowT = 0; tickT = 0;
+  acc = 0; slow = 1; slowT = 0; tickT = 0; riserFork = -1;
 }
 
 function toMenu() {
@@ -231,11 +239,21 @@ function handle(e) {
     case 'forkResolved': onForkResolved(e); break;
     case 'playerDied': onPlayerDied(e); break;
     case 'milestone':
-      ui.banner(`Top ${e.n}`, `Quedan ${fmt(R.aliveTotal)} · +${e.pts} puntos`, 'gold', 1300);
+      ui.banner(e.n === 2 ? 'Duelo final' : `Top ${e.n}`, `Quedan ${fmt(R.aliveTotal)} · +${e.pts} puntos`, 'gold', 1300);
+      fx.ring(e.x, e.y, C.gold, 260, 0.8, 5);
       ui.feed('gold', 'Entraste al ', `top ${e.n}`);
       fx.pop(e.x, e.y, `+${e.pts}`, C.gold);
       audio.play('milestone');
       buzz([15, 30, 15]);
+      break;
+    case 'overtime':
+      if (e.n === 1) {
+        ui.banner('Muerte súbita', `Quedan ${fmt(e.alive)}: sigue hasta que quede uno solo`, 'bad', 1800);
+        ui.flash(C.danger);
+        audio.play('overtime');
+        buzz([40, 40, 40]);
+      }
+      ui.feed('hot', 'Muerte súbita ', `#${e.n}`, `: quedan ${fmt(e.alive)}`);
       break;
     case 'rivalDown':
       ui.feed('good', 'Tu rival ', e.name, ' cayó');
@@ -267,6 +285,11 @@ function onForkResolved(e) {
     audio.play('collapse');
     const lanes = e.collapsed.map(k => LANE[k]).join(' y ');
     ui.feed('hot', `Colapsó el camino ${lanes}: `, `${fmt(e.fallen)} cayeron`);
+  } else if (e.lottery) {
+    slow = 0.22; slowT = 0.55;
+    fx.addTrauma(0.45);
+    audio.play('collapse');
+    ui.feed('hot', 'Nadie se separó: ', `la corriente se llevó a ${fmt(e.fallen)}`);
   } else {
     ui.feed('', 'Todos eligieron el mismo camino: ', 'resistió');
   }
@@ -274,10 +297,16 @@ function onForkResolved(e) {
     const sub = e.collapsed.length
       ? `Cayeron ${fmt(e.fallen)}${e.gold ? ' · camino dorado: x2' : ''}`
       : 'Todos eligieron lo mismo: el camino resistió';
-    ui.banner('Sobreviviste', sub, 'ok', 1500);
-    if (e.collapsed.length) ui.flash(e.gold ? C.gold : C.spark);
+    ui.banner('Sobreviviste', e.lottery ? 'La corriente se llevó a la mitad y vos seguís' : sub, 'ok', 1500);
+    if (e.collapsed.length || e.lottery) ui.flash(e.gold ? C.gold : C.spark);
     audio.play('survive');
+    audio.play('drop');
     buzz([20, 40, 20]);
+    // Festejo: onda expansiva, confeti y el fondo cambia de color
+    const col = skinColor(playerSkin(), R.t);
+    fx.ring(R.px, R.pY, col, 300, 0.8, 6);
+    fx.ring(R.px, R.pY, C.gold, 200, 0.6, 3);
+    fx.confetti(R.px, R.pY, 36, [col, C.gold, C.mint, '#ff7ad9', '#8fd8ff'], 360);
   }
 }
 
@@ -288,6 +317,7 @@ function onPlayerDied(e) {
   audio.play('die');
   buzz(160);
   const sub = e.why === 'wall' ? 'Te llevaste puesto un muro'
+    : e.why === 'lottery' ? 'Nadie se separó y la corriente te llevó'
     : e.why === 'inverted' ? `Era una inversión: caía el más vacío (${fmt(e.sameEvent + 1)} cayeron con vos)`
     : `Elegiste el camino de la mayoría (${fmt(e.sameEvent + 1)} cayeron con vos)`;
   ui.banner(e.why === 'wall' ? 'Chocaste' : 'Caíste', sub, 'bad', 1800);
@@ -299,19 +329,33 @@ function tensionTick(dt) {
   const f = R.fork;
   if (!f || !R.pAlive || R.pY < f.entryY || R.pY >= f.endY) return;
   const p = (R.pY - f.entryY) / (f.endY - f.entryY);
+  if (riserFork !== f.i) {
+    riserFork = f.i;
+    audio.play('riser', (f.endY - f.entryY) / R.speed);
+  }
   tickT -= dt;
   if (tickT <= 0) { tickT = 0.28 - p * 0.18; audio.play('tick', p); }
 }
 
-// Partículas de las estelas especiales (chispas y fuego)
-function emitTrail(dt, sk) {
-  if (!R.pAlive || R.demo || (sk.trail !== 'spark' && sk.trail !== 'fire')) return;
+// Partículas de las estelas especiales
+const EMIT_RATE = { spark: 0.03, fire: 0.012, bubbles: 0.07, stars: 0.035, embers: 0.02 };
+function emitTrail(dt, sk, tr) {
+  const rate = EMIT_RATE[tr.type];
+  if (!rate || !R.pAlive || R.demo) return;
   emitT -= dt;
   if (emitT > 0) return;
-  emitT = sk.trail === 'fire' ? 0.012 : 0.03;
-  const col = Math.random() < 0.5 ? skinColor(sk, R.t) : (sk.col2 || skinColor(sk, R.t));
-  if (sk.trail === 'fire') fx.spawn(R.px + (Math.random() - 0.5) * 8, R.pY - 4, (Math.random() - 0.5) * 50, R.speed * 0.55, 0.3, col, 4);
-  else fx.spawn(R.px + (Math.random() - 0.5) * 14, R.pY, (Math.random() - 0.5) * 90, R.speed * 0.4 - 60, 0.45, col, 2.5);
+  emitT = rate;
+  const c1 = tr.col || skinColor(sk, R.t), c2 = tr.col2 || sk.col2 || c1;
+  const col = Math.random() < 0.5 ? c1 : c2;
+  const rx = (Math.random() - 0.5), x = R.px, y = R.pY;
+  switch (tr.type) {
+    case 'fire': fx.spawn(x + rx * 8, y - 4, rx * 50, R.speed * 0.55, 0.3, col, 4); break;
+    case 'spark': fx.spawn(x + rx * 14, y, rx * 90, R.speed * 0.4 - 60, 0.45, col, 2.5); break;
+    case 'bubbles': fx.spawn(x + rx * 12, y, rx * 30, R.speed * 0.75, 0.9, col, 5 + Math.random() * 4, SHAPE.BUBBLE, 0); break;
+    case 'stars': fx.spawn(x + rx * 20, y + rx * 10, rx * 40, R.speed * 0.6, 0.7, col, 6, SHAPE.STAR, 0); break;
+    case 'embers': fx.spawn(x + rx * 10, y, rx * 70, R.speed * 0.5 - 40, 0.6, col, 3, SHAPE.CIRCLE, 120); break;
+    default: break;
+  }
 }
 
 function intensity() {
@@ -330,7 +374,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const sk = playerSkin();
+  const sk = playerSkin(), tr = playerTrail();
 
   if (state === 'countdown') {
     const before = Math.ceil(countT);
@@ -350,7 +394,7 @@ function frame(now) {
     else slow = Math.min(1, slow + dt * 2.5);
     simulate(dt * slow);
     tensionTick(dt);
-    emitTrail(dt, sk);
+    emitTrail(dt, sk, tr);
     if (tutorial && !tutorial.chips && R.t > 0.6) {
       tutorial.chips = true;
       ui.hint('Juntá las chispas doradas y pasá por el hueco de cada muro.', 3600);
@@ -381,7 +425,15 @@ function frame(now) {
   if (state === 'countdown' || state === 'playing') ui.hud(R);
   fx.update(dt);
   audio.setIntensity(intensity());
-  renderer.draw(R, fx, { skin: sk, trail });
+  // Etapa de la ronda: cambia la paleta del fondo y suma capas a la música
+  const stage = Math.min(R.cf, 6);
+  renderer.setStage(state === 'results' ? 0 : stage);
+  audio.setStage(state === 'playing' ? Math.min(R.cf + (R.cf >= CFG.FORKS ? 1 : 0), 7) : 0);
+  const tier = rankOf(save.pr).tier;
+  renderer.draw(R, fx, {
+    skin: sk, trail: tr, trailPts: trail, dt,
+    aura: TIER_PERKS[tier].aura, tierCol: TIERS[tier].col,
+  });
   requestAnimationFrame(frame);
 }
 
@@ -426,6 +478,7 @@ document.addEventListener('visibilitychange', () => { last = performance.now(); 
 
 // ---------- Arranque ----------
 $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
+audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
 toMenu();
 requestAnimationFrame(frame);
 

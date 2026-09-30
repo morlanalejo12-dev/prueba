@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rankOf, tierFloor, applyPR, prDelta, MASTER_PR, LEGEND_PR } from '../src/game/ranks.js';
 import { dailyMissions, ensureMissions, progressMissions, dailyState, claimDaily, shopOffers, buySkin, seasonTrack, seasonCoins, DAILY_REWARDS } from '../src/game/meta.js';
-import { SKINS, isOwned } from '../src/game/skins.js';
+import { SKINS, TRAILS, isOwned } from '../src/game/skins.js';
 import { claimMission } from '../src/game/progress.js';
 
 const baseSave = () => ({ coins: 0, owned: {}, daily: { last: '', next: 0 }, missions: null, xp: 0 });
@@ -59,9 +59,10 @@ test('recompensa diaria: avanza día a día y se reinicia si se saltea uno', () 
   assert.ok(save.owned.aurora);
 });
 
-test('tienda: tres ofertas distintas por día, una rebajada, y compra', () => {
+test('tienda: dos skins y dos estelas por día, una rebajada, y compra', () => {
   const offers = shopOffers('2026-10-01');
-  assert.equal(new Set(offers.map(o => o.id)).size, 3);
+  assert.equal(new Set(offers.map(o => o.id)).size, 4);
+  assert.equal(offers.filter(o => o.kind === 'trail').length, 2);
   assert.equal(offers.filter(o => o.sale).length, 1);
   const save = baseSave();
   assert.equal(buySkin(save, offers[0]), false);
@@ -75,11 +76,14 @@ test('pase de temporada y dueños de skins', () => {
   const track = seasonTrack();
   assert.equal(track[0].lvl, 2);
   assert.ok(track.some(t => t.type === 'skin' && t.skin === 'menta'));
-  assert.ok(seasonCoins(1, 3) > 0);
+  assert.ok(track.some(t => t.type === 'trail' && t.trail === 'chispas'));
+  assert.ok(seasonCoins(1, 8) > 0);
   const ctx = { level: 4, peakTier: 2, ach: { outlier: '2026-10-01' }, owned: {} };
   const own = id => isOwned(SKINS.find(k => k.id === id), ctx);
   assert.ok(own('rosa') && !own('hielo'));
   assert.ok(own('laurel') && !own('cristal'));
   assert.ok(own('corona'));
   assert.ok(!own('brasa'));
+  const ownT = id => isOwned(TRAILS.find(k => k.id === id), ctx);
+  assert.ok(ownT('plata') && !ownT('rayo') && !ownT('chispas'));
 });

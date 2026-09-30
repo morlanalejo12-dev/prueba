@@ -3,6 +3,7 @@ import { CFG } from '../config.js';
 import { clamp } from '../util/math.js';
 import { makeGate } from './gates.js';
 
+
 const NARROW_W = 56;
 
 export function buildLevel(r) {
@@ -65,6 +66,29 @@ export function buildLevel(r) {
   for (const o of orbs) o.taken = false;
   orbs.sort((a, b) => a.y - b.y);
   return { gates, forks, orbs, invertAt, endY: y + 500 };
+}
+
+// Muerte súbita: tramos cortos y cada vez más exigentes, hasta que quede uno solo
+export function buildOvertime(r, y, n) {
+  const { WALL, DIV, W } = CFG;
+  const gates = [], orbs = [];
+  y += 200;
+  const g = buildGate(r, 5, y, r() < 0.5 ? 'moving' : 'static', orbs);
+  g.gw = Math.max(56, Math.min(g.gw, 82 - n * 4));
+  gates.push(g);
+  y += 260;
+  const k = 2, w = (W - 2 * WALL - DIV) / 2;
+  const lanes = [
+    { x0: WALL, x1: WALL + w, gold: false, narrow: false },
+    { x0: WALL + w + DIV, x1: W - WALL, gold: false, narrow: false },
+  ];
+  const startY = y, entryY = y + 520, endY = entryY + 260;
+  const fork = {
+    i: CFG.FORKS + n, k, variant: 'normal', invert: false, overtime: true, lanes, startY, entryY, endY, ng: null,
+    announced: false, resolved: false, resolvedAt: 0, collapsed: [], lottery: false,
+    counts: [0, 0], intent: [0.5, 0.5],
+  };
+  return { gates, fork, orbs, endY: endY + 60 };
 }
 
 function pickGateType(r, f) {

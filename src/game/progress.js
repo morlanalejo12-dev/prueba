@@ -1,7 +1,7 @@
 // Progreso del jugador: niveles, títulos, logros, récords, racha, rango, destellos y colección.
 // Funciones puras sobre un objeto `save`; el almacenamiento se inyecta para poder testearlo.
-import { SKINS, isOwned } from './skins.js';
-import { rankOf, prDelta, applyPR } from './ranks.js';
+import { SKINS, TRAILS, isOwned } from './skins.js';
+import { rankOf, prDelta, applyPR, TIER_PERKS } from './ranks.js';
 import { progressMissions, seasonCoins, ensureMissions, MISSION_XP, missionReward } from './meta.js';
 
 export const SAVE_KEY = 'cc-save-v3';
@@ -11,11 +11,11 @@ const DEFAULTS = {
   v: 4, rounds: 0, best: 0, bestScore: 0, outliers: 0, xp: 0, skin: 'ambar',
   sfx: true, music: true, vib: true, streak: 0, lastDay: '', ach: {}, records: [],
   // v0.4
-  coins: 0, pr: 0, peakPR: 0, owned: {}, missions: null, daily: { last: '', next: 0 },
+  coins: 0, pr: 0, peakPR: 0, owned: {}, missions: null, daily: { last: '', next: 0 }, trail: 'basica',
   forksSeen: 0, forksWon: 0, pathStreak: 0, bestPathStreak: 0, rivalsBeaten: 0, shopSeen: '',
 };
 
-export { SKINS };
+export { SKINS, TRAILS };
 
 export const TITLES = [
   { lvl: 1, name: 'Chispa' },
@@ -61,7 +61,8 @@ export function titleOf(level) {
 }
 
 export const xpForRound = s => Math.round(s.score / 10) + s.forksOk * 15 + (s.outlier ? 150 : 0) + (s.alive ? 50 : 0);
-export const coinsForRound = s => Math.round(s.score / 40) + s.forksOk * 4 + (s.outlier ? 60 : 0) + (s.beatRival ? 10 : 0);
+export const coinsForRound = (s, tier = 0) =>
+  Math.round((s.score / 40 + s.forksOk * 4 + (s.outlier ? 60 : 0) + (s.beatRival ? 10 : 0)) * (1 + TIER_PERKS[tier].coinBonus));
 
 // Porcentaje histórico de bifurcaciones superadas
 export const instinct = save => (save.forksSeen ? Math.round(save.forksWon / save.forksSeen * 100) : 0);
@@ -71,6 +72,7 @@ export function ownedCtx(save) {
   return { level: levelInfo(save.xp).level, peakTier: rankOf(save.peakPR).tier, ach: save.ach, owned: save.owned };
 }
 export const ownedSkins = save => { const ctx = ownedCtx(save); return SKINS.filter(k => isOwned(k, ctx)); };
+export const ownedTrails = save => { const ctx = ownedCtx(save); return TRAILS.filter(k => isOwned(k, ctx)); };
 
 // ---------- Fechas ----------
 const pad = n => String(n).padStart(2, '0');
@@ -114,6 +116,7 @@ export function loadSave(store) {
   if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
   if (!SKINS.some(k => k.id === save.skin)) save.skin = DEFAULTS.skin;
+  if (!TRAILS.some(k => k.id === save.trail)) save.trail = DEFAULTS.trail;
   save.v = 4;
   return save;
 }
@@ -149,7 +152,7 @@ export function claimMission(save, index) {
 
 // ---------- Aplicar el resultado de una ronda ----------
 export function applyRound(save, sum, now = new Date()) {
-  const ownedBefore = new Set(ownedSkins(save).map(k => k.id));
+  const ownedBefore = new Set([...ownedSkins(save), ...ownedTrails(save)].map(k => k.id));
   const prevBest = save.best, first = save.rounds === 0;
   save.rounds++;
   save.best = Math.max(save.best, sum.pct);
@@ -179,7 +182,7 @@ export function applyRound(save, sum, now = new Date()) {
 
   // XP, destellos y misiones
   const gain = xpForRound(sum);
-  const coins = coinsForRound(sum);
+  const coins = coinsForRound(sum, rankBefore.tier);
   save.coins += coins;
   const lv = addXP(save, gain);
   const missionsDone = progressMissions(save, sum, today);
@@ -196,10 +199,11 @@ export function applyRound(save, sum, now = new Date()) {
   save.bestScore = Math.max(save.bestScore, sum.score);
 
   const newSkins = ownedSkins(save).filter(k => !ownedBefore.has(k.id));
+  const newTrails = ownedTrails(save).filter(k => !ownedBefore.has(k.id));
   const promoted = rankAfter.tier > rankBefore.tier || (rankAfter.tier === rankBefore.tier && rankAfter.div < rankBefore.div);
 
   return {
-    gain, coins, before: lv.before, after: lv.after, newAch, newSkins, missionsDone,
+    gain, coins, before: lv.before, after: lv.after, newAch, newSkins, newTrails, missionsDone,
     recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
     pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
     pathStreak: save.pathStreak,

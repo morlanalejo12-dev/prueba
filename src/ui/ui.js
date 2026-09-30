@@ -2,8 +2,8 @@
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { levelInfo, titleOf, streakNow, instinct, ownedSkins } from '../game/progress.js';
-import { SKINS } from '../game/skins.js';
+import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails } from '../game/progress.js';
+import { SKINS, TRAILS } from '../game/skins.js';
 import { TIERS, rankOf } from '../game/ranks.js';
 import { claimableMissions, dailyState, missionText } from '../game/meta.js';
 import { ICON, emblem } from './icons.js';
@@ -20,6 +20,7 @@ export const WHY_TEXT = {
   majority: 'Caíste por elegir el camino de la mayoría.',
   inverted: 'Caíste en la inversión: elegiste el camino más vacío.',
   alive: 'Llegaste al final con vida.',
+  lottery: 'En la muerte súbita nadie se separó y la corriente te llevó.',
 };
 
 export function createUI(h) {
@@ -92,6 +93,10 @@ export function createUI(h) {
     $('hForks').append(d);
     forkDots.push(d);
   }
+  const otLabel = document.createElement('b');
+  otLabel.className = 'ot-label';
+  otLabel.hidden = true;
+  $('hForks').append(otLabel);
   let hudKey = '';
   function hud(R) {
     const key = `${R.aliveTotal}|${Math.floor(R.score)}|${R.cf}|${R.combo}|${R.pAlive}|${R.rivalAlive}`;
@@ -103,6 +108,10 @@ export function createUI(h) {
     cb.hidden = R.combo < 2;
     cb.textContent = `x${R.combo}`;
     forkDots.forEach((d, k) => { d.className = R.forkLog[k] || (k === R.cf && R.pAlive ? 'now' : ''); });
+    const ot = R.cf >= CFG.FORKS && !R.ended;
+    otLabel.hidden = !ot;
+    if (ot) otLabel.textContent = `Súbita ${R.cf - CFG.FORKS + 1}`;
+    $('hForks').classList.toggle('ot', ot);
     $('hRival').classList.toggle('down', !R.rivalAlive);
   }
   function setRival(name, rankLabel) {
@@ -137,6 +146,11 @@ export function createUI(h) {
     $('rankPr').textContent = rk.need ? `${fmt(rk.into)} / ${fmt(rk.need)} PR` : `${fmt(save.pr)} PR`;
     $('rankFill').style.width = rk.need ? (rk.into / rk.need * 100) + '%' : '100%';
     $('rankBtn').style.setProperty('--rank', TIERS[rk.tier].col);
+    // Marco del perfil según la liga máxima alcanzada
+    const peak = rankOf(save.peakPR).tier;
+    $('profileBtn').dataset.tier = peak;
+    $('profileBtn').style.setProperty('--rank', TIERS[peak].col);
+    $('rankBtn').dataset.tier = rk.tier;
     $('pathBadge').innerHTML = save.pathStreak >= 2 ? `${ICON.flame}${save.pathStreak}` : '';
 
     const mis = save.missions && save.missions.day === env.today ? save.missions.list : [];
@@ -145,7 +159,7 @@ export function createUI(h) {
     $('bMissions').hidden = !claim;
     $('bMissions').textContent = claim;
     $('bShop').hidden = save.shopSeen === env.today;
-    $('tSkins').textContent = `${ownedSkins(save).length}/${SKINS.length}`;
+    $('tSkins').textContent = `${ownedSkins(save).length + ownedTrails(save).length}/${SKINS.length + TRAILS.length}`;
     $('tSeason').textContent = `Nv ${li.level}`;
 
     $('sBest').textContent = save.rounds ? pctText(save.best) : '—';
@@ -225,6 +239,7 @@ export function createUI(h) {
     const lines = [];
     if (up) lines.push(`¡Subiste a nivel ${rep.after.level}!`);
     if (rep.newSkins.length) lines.push(`Nueva skin: ${rep.newSkins.map(k => k.name).join(' y ')}.`);
+    if (rep.newTrails.length) lines.push(`Nueva estela: ${rep.newTrails.map(k => k.name).join(' y ')}.`);
     $('rUnlock').hidden = !lines.length;
     $('rUnlock').textContent = lines.join(' ');
 

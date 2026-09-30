@@ -3,7 +3,7 @@
 import { CFG } from '../config.js';
 import { clamp } from '../util/math.js';
 import { mulberry32, hash01 } from '../util/rng.js';
-import { buildLevel, laneAt } from './level.js';
+import { buildLevel, buildOvertime, laneAt } from './level.js';
 import { clearance, GATE_HALF } from './gates.js';
 import { createCrowd, updateCrowd, resetCrowdForFork } from './crowd.js';
 
@@ -14,7 +14,9 @@ export const MILESTONES = [
   { n: 50, pts: 100 },
   { n: 10, pts: 200 },
   { n: 3, pts: 300 },
-];   // a menos de esta distancia del borde, la pasada cuenta como "justa"
+  { n: 2, pts: 400 },
+];
+const MAX_OVERTIME = 14;   // a menos de esta distancia del borde, la pasada cuenta como "justa"
 const FX_CAP = 240;      // máximo de partículas por colapso
 
 // Qué caminos colapsan: el más poblado (o el menos poblado si la bifurcación está invertida).
@@ -82,6 +84,7 @@ export class Round {
     this.rivalName = this.botName(this.rival);
     this.rivalDeath = Infinity;
     this.milestoneIdx = 0;
+    this.overtime = 0;
 
     this.ended = false;
     this.outlier = null;
@@ -129,6 +132,7 @@ export class Round {
     if (this.pAlive && !this.ended) this.updatePlayer(dt, f);
     updateCrowd(this, dt, f);
     if (f && !this.ended && !f.resolved && this.pY >= f.endY + 12) this.resolveFork(f);
+    if (!this.ended && this.cf >= this.lvl.forks.length && this.aliveTotal > 1 && this.overtime < MAX_OVERTIME) this.extend();
     if (this.pAlive && !this.ended) this.checkMilestones();
     if (!this.ended && (this.pY >= this.lvl.endY || this.aliveTotal <= 1)) this.finish();
   }
@@ -232,6 +236,20 @@ export class Round {
     }
   }
 
+  // Agrega un tramo de muerte súbita delante del jugador
+  extend() {
+    const L = this.lvl;
+    const y0 = Math.max(this.pY + 250, L.forks[L.forks.length - 1].endY + 60);
+    const seg = buildOvertime(this.r, y0, this.overtime);
+    this.overtime++;
+    L.gates.push(...seg.gates);
+    L.forks.push(seg.fork);
+    for (const o of seg.orbs) { o.taken = false; L.orbs.push(o); }
+    L.orbs.sort((a, b) => a.y - b.y);
+    L.endY = seg.endY + 400;
+    this.emit('overtime', { n: this.overtime, alive: this.aliveTotal });
+  }
+
   checkMilestones() {
     let hit = null, pts = 0;
     while (this.milestoneIdx < MILESTONES.length && this.aliveTotal <= MILESTONES[this.milestoneIdx].n) {
@@ -268,11 +286,24 @@ export class Round {
 
     const col = pickCollapse(f.counts, f.invert, this.r);
     f.collapsed = col;
+    // En muerte súbita, si nadie se separa, la corriente se lleva a la mitad del camino
+    let lottery = null;
+    if (!col.length && f.overtime) {
+      const lane = f.counts.findIndex(v => v > 1);
+      if (lane >= 0) {
+        const ids = [];
+        for (let i = 0; i < this.n; i++) if (c.alive[i] && c.lane[i] === lane) ids.push(i);
+        if (this.pAlive && this.pLane === lane) ids.push(-1);
+        for (let k = ids.length - 1; k > 0; k--) { const j = Math.floor(this.r() * (k + 1)); [ids[k], ids[j]] = [ids[j], ids[k]]; }
+        lottery = new Set(ids.slice(0, Math.max(1, Math.floor(ids.length / 2))));
+        f.lottery = true;
+      }
+    }
     this._fx = [];
     let fallen = 0;
     for (let i = 0; i < this.n; i++) {
       if (!c.alive[i]) continue;
-      if (col.includes(c.lane[i])) { this.killBot(i, true); fallen++; }
+      if (col.includes(c.lane[i]) || (lottery && lottery.has(i))) { this.killBot(i, true); fallen++; }
       else c.sc[i] += f.lanes[c.lane[i]].gold ? 200 : 100;
     }
     const fx = this._fx;
@@ -281,7 +312,7 @@ export class Round {
     let outcome = null, gold = false;
     if (this.pAlive) {
       gold = f.lanes[this.pLane].gold;
-      if (col.includes(this.pLane)) {
+      if (col.includes(this.pLane) || (lottery && lottery.has(-1))) {
         outcome = 'died';
         this.forkLog.push('lost');
       } else {
@@ -294,8 +325,8 @@ export class Round {
         if (f.invert) this.feats.invert = true;
       }
     }
-    this.emit('forkResolved', { fork: f, collapsed: col, fallen, fx, outcome, gold });
-    if (outcome === 'died') this.killPlayer(f.invert ? 'inverted' : 'majority', fallen);
+    this.emit('forkResolved', { fork: f, collapsed: col, fallen, fx, outcome, gold, lottery: !!lottery });
+    if (outcome === 'died') this.killPlayer(lottery ? 'lottery' : f.invert ? 'inverted' : 'majority', fallen);
 
     resetCrowdForFork(this);
     this.pLane = -1;
@@ -350,7 +381,7 @@ export class Round {
   summary() {
     return {
       score: Math.round(this.score), rank: this.rank, total: this.n + 1, pct: this.pct,
-      forksOk: this.forksOk, forks: CFG.FORKS, near: this.near, maxCombo: this.maxCombo, orbs: this.orbs,
+      forksOk: this.forksOk, forks: Math.max(CFG.FORKS, this.forkLog.length), near: this.near, maxCombo: this.maxCombo, orbs: this.orbs,
       alive: this.pAlive, outlier: !!(this.outlier && this.outlier.you), why: this.why, feats: { ...this.feats },
       forksSeen: this.forkLog.length, beatRival: this.beatRival, rival: this.rivalName,
     };

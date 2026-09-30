@@ -1,13 +1,29 @@
 // Dibujo del mundo en canvas 2D. Lee el estado de la ronda y de los efectos; no lo modifica.
+// El fondo cambia de paleta en cada bifurcación superada y late con la música.
 import { CFG } from '../config.js';
 import { clamp, fmt, TAU } from '../util/math.js';
 import { hash01 } from '../util/rng.js';
 import { gapsAt, altOpen, altPhase } from '../sim/gates.js';
+import { SHAPE } from './fx.js';
 
 const G = new Float64Array(4);
 
 // Color principal de una skin (las arcoíris cambian con el tiempo)
 export const skinColor = (sk, t) => sk.col || `hsl(${Math.round((t * 90) % 360)} 95% 68%)`;
+
+// Paletas por etapa: el túnel se enciende a medida que avanza la ronda. La última es la muerte súbita.
+const THEMES = [
+  { bg: '#151036', wall: '#7b6bff', glow: '#cbbfff', neb: '#6a4dff' },
+  { bg: '#0f1a3d', wall: '#4f8dff', glow: '#9fd0ff', neb: '#2f6bff' },
+  { bg: '#0b2830', wall: '#2fd6b0', glow: '#9ff5dd', neb: '#18b894' },
+  { bg: '#26103a', wall: '#c75cff', glow: '#f0b8ff', neb: '#a23dff' },
+  { bg: '#361025', wall: '#ff4f8b', glow: '#ffb3cf', neb: '#ff2d75' },
+  { bg: '#33200a', wall: '#ffae3d', glow: '#ffe2a8', neb: '#ff8a1f' },
+  { bg: '#2a060c', wall: '#ff2d55', glow: '#ffd166', neb: '#ff1f3d' },
+];
+const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const THEME_RGB = THEMES.map(t => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, hexRgb(v)])));
+const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 export class Renderer {
   constructor(canvas) {
@@ -18,11 +34,18 @@ export class Renderer {
     this.C = {
       ink: tok('--ink'), ink2: tok('--ink-2'), wall: tok('--wall'), grid: tok('--grid'), crowd: tok('--crowd'),
       spark: tok('--spark'), danger: tok('--danger'), gold: tok('--gold'), text: tok('--text'), muted: tok('--muted'),
+      mint: tok('--mint'),
     };
     this.FD = tok('--f-display');
     this.FM = tok('--f-mono');
     this.FB = tok('--f-body');
     this.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    // Paleta actual (se interpola hacia la de la etapa) y efectos de fondo
+    this.th = { bg: [...THEME_RGB[0].bg], wall: [...THEME_RGB[0].wall], glow: [...THEME_RGB[0].glow], neb: [...THEME_RGB[0].neb] };
+    this.stage = 0;
+    this.pulse = 0;
+    this.stageFlash = 0;
+    this.time = 0;
     this.resize();
   }
 
@@ -40,11 +63,34 @@ export class Renderer {
   // Convierte una coordenada de pantalla a coordenada lógica del túnel
   toWorldX(clientX) { return (clientX - this.offX) / this.scale; }
 
+  beat(strength = 1) { this.pulse = Math.max(this.pulse, strength); }
+
+  setStage(n) {
+    n = clamp(n, 0, THEMES.length - 1);
+    if (n > this.stage) this.stageFlash = 1;
+    this.stage = n;
+  }
+
+  updateTheme(dt) {
+    this.time += dt;
+    const target = THEME_RGB[this.stage], k = Math.min(1, dt * 2.2);
+    for (const key of ['bg', 'wall', 'glow', 'neb']) {
+      const a = this.th[key], b = target[key];
+      for (let i = 0; i < 3; i++) a[i] += (b[i] - a[i]) * k;
+    }
+    this.pulse = Math.max(0, this.pulse - dt * 3.2);
+    this.stageFlash = Math.max(0, this.stageFlash - dt * 0.9);
+    this.wallCol = rgb(this.th.wall);
+    this.glowCol = rgb(this.th.glow);
+  }
+
   draw(R, fx, opts) {
     const { cx, C, dpr, scale } = this;
     const { W, WALL } = CFG;
+    this.updateTheme(opts.dt || 0.016);
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cx.fillStyle = C.ink;
+    // Fuera del túnel (pantallas anchas): el mismo tono, más oscuro
+    cx.fillStyle = rgb(this.th.bg.map(v => v * 0.45));
     cx.fillRect(0, 0, this.cw, this.ch);
     if (!R) return;
 
@@ -54,14 +100,7 @@ export class Renderer {
     const Y = y => y - camY;
     const viewH = this.viewH;
 
-    cx.fillStyle = C.ink2;
-    cx.fillRect(WALL, -20, W - 2 * WALL, viewH + 40);
-    this.drawStreaks(camY);
-    cx.strokeStyle = C.grid;
-    cx.lineWidth = 1;
-    for (let y = Math.floor(camY / 80) * 80; y < camY + viewH; y += 80) {
-      cx.beginPath(); cx.moveTo(WALL, Y(y)); cx.lineTo(W - WALL, Y(y)); cx.stroke();
-    }
+    this.drawBackdrop(R, camY);
     this.drawWalls(viewH);
 
     for (const f of R.lvl.forks) if (f.endY + 400 > camY && f.entryY - 60 < camY + viewH) this.drawFork(R, f, Y);
@@ -74,20 +113,49 @@ export class Renderer {
     const f = R.fork;
     const fogOn = !!(f && f.variant === 'fog' && R.pY >= f.startY - 100 && !f.resolved);
     this.drawCrowd(R, Y, fogOn ? 0.1 : 0.8);
+    this.drawRings(fx, Y);
     this.drawParticles(fx, Y);
-    if (R.pAlive) this.drawPlayer(R, Y, opts.skin, opts.trail);
+    if (R.pAlive) this.drawPlayer(R, Y, opts);
     if (fogOn) this.drawFog(R, Y);
     if (f && !R.demo) this.drawLabels(R, f, Y, fogOn);
     this.drawPops(fx, Y);
+    if (this.stageFlash > 0 && !this.reduceMotion) {
+      cx.fillStyle = rgb(this.th.glow, this.stageFlash * 0.18);
+      cx.fillRect(WALL, -20, W - 2 * WALL, viewH + 40);
+    }
   }
 
-  drawStreaks(camY) {
-    const { cx, C } = this, { W, WALL } = CFG, span = this.viewH + 60;
-    cx.fillStyle = C.crowd;
+  // Fondo: degradé, nebulosas que respiran, estelas de velocidad y grilla que late con la música
+  drawBackdrop(R, camY) {
+    const { cx } = this, { W, WALL } = CFG, viewH = this.viewH, th = this.th, p = this.pulse;
+    const grd = cx.createLinearGradient(0, 0, 0, viewH);
+    grd.addColorStop(0, rgb(th.bg.map(v => v * 0.8)));
+    grd.addColorStop(1, rgb(th.bg.map(v => Math.min(255, v * 1.25))));
+    cx.fillStyle = grd;
+    cx.fillRect(WALL, -20, W - 2 * WALL, viewH + 40);
+
+    cx.save();
+    cx.beginPath(); cx.rect(WALL, -20, W - 2 * WALL, viewH + 40); cx.clip();
+    for (let i = 0; i < 3; i++) {
+      const x = WALL + (0.2 + 0.6 * hash01(i, 91)) * (W - 2 * WALL) + Math.sin(this.time * 0.3 + i * 2) * 40;
+      let y = (hash01(i, 92) * viewH * 3 - camY * 0.08) % (viewH * 1.5);
+      if (y < 0) y += viewH * 1.5;
+      const r = 150 + i * 40 + p * 20;
+      const ng = cx.createRadialGradient(x, y - viewH * 0.2, 0, x, y - viewH * 0.2, r);
+      ng.addColorStop(0, rgb(th.neb, 0.22 + p * 0.08 + this.stageFlash * 0.2));
+      ng.addColorStop(1, rgb(th.neb, 0));
+      cx.fillStyle = ng;
+      cx.fillRect(x - r, y - viewH * 0.2 - r, r * 2, r * 2);
+    }
+    cx.restore();
+
+    // Estelas de velocidad: más y más largas en cada etapa
+    const span = viewH + 60, n = 30 + this.stage * 10, speedK = R.speed / 255;
+    cx.fillStyle = this.glowCol;
     for (let L = 0; L < 2; L++) {
-      const fct = L ? 0.6 : 0.3, len = L ? 10 : 5;
-      cx.globalAlpha = L ? 0.2 : 0.1;
-      for (let i = 0; i < 34; i++) {
+      const fct = L ? 0.6 : 0.3, len = (L ? 10 : 5) * speedK * (1 + this.stage * 0.25);
+      cx.globalAlpha = (L ? 0.2 : 0.1) + p * 0.08;
+      for (let i = 0; i < n; i++) {
         const x = WALL + 4 + hash01(i, 7 + L) * (W - 2 * WALL - 8);
         let y = (hash01(i, 3 + L) * span * 5 - camY * fct) % span;
         if (y < 0) y += span;
@@ -95,14 +163,20 @@ export class Renderer {
       }
     }
     cx.globalAlpha = 1;
+
+    cx.strokeStyle = rgb(th.wall, 0.07 + p * 0.1);
+    cx.lineWidth = 1;
+    for (let y = Math.floor(camY / 80) * 80; y < camY + viewH; y += 80) {
+      cx.beginPath(); cx.moveTo(WALL, y - camY); cx.lineTo(W - WALL, y - camY); cx.stroke();
+    }
   }
 
   drawWalls(viewH) {
-    const { cx, C } = this, { W, WALL } = CFG;
-    cx.fillStyle = C.wall;
+    const { cx } = this, { W, WALL } = CFG, p = this.pulse;
+    cx.fillStyle = this.wallCol;
     cx.fillRect(WALL - 3, -20, 3, viewH + 40);
     cx.fillRect(W - WALL, -20, 3, viewH + 40);
-    cx.globalAlpha = 0.18;
+    cx.globalAlpha = 0.18 + p * 0.25;
     cx.fillRect(WALL - 9, -20, 6, viewH + 40);
     cx.fillRect(W - WALL + 3, -20, 6, viewH + 40);
     cx.globalAlpha = 1;
@@ -111,14 +185,14 @@ export class Renderer {
   // Tramo de muro entre x0 y x1 con brillo y borde superior claro
   segment(x0, x1, gy, half) {
     if (x1 - x0 <= 0) return;
-    const { cx, C } = this;
-    cx.fillStyle = C.wall;
-    cx.globalAlpha = 0.16;
+    const { cx } = this;
+    cx.fillStyle = this.wallCol;
+    cx.globalAlpha = 0.16 + this.pulse * 0.12;
     cx.fillRect(x0, gy - half - 5, x1 - x0, half * 2 + 10);
     cx.globalAlpha = 1;
     cx.fillRect(x0, gy - half, x1 - x0, half * 2);
-    cx.fillStyle = C.crowd;
-    cx.globalAlpha = 0.55;
+    cx.fillStyle = this.glowCol;
+    cx.globalAlpha = 0.6;
     cx.fillRect(x0, gy - half, x1 - x0, 1.5);
     cx.globalAlpha = 1;
   }
@@ -133,7 +207,7 @@ export class Renderer {
     else this.segment(z0, g.hi, gy, half);
 
     if (g.type === 'moving') {
-      cx.fillStyle = C.crowd;
+      cx.fillStyle = this.glowCol;
       cx.fillRect(a0 - 3, gy - half, 3, half * 2);
       cx.fillRect(z0, gy - half, 3, half * 2);
     } else if (g.type === 'alt') {
@@ -148,7 +222,6 @@ export class Renderer {
       cx.fillStyle = C.gold;
       cx.fillRect(c - w / 2, gy - 1.5, w * (1 - ph), 3);
       if (ph > 0.7) {
-        // Aviso: la puerta abierta está por cerrarse
         cx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 30);
         cx.fillStyle = C.danger;
         cx.fillRect(a0, gy - half, 3, half * 2);
@@ -165,7 +238,7 @@ export class Renderer {
       const o = orbs[k], oy = Y(o.y);
       if (oy > this.viewH + 20) break;
       if (o.taken || oy < -20) continue;
-      const rr = 5 + Math.sin(R.t * 6 + o.y) * 0.8;
+      const rr = 5 + Math.sin(R.t * 6 + o.y) * 0.8 + this.pulse;
       cx.globalAlpha = 0.22;
       cx.beginPath(); cx.arc(o.x, oy, rr * 2.3, 0, TAU); cx.fill();
       cx.globalAlpha = 1;
@@ -178,11 +251,33 @@ export class Renderer {
   }
 
   drawCrowd(R, Y, alpha) {
-    const { cx, C } = this, c = R.crowd;
-    cx.fillStyle = C.crowd;
+    const { cx } = this, c = R.crowd;
+    cx.fillStyle = this.glowCol;
     cx.globalAlpha = alpha;
     for (let i = 0; i < R.n; i++) {
       if (c.alive[i]) cx.fillRect(c.x[i] - 1.3, Y(R.pY + c.yo[i]) - 1.3, 2.6, 2.6);
+    }
+    cx.globalAlpha = 1;
+    // El rival, marcado entre la multitud
+    const i = R.rival;
+    if (c.alive[i] && !R.demo) {
+      const x = c.x[i], y = Y(R.pY + c.yo[i]);
+      cx.strokeStyle = this.C.danger;
+      cx.lineWidth = 1.5;
+      cx.beginPath(); cx.arc(x, y, 5 + Math.sin(R.t * 6) * 1, 0, TAU); cx.stroke();
+      cx.fillStyle = this.C.danger;
+      cx.fillRect(x - 1.8, y - 1.8, 3.6, 3.6);
+    }
+  }
+
+  drawRings(fx, Y) {
+    const { cx } = this;
+    for (const r of fx.rings) {
+      const a = r.life / r.max;
+      cx.strokeStyle = r.col;
+      cx.globalAlpha = a;
+      cx.lineWidth = r.w * a + 0.5;
+      cx.beginPath(); cx.arc(r.x, Y(r.y), r.r, 0, TAU); cx.stroke();
     }
     cx.globalAlpha = 1;
   }
@@ -192,79 +287,181 @@ export class Renderer {
     for (let i = 0; i < fx.max; i++) {
       const l = fx.life[i];
       if (l <= 0) continue;
-      const s = fx.size[i];
+      const s = fx.size[i], x = fx.x[i], y = Y(fx.y[i]);
       cx.globalAlpha = l > 1 ? 1 : l;
       cx.fillStyle = fx.col[i];
-      cx.fillRect(fx.x[i] - s / 2, Y(fx.y[i]) - s / 2, s, s);
+      switch (fx.shape[i]) {
+        case SHAPE.CIRCLE:
+          cx.beginPath(); cx.arc(x, y, s / 2, 0, TAU); cx.fill();
+          break;
+        case SHAPE.BUBBLE:
+          cx.strokeStyle = fx.col[i];
+          cx.lineWidth = 1.2;
+          cx.beginPath(); cx.arc(x, y, s / 2, 0, TAU); cx.stroke();
+          break;
+        case SHAPE.STAR:
+          cx.fillRect(x - s / 2, y - 0.6, s, 1.2);
+          cx.fillRect(x - 0.6, y - s / 2, 1.2, s);
+          break;
+        default:
+          cx.fillRect(x - s / 2, y - s / 2, s, s);
+      }
     }
     cx.globalAlpha = 1;
   }
 
-  drawPlayer(R, Y, sk, tr) {
+  drawPlayer(R, Y, opts) {
     const { cx } = this, P = CFG.PR, t = R.t;
+    const sk = opts.skin, trail = opts.trail, tr = opts.trailPts, n = tr.length;
     const col = skinColor(sk, t), col2 = sk.col2 || col;
-    const n = tr.length;
-    // Estela según la skin (pares x, y del más viejo al más nuevo)
-    if (sk.trail === 'ribbon' && n >= 4) {
+    const tc = trail.col || col, tc2 = trail.col2 || sk.col2 || tc;
+
+    // ---- Estela ----
+    const ribbon = (width, a1, c1, c2) => {
       cx.lineCap = 'round';
       for (let k = 2; k < n; k += 2) {
         const a = k / n;
-        cx.strokeStyle = (k >> 1) % 2 ? col : col2;
-        cx.globalAlpha = a * 0.75;
-        cx.lineWidth = P * 1.5 * a;
+        cx.strokeStyle = (k >> 1) % 2 ? c1 : c2;
+        cx.globalAlpha = a * a1;
+        cx.lineWidth = width * a;
         cx.beginPath(); cx.moveTo(tr[k - 2], Y(tr[k - 1])); cx.lineTo(tr[k], Y(tr[k + 1])); cx.stroke();
       }
-    } else {
-      const glitch = sk.trail === 'glitch', rainbow = sk.trail === 'rainbow';
-      for (let k = 0; k < n; k += 2) {
-        const a = k / n;
-        cx.globalAlpha = a * 0.5;
-        if (glitch) {
-          const off = (((k * 7919 + Math.floor(t * 18)) % 7) - 3) * 2.2;
-          cx.fillStyle = (k >> 1) % 2 ? col : col2;
-          const sz = P * (0.5 + a * 0.9);
-          cx.fillRect(tr[k] + off - sz / 2, Y(tr[k + 1]) - sz / 2, sz, sz);
-          continue;
+    };
+    switch (trail.type) {
+      case 'ribbon': ribbon(P * 1.5, 0.75, tc, tc2); break;
+      case 'comet':
+        ribbon(P * 2.6, 0.35, tc, tc);
+        ribbon(P * 1.1, 0.9, '#ffffff', tc);
+        break;
+      case 'void':
+        ribbon(P * 2.4, 0.55, tc, tc);
+        ribbon(P * 1.2, 1, tc2, tc2);
+        break;
+      case 'bolt': {
+        cx.lineJoin = 'miter';
+        for (const [w, a, c] of [[6, 0.25, tc], [2.2, 0.9, tc], [1, 1, tc2]]) {
+          cx.strokeStyle = c; cx.globalAlpha = a; cx.lineWidth = w;
+          cx.beginPath();
+          for (let k = 0; k < n; k += 4) {
+            const off = k === n - 2 ? 0 : (Math.random() - 0.5) * 10;
+            cx.lineTo(tr[k] + off, Y(tr[k + 1]));
+          }
+          cx.lineTo(R.px, Y(R.pY));
+          cx.stroke();
         }
-        cx.fillStyle = rainbow ? `hsl(${Math.round((t * 90 + k * 9) % 360)} 95% 68%)` : col;
-        cx.beginPath(); cx.arc(tr[k], Y(tr[k + 1]), P * (0.3 + a * 0.6), 0, TAU); cx.fill();
+        break;
+      }
+      case 'glitch':
+        for (let k = 0; k < n; k += 2) {
+          const a = k / n, off = (((k * 7919 + Math.floor(t * 18)) % 7) - 3) * 2.2, sz = P * (0.5 + a * 0.9);
+          cx.globalAlpha = a * 0.55;
+          cx.fillStyle = (k >> 1) % 2 ? tc : tc2;
+          cx.fillRect(tr[k] + off - sz / 2, Y(tr[k + 1]) - sz / 2, sz, sz);
+        }
+        break;
+      default: {
+        // Puntos (las estelas de partículas también dejan un rastro suave)
+        const rainbow = trail.type === 'rainbow';
+        const soft = trail.type !== 'dots' && !rainbow ? 0.25 : 0.5;
+        for (let k = 0; k < n; k += 2) {
+          const a = k / n;
+          cx.globalAlpha = a * soft;
+          cx.fillStyle = rainbow ? `hsl(${Math.round((t * 90 + k * 9) % 360)} 95% 68%)` : tc;
+          cx.beginPath(); cx.arc(tr[k], Y(tr[k + 1]), P * (0.3 + a * 0.6), 0, TAU); cx.fill();
+        }
       }
     }
     cx.globalAlpha = 1;
-    this.drawShape(sk.shape, R.px, Y(R.pY), P, col, col2, t);
+    const py = Y(R.pY);
+    this.drawAura(R.px, py, P, t, opts.aura, opts.tierCol);
+    this.drawShape(sk.shape, R.px, py, P, col, col2, t);
+  }
+
+  // Distinción de las ligas altas alrededor del jugador
+  drawAura(x, y, r, t, aura, col) {
+    if (!aura || aura === 'none') return;
+    const { cx } = this;
+    cx.strokeStyle = col;
+    cx.lineWidth = 1.5;
+    const ring = (rad, rot, dash) => {
+      cx.save(); cx.translate(x, y); cx.rotate(rot);
+      cx.setLineDash(dash); cx.globalAlpha = 0.75;
+      cx.beginPath(); cx.arc(0, 0, rad, 0, TAU); cx.stroke();
+      cx.restore();
+    };
+    ring(r * 2.8, t * 1.4, [6, 5]);
+    if (aura === 'halo2' || aura === 'orbit' || aura === 'crown') ring(r * 3.5, -t * 0.9, [2, 7]);
+    cx.setLineDash([]);
+    cx.globalAlpha = 1;
+    if (aura === 'orbit' || aura === 'crown') {
+      cx.fillStyle = col;
+      for (let k = 0; k < 3; k++) {
+        const a = t * 3 + k * TAU / 3;
+        cx.beginPath(); cx.arc(x + Math.cos(a) * r * 3.5, y + Math.sin(a) * r * 3.5, 2.2, 0, TAU); cx.fill();
+      }
+    }
+    if (aura === 'crown') {
+      const cy = y - r * 3.3 + Math.sin(t * 4) * 1.5;
+      cx.fillStyle = this.C.gold;
+      cx.beginPath();
+      cx.moveTo(x - 9, cy + 5); cx.lineTo(x - 9, cy - 3); cx.lineTo(x - 4.5, cy + 1); cx.lineTo(x, cy - 6);
+      cx.lineTo(x + 4.5, cy + 1); cx.lineTo(x + 9, cy - 3); cx.lineTo(x + 9, cy + 5);
+      cx.closePath(); cx.fill();
+    }
   }
 
   drawShape(shape, x, y, r, col, col2, t) {
     const { cx, C } = this;
+    const core = col2 === col ? C.text : col2;
     cx.fillStyle = col;
-    cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06;
+    cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1;
     cx.beginPath(); cx.arc(x, y, r * 2.3, 0, TAU); cx.fill();
     cx.globalAlpha = 1;
-    if (shape === 'diamond') {
-      cx.save(); cx.translate(x, y); cx.rotate(Math.PI / 4 + Math.sin(t * 2) * 0.12);
-      cx.fillRect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
-      cx.fillStyle = col2 === col ? C.text : col2;
-      cx.fillRect(-r * 0.35, -r * 0.35, r * 0.7, r * 0.7);
-      cx.restore();
-    } else if (shape === 'ring') {
-      cx.strokeStyle = col; cx.lineWidth = 3;
-      cx.beginPath(); cx.arc(x, y, r, 0, TAU); cx.stroke();
-      cx.fillStyle = col2;
-      cx.beginPath(); cx.arc(x, y, r * 0.45, 0, TAU); cx.fill();
-    } else if (shape === 'star') {
-      cx.beginPath();
-      for (let k = 0; k < 10; k++) {
-        const a = t * 1.5 + k * Math.PI / 5, rr = k % 2 ? r * 0.55 : r * 1.3;
-        cx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-      }
-      cx.closePath(); cx.fill();
-      cx.fillStyle = col2 === col ? C.text : col2;
-      cx.beginPath(); cx.arc(x, y, r * 0.3, 0, TAU); cx.fill();
-    } else {
-      cx.beginPath(); cx.arc(x, y, r, 0, TAU); cx.fill();
-      cx.fillStyle = col2 === col ? C.text : col2;
-      cx.beginPath(); cx.arc(x, y, r * 0.4, 0, TAU); cx.fill();
+    cx.save();
+    cx.translate(x, y);
+    switch (shape) {
+      case 'diamond':
+        cx.rotate(Math.PI / 4 + Math.sin(t * 2) * 0.12);
+        cx.fillRect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+        cx.fillStyle = core;
+        cx.fillRect(-r * 0.35, -r * 0.35, r * 0.7, r * 0.7);
+        break;
+      case 'square':
+        cx.rotate(t * 1.2);
+        cx.fillRect(-r * 0.8, -r * 0.8, r * 1.6, r * 1.6);
+        cx.fillStyle = core;
+        cx.fillRect(-r * 0.3, -r * 0.3, r * 0.6, r * 0.6);
+        break;
+      case 'hex':
+        cx.rotate(t * 0.8);
+        cx.beginPath();
+        for (let k = 0; k < 6; k++) cx.lineTo(Math.cos(k * TAU / 6) * r * 1.05, Math.sin(k * TAU / 6) * r * 1.05);
+        cx.closePath(); cx.fill();
+        cx.fillStyle = core;
+        cx.beginPath(); cx.arc(0, 0, r * 0.38, 0, TAU); cx.fill();
+        break;
+      case 'ring':
+        cx.strokeStyle = col; cx.lineWidth = 3;
+        cx.beginPath(); cx.arc(0, 0, r, 0, TAU); cx.stroke();
+        cx.fillStyle = col2;
+        cx.beginPath(); cx.arc(0, 0, r * 0.45, 0, TAU); cx.fill();
+        break;
+      case 'star':
+        cx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const a = t * 1.5 + k * Math.PI / 5, rr = k % 2 ? r * 0.55 : r * 1.3;
+          cx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        cx.closePath(); cx.fill();
+        cx.fillStyle = core;
+        cx.beginPath(); cx.arc(0, 0, r * 0.3, 0, TAU); cx.fill();
+        break;
+      default:
+        cx.beginPath(); cx.arc(0, 0, r, 0, TAU); cx.fill();
+        cx.fillStyle = core;
+        cx.beginPath(); cx.arc(0, 0, r * 0.4, 0, TAU); cx.fill();
     }
+    cx.restore();
   }
 
   drawFog(R, Y) {
@@ -296,7 +493,7 @@ export class Renderer {
       }
       cx.globalAlpha = 1;
     }
-    cx.fillStyle = C.wall;
+    cx.fillStyle = this.wallCol;
     for (let i = 0; i < f.k - 1; i++) {
       const xd = f.lanes[i].x1;
       cx.fillRect(xd, y0, DIV, y1 - y0);
@@ -347,11 +544,12 @@ export class Renderer {
         cx.fillText(fogOn ? '?' : fmt(f.counts[k]), xm, y);
       }
     }
-    if (f.invert) {
+    const tag = f.invert ? 'INVERSIÓN · CAE EL MÁS VACÍO' : f.overtime ? 'MUERTE SÚBITA' : '';
+    if (tag) {
       const y = inLane ? clamp(Y(f.endY) + 22, 110, this.viewH - 12) : Math.min(Y(f.entryY) - 78, this.viewH - 70);
-      cx.fillStyle = C.gold;
+      cx.fillStyle = f.invert ? C.gold : C.danger;
       cx.font = `800 12px ${FD}`;
-      cx.fillText('INVERSIÓN · CAE EL MÁS VACÍO', CFG.W / 2, y);
+      cx.fillText(tag, CFG.W / 2, y);
     }
     if (!inLane && Y(f.entryY) > this.viewH) {
       cx.fillStyle = C.muted;

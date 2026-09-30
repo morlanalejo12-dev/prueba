@@ -29,6 +29,15 @@ export function emblem(tier, size = 44) {
     + `<g fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${INNER[tier]}</g></svg>`;
 }
 
+// Vista previa de una estela con CSS
+export function trailPreview(tr, skinCol = '#ffb547') {
+  const el = document.createElement('i');
+  el.className = 'tr tr-' + tr.type;
+  el.style.setProperty('--c', tr.col || skinCol);
+  el.style.setProperty('--c2', tr.col2 || tr.col || skinCol);
+  return el;
+}
+
 // Vista previa de una skin con CSS (forma + colores)
 export function skinPreview(sk) {
   const el = document.createElement('i');

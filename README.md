@@ -18,11 +18,23 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 - Variantes: **camino dorado** (x2), **angosto**, **niebla** e **inversión** (esa vez cae el camino con menos gente).
 - Chispas coleccionables, pasadas justas con combos y cámara lenta en cada colapso.
 - Música generativa que se intensifica con la tensión, efectos de sonido y vibración.
-- Ranked con ligas, 16 skins, tienda, misiones diarias, recompensa diaria y pase de temporada.
+- Ranked con ligas y ventajas por liga, 27 skins y 15 estelas, tienda, misiones diarias, recompensa diaria y pase de temporada.
+- Muerte súbita hasta que queda un solo ganador, fondo que cambia por etapa y música progresiva.
 - Rival por ronda, feed en vivo, hitos de top 100/50/10/3, 17 logros y récords.
 - Tarjeta de resultado para compartir.
 
 ## Novedades
+
+### v0.5
+- **Recompensa diaria corregida**: al reclamar se muestra el premio en grande y el botón cierra la ventana. Antes el reclamo se guardaba, pero la ventana quedaba igual y el botón "Volvé mañana" no hacía nada.
+- **Estelas separadas de las skins**: 15 estelas con su propio catálogo (burbujas, rayo, constelación, cola de cometa, vacío y más), combinables con cualquier skin.
+- **27 skins**, con dos formas nuevas (cuadrado y hexágono) y una rareza nueva: **Mítica**.
+- **Ligas altas que valen la pena**: bonus de destellos (+5% en Plata hasta +50% en Leyenda), aura alrededor del jugador (halo, halo doble, órbita y corona), marco brillante en el perfil y skins y estelas exclusivas por liga.
+- **Fondo animado**: el túnel cambia de color en cada bifurcación, con nebulosas, estelas de velocidad y una grilla que late con la música. Al sobrevivir hay onda expansiva y confeti.
+- **Música progresiva**: cada bifurcación acelera el ritmo, sube la tonalidad y suma capas (hi-hats, arpegio, redoblante, melodía). Hay un crescendo al entrar en los carriles y un golpe al sobrevivir.
+- **Muerte súbita**: si después de la sexta bifurcación queda más de uno, siguen tramos cada vez más difíciles hasta que haya **un solo ganador**. Si nadie se separa, la corriente se lleva a la mitad.
+- El rival se ve marcado en rojo entre la multitud.
+- Tienda con 2 skins y 2 estelas por día.
 
 ### v0.4
 - **Ranked**: ligas Bronce, Plata, Oro, Platino y Diamante (con divisiones III, II, I), Maestro y Leyenda. Los PR suben o bajan según a cuántos superaste, y hay protección de liga. Animación de ascenso.
@@ -89,7 +101,7 @@ npm run build    # genera index.html (y dist/artifact.html)
 | `src/sim/` | Simulación pura y determinista: nivel, muros, multitud y ronda. No usa el DOM. |
 | `src/game/progress.js` | Niveles, logros, récords, racha, guardado y aplicación de cada ronda |
 | `src/game/ranks.js` | Ligas, divisiones y cálculo de PR |
-| `src/game/skins.js` | Catálogo de skins y cómo se consigue cada una |
+| `src/game/skins.js` | Catálogo de skins y estelas, y cómo se consigue cada una |
 | `src/game/meta.js` | Misiones diarias, recompensa diaria, tienda y pase de temporada |
 | `src/render/` | Dibujo en canvas, partículas y tarjeta para compartir |
 | `src/audio/` | Efectos y música sintetizados con Web Audio |

@@ -11,6 +11,17 @@ export const TIERS = [
   { id: 'leyenda', name: 'Leyenda', col: '#ffb547' },
 ];
 
+// Ventajas de cada liga: bonus de destellos y aura en el juego
+export const TIER_PERKS = [
+  { coinBonus: 0, aura: 'none', perk: 'Sin bonus' },
+  { coinBonus: 0.05, aura: 'none', perk: '+5% de destellos' },
+  { coinBonus: 0.1, aura: 'halo', perk: '+10% de destellos · halo dorado' },
+  { coinBonus: 0.15, aura: 'halo', perk: '+15% de destellos · halo' },
+  { coinBonus: 0.2, aura: 'halo2', perk: '+20% de destellos · halo doble' },
+  { coinBonus: 0.3, aura: 'orbit', perk: '+30% de destellos · órbita' },
+  { coinBonus: 0.5, aura: 'crown', perk: '+50% de destellos · corona' },
+];
+
 const ROMAN = ['', 'I', 'II', 'III'];
 export const DIV_PR = 100;          // PR por división
 const TIER_PR = DIV_PR * 3;         // cada liga tiene divisiones III, II, I
