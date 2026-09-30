@@ -61,6 +61,7 @@ wss.on('connection', ws => {
     me.nameStyle = String(m.nameStyle || me.nameStyle).slice(0, 24);
     const lvl = Math.floor(+m.lvl);
     if (lvl >= 1 && lvl <= 120) me.lvl = lvl;
+    if (typeof m.ttl === 'string') me.ttl = m.ttl.replace(/[^\p{L}\p{N} ]/gu, '').trim().slice(0, 40);
   };
   const err = msg => me.send(JSON.stringify({ t: 'err', msg }));
 

@@ -1,7 +1,7 @@
 // Contenido de cada ventana. Cada constructor recibe el cuerpo vacío, el guardado y los callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText } from '../util/math.js';
-import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx, achItem, levelBadgeOf, LEVEL_BADGES, MAX_LEVEL, levelCoinsAt } from '../game/progress.js';
+import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, displayTitle, streakNow, instinct, ownedCtx, achItem, levelBadgeOf, LEVEL_BADGES, MAX_LEVEL, levelCoinsAt } from '../game/progress.js';
 import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards, usd } from '../game/skins.js';
 import { PASS, PASS_FREE, PASS_PRICE_USD, passInfo } from '../game/pass.js';
 import { TIERS, TIER_PERKS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
@@ -258,7 +258,7 @@ const BUILDERS = {
       if (p.lvl) { const lv = el('span', 'rp-lvl'); lv.innerHTML = levelEmblem(p.lvl, levelBadgeOf(p.lvl), 26); nmRow.append(lv); }
       nmRow.append(nameTag(p.name, nameStyleById(p.nameStyle)));
       who.append(nmRow);
-      who.append(el('small', '', `${p.lvl ? titleOf(p.lvl) + ' · ' : ''}${sk.name} · ${tr.name}${p.id === o.myId ? ' · vos' : ''}`));
+      who.append(el('small', '', `${p.lvl ? (p.ttl || titleOf(p.lvl)) + ' · ' : ''}${sk.name} · ${tr.name}${p.id === o.myId ? ' · vos' : ''}`));
       li.append(pv, who);
       if (p.id === r.host) li.append(el('em', '', 'Anfitrión'));
       else if (p.inRound) li.append(el('em', 'live', 'Jugando'));
@@ -850,7 +850,7 @@ const PROFILE_TABS = {
     const d = el('div');
     const bar = el('div', 'xpbar');
     const f = el('span'); f.style.width = (li.into / li.need * 100) + '%'; bar.append(f);
-    d.append(el('strong', '', titleOf(li.level)), el('small', '', `Nivel ${li.level} · ${rk.label} · ${skinById(save.skin).name} + ${trailById(save.trail).name}`), bar);
+    d.append(el('strong', '', displayTitle(save)), el('small', '', `Nivel ${li.level} · ${rk.label} · ${skinById(save.skin).name} + ${trailById(save.trail).name}`), bar);
     head.append(d);
     const st = streakNow(save);
     const cells = [
@@ -870,19 +870,37 @@ const PROFILE_TABS = {
     panel.append(head, grid, el('p', '', 'El Instinto es el porcentaje de bifurcaciones que superaste en toda tu historia.'), el('h3', '', 'Títulos'), ul);
   },
   // Recorrido de la cuenta hasta el nivel 120: títulos, distintivos y premios
-  lvl(panel, save) {
+  lvl(panel, save, env) {
     const li = levelInfo(save.xp), lb = levelBadgeOf(li.level);
     const card = el('div', 'level-card');
     card.innerHTML = levelEmblem(li.level, lb, 64);
     const d = el('div');
     const next = TITLES.find(t => t.lvl > li.level), nextB = LEVEL_BADGES.find(b => b.lvl > li.level);
-    d.append(el('b', '', titleOf(li.level)), el('small', '', `Nivel ${li.level} de ${MAX_LEVEL} · distintivo ${lb.name}`),
+    d.append(el('b', '', displayTitle(save)), el('small', '', `Nivel ${li.level} de ${MAX_LEVEL} · distintivo ${lb.name}`),
       el('small', '', li.max ? '¡Llegaste al nivel máximo!' : `${fmt(li.into)} / ${fmt(li.need)} XP · próximo título: ${next ? next.name + ' (Nv ' + next.lvl + ')' : '—'}`));
     const bar = el('div', 'xpbar');
     const f = el('span'); f.style.width = (li.into / li.need * 100) + '%'; bar.append(f);
     d.append(bar);
     card.append(d);
-    panel.append(card, el('p', '', `Cada nivel da ${fmt(levelCoinsAt(2))} a ${fmt(levelCoinsAt(MAX_LEVEL))} destellos. Cada 10 niveles cambia tu distintivo${nextB ? ` (próximo: ${nextB.name}, Nv ${nextB.lvl})` : ''}.`));
+    panel.append(card);
+    // Nivel máximo: elegir el título de cualquier nivel
+    if (li.max) {
+      const box = el('div', 'title-pick');
+      box.append(el('h3', '', 'Elegí tu título'), el('p', 'note', 'Llegaste al nivel 120: podés lucir el título de cualquier nivel.'));
+      const grid = el('div', 'title-grid');
+      const cur = save.titleSel || MAX_LEVEL;
+      for (const t of [...TITLES].reverse()) {
+        const b = el('button', 'title-chip' + (t.lvl === cur ? ' on' : ''));
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(t.lvl === cur));
+        b.append(el('b', '', t.name), el('small', '', `Nv ${t.lvl}`));
+        b.addEventListener('click', () => env.h.onSelectTitle(t.lvl));
+        grid.append(b);
+      }
+      box.append(grid);
+      panel.append(box);
+    }
+    panel.append(el('p', '', `Cada nivel da ${fmt(levelCoinsAt(2))} a ${fmt(levelCoinsAt(MAX_LEVEL))} destellos. Cada 10 niveles cambia tu distintivo${nextB ? ` (próximo: ${nextB.name}, Nv ${nextB.lvl})` : ''}.`));
     // Hitos: niveles con título nuevo, distintivo nuevo o cosmético
     const items = [...SKINS, ...TRAILS, ...MUSIC, ...NAME_STYLES].filter(k => k.src.type === 'level');
     const lvls = new Set([...TITLES.map(t => t.lvl), ...LEVEL_BADGES.map(b => b.lvl), ...items.map(k => k.src.lvl)]);

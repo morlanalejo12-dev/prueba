@@ -99,3 +99,14 @@ test('una ronda da PR, destellos y avanza misiones', () => {
   assert.equal(save.missions.day, '2026-09-29');
   assert.equal(save.missions.list.length, 3);
 });
+
+test('nivel máximo: se puede lucir el título de cualquier nivel', async () => {
+  const { displayTitle, unlockEverything } = await import('../src/game/progress.js');
+  const save = loadSave(memStore());
+  save.titleSel = 20;
+  assert.equal(displayTitle(save), 'Chispa', 'antes del 120 no se puede elegir');
+  unlockEverything(save);
+  assert.equal(displayTitle(save), 'Contracorriente');
+  save.titleSel = 0;
+  assert.equal(displayTitle(save), 'Soberano Absoluto de la Corriente');
+});

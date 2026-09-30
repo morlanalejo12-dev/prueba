@@ -47,6 +47,10 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 
 ## Novedades
 
+### v0.11
+- **Título a elección en el nivel 120** (como en Black Ops 4): al llegar al máximo, en Perfil → Niveles elegís el título de cualquier nivel para lucirlo en el menú, el perfil, los resultados y la sala online.
+- **Skins más compactas:** ningún adorno se aleja más de unos 2 radios de la bola. El aura de las ligas altas (anillos, puntos y corona) es más chica y más tenue, y se achicaron Singularidad, Núcleo de Plasma, Quásar, Dragón Estelar, los cristales y las estelas más anchas (Supernova, Vacío, cometas). Así se ve mejor el camino, tanto para quien las usa como para los demás.
+
 ### v0.10
 - **Niveles de cuenta hasta el 120** (antes 12). Cada nivel da destellos, y en los niveles clave hay cosméticos propios de la cuenta.
 - **27 títulos** que crecen con el progreso: de *Chispa* (nivel 1) a *Soberano Absoluto de la Corriente* (nivel 120).

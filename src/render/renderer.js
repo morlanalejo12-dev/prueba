@@ -381,11 +381,11 @@ export class Renderer {
       case 'supernova': this.drawSupernova(tr, n, Y, R, t, P); break;
       case 'ribbon': ribbon(P * 1.5, 0.75, tc, tc2); break;
       case 'comet':
-        ribbon(P * 2.6, 0.35, tc, tc);
+        ribbon(P * 1.9, 0.35, tc, tc);
         ribbon(P * 1.1, 0.9, '#ffffff', tc);
         break;
       case 'void':
-        ribbon(P * 2.4, 0.55, tc, tc);
+        ribbon(P * 1.8, 0.55, tc, tc);
         ribbon(P * 1.2, 1, tc2, tc2);
         break;
       case 'bolt': {
@@ -429,36 +429,39 @@ export class Renderer {
   }
 
   // Distinción de las ligas altas alrededor del jugador
+  // Distinción de las ligas altas: discreta y pegada a la bola (nunca más de ~2 radios)
   drawAura(x, y, r, t, aura, col) {
     if (!aura || aura === 'none') return;
     const { cx } = this;
     cx.strokeStyle = col;
-    cx.lineWidth = 1.5;
-    const ring = (rad, rot, dash) => {
+    cx.lineWidth = 1;
+    const ring = (rad, rot, dash, a) => {
       cx.save(); cx.translate(x, y); cx.rotate(rot);
-      cx.setLineDash(dash); cx.globalAlpha = (0.75) * this.aMul;
+      cx.setLineDash(dash); cx.globalAlpha = a * this.aMul;
       cx.beginPath(); cx.arc(0, 0, rad, 0, TAU); cx.stroke();
       cx.restore();
     };
-    ring(r * 2.8, t * 1.4, [6, 5]);
-    if (aura === 'halo2' || aura === 'orbit' || aura === 'crown') ring(r * 3.5, -t * 0.9, [2, 7]);
+    ring(r * 1.7, t * 1.4, [4, 4], 0.55);
+    if (aura === 'halo2' || aura === 'orbit' || aura === 'crown') ring(r * 1.95, -t * 0.9, [1.5, 5], 0.4);
     cx.setLineDash([]);
-    cx.globalAlpha = (1) * this.aMul;
+    cx.globalAlpha = 0.8 * this.aMul;
     if (aura === 'orbit' || aura === 'crown') {
       cx.fillStyle = col;
       for (let k = 0; k < 3; k++) {
         const a = t * 3 + k * TAU / 3;
-        cx.beginPath(); cx.arc(x + Math.cos(a) * r * 3.5, y + Math.sin(a) * r * 3.5, 2.2, 0, TAU); cx.fill();
+        cx.beginPath(); cx.arc(x + Math.cos(a) * r * 1.95, y + Math.sin(a) * r * 1.95, 1.3, 0, TAU); cx.fill();
       }
     }
     if (aura === 'crown') {
-      const cy = y - r * 3.3 + Math.sin(t * 4) * 1.5;
+      const cy = y - r * 1.85 + Math.sin(t * 4) * 0.6;
       cx.fillStyle = this.C.gold;
+      cx.globalAlpha = 0.9 * this.aMul;
       cx.beginPath();
-      cx.moveTo(x - 9, cy + 5); cx.lineTo(x - 9, cy - 3); cx.lineTo(x - 4.5, cy + 1); cx.lineTo(x, cy - 6);
-      cx.lineTo(x + 4.5, cy + 1); cx.lineTo(x + 9, cy - 3); cx.lineTo(x + 9, cy + 5);
+      cx.moveTo(x - 4.5, cy + 2.5); cx.lineTo(x - 4.5, cy - 1.5); cx.lineTo(x - 2.2, cy + 0.5); cx.lineTo(x, cy - 3);
+      cx.lineTo(x + 2.2, cy + 0.5); cx.lineTo(x + 4.5, cy - 1.5); cx.lineTo(x + 4.5, cy + 2.5);
       cx.closePath(); cx.fill();
     }
+    cx.globalAlpha = this.aMul;
   }
 
   // Estela Fundador: cinta de plasma que cicla oro → magenta → cian, con núcleo
@@ -469,7 +472,7 @@ export class Renderer {
     cx.save();
     cx.lineCap = 'round';
     const hue = k => novaHue(t * 0.5 + (1 - k / n) * 0.9);
-    for (const [wMul, alpha, light] of [[4.2, 0.12, 60], [2.2, 0.35, 62], [1, 0.9, 75]]) {
+    for (const [wMul, alpha, light] of [[2.4, 0.14, 60], [1.5, 0.35, 62], [0.8, 0.9, 75]]) {
       for (let k = 2; k < n; k += 2) {
         const a = k / n;
         cx.strokeStyle = `hsl(${Math.round(hue(k))} 100% ${light}%)`;
@@ -495,7 +498,7 @@ export class Renderer {
       cx.beginPath();
       for (let k = n - 2; k > n * 0.3; k -= 4) {
         const s = Math.sin((k + flick * 13 + j * 71) * 12.9898) * 43758.5453;
-        const off = ((s - Math.floor(s)) - 0.5) * P * 3.2 * (k / n);
+        const off = ((s - Math.floor(s)) - 0.5) * P * 1.8 * (k / n);
         cx.lineTo(tr[k] + off, Y(tr[k + 1]));
       }
       cx.stroke();
@@ -508,24 +511,23 @@ export class Renderer {
   // y destellos. Se dibuja en dos mitades (atrás / adelante del horizonte) para dar volumen.
   drawSingularity(x, y, r, t) {
     const { cx } = this;
-    r *= 1.25;
     const pulse = 1 + Math.sin(t * 5) * 0.08 + this.pulse * 0.25;
     cx.save();
     cx.translate(x, y);
     cx.globalCompositeOperation = 'lighter';
     // Halo
-    const halo = cx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 4.2 * pulse);
+    const halo = cx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 2.1 * pulse);
     halo.addColorStop(0, 'rgba(255,209,102,0.45)');
     halo.addColorStop(0.4, 'rgba(180,140,255,0.22)');
     halo.addColorStop(1, 'rgba(255,94,209,0)');
     cx.fillStyle = halo;
-    cx.beginPath(); cx.arc(0, 0, r * 4.2 * pulse, 0, TAU); cx.fill();
+    cx.beginPath(); cx.arc(0, 0, r * 2.1 * pulse, 0, TAU); cx.fill();
     // Destellos tipo lente
     cx.save();
     cx.rotate(t * 0.6);
     for (let k = 0; k < 4; k++) {
       cx.rotate(TAU / 4);
-      const len = r * (k % 2 ? 3.2 : 4.6) * pulse;
+      const len = r * (k % 2 ? 1.7 : 2.2) * pulse;
       const g = cx.createLinearGradient(0, 0, len, 0);
       g.addColorStop(0, 'rgba(255,241,200,0.8)');
       g.addColorStop(1, 'rgba(255,241,200,0)');
@@ -534,7 +536,7 @@ export class Renderer {
     }
     cx.restore();
     // Disco de acreción (mitad trasera)
-    const tilt = 0.34, RX = r * 2.25, spin = t * 3.2;
+    const tilt = 0.34, RX = r * 1.65, spin = t * 3.2;
     const disk = (from, to) => {
       const seg = 18;
       for (let w = 0; w < 3; w++) {
@@ -593,7 +595,7 @@ export class Renderer {
     const core = col2 === col ? C.text : col2;
     cx.fillStyle = col;
     cx.globalAlpha = (0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1) * this.aMul;
-    cx.beginPath(); cx.arc(x, y, r * 2.3, 0, TAU); cx.fill();
+    cx.beginPath(); cx.arc(x, y, r * 1.6, 0, TAU); cx.fill();
     cx.globalAlpha = (1) * this.aMul;
     cx.save();
     cx.translate(x, y);
@@ -660,7 +662,7 @@ export class Renderer {
         if (g < 0.25) {
           cx.fillStyle = '#ffffff';
           cx.globalAlpha = (1 - g * 4) * this.aMul;
-          cx.fillRect(-r * 1.6, -0.8, r * 3.2, 1.6); cx.fillRect(-0.8, -r * 1.6, 1.6, r * 3.2);
+          cx.fillRect(-r * 1.4, -0.6, r * 2.8, 1.2); cx.fillRect(-0.6, -r * 1.4, 1.2, r * 2.8);
           cx.globalAlpha = this.aMul;
         }
         break;
@@ -675,7 +677,7 @@ export class Renderer {
         cx.lineWidth = 1.4;
         for (let k = 0; k < 3; k++) {
           cx.strokeStyle = k % 2 ? col2 : col;
-          cx.beginPath(); cx.ellipse(0, 0, r * 1.9, r * 0.55, t * (1.5 + k * 0.4) + k * TAU / 3, 0, TAU); cx.stroke();
+          cx.beginPath(); cx.ellipse(0, 0, r * 1.5, r * 0.45, t * (1.5 + k * 0.4) + k * TAU / 3, 0, TAU); cx.stroke();
         }
         cx.strokeStyle = '#ffffff'; cx.lineWidth = 1;
         const f = Math.floor(t * 18);
@@ -683,7 +685,7 @@ export class Renderer {
           const a0 = ((f * 7 + k * 13) % 17) / 17 * TAU;
           cx.beginPath(); cx.moveTo(Math.cos(a0) * r, Math.sin(a0) * r);
           for (let j = 1; j <= 3; j++) {
-            const rr = r * (1 + j * 0.3), aa = a0 + Math.sin(f * 3.1 + j * k) * 0.4;
+            const rr = r * (1 + j * 0.17), aa = a0 + Math.sin(f * 3.1 + j * k) * 0.4;
             cx.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr);
           }
           cx.stroke();

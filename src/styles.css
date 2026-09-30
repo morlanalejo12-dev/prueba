@@ -1058,3 +1058,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .tabs.four { grid-template-columns: repeat(4, 1fr); }
 .rp-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .levelup-emblem { display: grid; place-items: center; padding: 10px; animation: emblemIn 0.8s cubic-bezier(.2, 1.4, .4, 1); }
+.title-pick { display: flex; flex-direction: column; gap: 8px; padding: var(--s3); border-radius: var(--r2); background: linear-gradient(140deg, rgba(255, 209, 102, 0.12), rgba(255, 94, 209, 0.08)); border: 1px solid rgba(255, 209, 102, 0.4); }
+.title-pick h3 { margin: 0; font: 800 16px/1 var(--f-display); color: var(--gold); }
+.title-pick .note { margin: 0; }
+.title-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 260px; overflow: auto; }
+.title-chip { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 10px; border-radius: var(--r1); background: var(--glass); border: 1px solid var(--edge); color: var(--text); text-align: left; min-width: 0; }
+.title-chip b { font-size: 13px; line-height: 1.2; max-width: 100%; overflow-wrap: anywhere; }
+.title-chip small { font: 600 10px/1 var(--f-mono); color: var(--muted); }
+.title-chip.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(255, 209, 102, 0.3); }
+.title-chip.on b { color: var(--gold); }

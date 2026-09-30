@@ -2,7 +2,7 @@
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch, levelBadgeOf } from '../game/progress.js';
+import { levelInfo, titleOf, displayTitle, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch, levelBadgeOf } from '../game/progress.js';
 import { claimablePass, passInfo } from '../game/pass.js';
 import { SKINS, TRAILS, skinById } from '../game/skins.js';
 import { MUSIC } from '../game/music.js';
@@ -274,7 +274,7 @@ export function createUI(h) {
     const pt = $('pTitle');
     pt.innerHTML = '';
     if (save.name) pt.append(nameTag(save.name, nameStyleById(save.nameStyle)));
-    else pt.textContent = titleOf(li.level);
+    else pt.textContent = displayTitle(save);
 
     $('sBest').textContent = save.rounds ? pctText(save.best) : '—';
     $('sRounds').textContent = fmt(save.rounds);
@@ -342,7 +342,7 @@ export function createUI(h) {
     // XP y destellos
     tween($('rXp'), 0, rep.gain, v => '+' + fmt(v));
     tween($('rCoins'), 0, rep.coins, v => '+' + fmt(v));
-    $('rLevel').textContent = `Nivel ${rep.after.level} · ${titleOf(rep.after.level)}`;
+    $('rLevel').textContent = `Nivel ${rep.after.level} · ${displayTitle(h.getSave())}`;
     const fill = $('rXpFill'), up = rep.after.level > rep.before.level;
     fill.classList.remove('anim');
     fill.style.width = (up ? 0 : rep.before.into / rep.before.need * 100) + '%';

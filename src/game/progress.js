@@ -21,6 +21,8 @@ const DEFAULTS = {
   // v0.9
   passXp: 0, passClaimed: {}, premiumPass: false, achClaimed: {}, ownerAll: false, notif: true,
   friendId: '', friends: [],
+  // v0.11
+  titleSel: 0,
 };
 
 // Lo que cada jugador tenía con las reglas anteriores a la v0.9 (por nivel, liga o logro) se conserva
@@ -115,6 +117,16 @@ export function levelInfo(xp) {
   while (xp >= need && level < MAX_LEVEL) { xp -= need; level++; need = levelNeed(level); }
   if (level >= MAX_LEVEL) return { level: MAX_LEVEL, into: need, need, max: true };
   return { level, into: xp, need };
+}
+
+// En el nivel máximo se puede lucir el título de cualquier nivel
+export function displayTitle(save) {
+  const lvl = levelInfo(save.xp).level;
+  if (lvl >= MAX_LEVEL && save.titleSel) {
+    const t = TITLES.find(x => x.lvl === save.titleSel);
+    if (t) return t.name;
+  }
+  return titleOf(lvl);
 }
 
 export function titleOf(level) {

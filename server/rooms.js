@@ -60,7 +60,7 @@ export class Room {
     return {
       t: 'room', code: this.code, pub: this.pub, host: this.host, phase: this.phase,
       startAt: this.startAt, now, round: this.roundNo,
-      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, lvl: p.lvl || 1, inRound: !!(this.round && this.round.byId.has(p.id)) })),
+      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, lvl: p.lvl || 1, ttl: p.ttl || '', inRound: !!(this.round && this.round.byId.has(p.id)) })),
     };
   }
 

@@ -10,7 +10,7 @@ import { Renderer, skinColor } from './render/renderer.js';
 import { Fx, SHAPE } from './render/fx.js';
 import { renderShareCard, shareText } from './render/share.js';
 import {
-  loadSave, writeSave, resetSave, applyRound, claimMission, localStore, levelInfo, titleOf, levelBadgeOf,
+  loadSave, writeSave, resetSave, applyRound, claimMission, localStore, levelInfo, titleOf, levelBadgeOf, displayTitle,
   dayKey, yesterdayOf, ownedCtx,
 } from './game/progress.js';
 import { skinById, trailById, isOwned } from './game/skins.js';
@@ -203,6 +203,14 @@ const ui = createUI({
     ui.refreshModal();
   },
   roomStatusText: () => roomStatusText(),
+  onSelectTitle: lvl => {
+    save.titleSel = lvl;
+    persist();
+    audio.play('claim');
+    refreshMenu();
+    sendProfile();
+    ui.openModal('profile', { tab: 'lvl' });
+  },
   // Pase de temporada
   onClaimPass: lvl => {
     const levels = lvl === 'all' ? claimablePass(save).map(r => r.lvl) : [lvl];
@@ -426,7 +434,7 @@ function onlineGo(nameRaw, url, action, code) {
 }
 
 function profile() {
-  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, lvl: levelInfo(save.xp).level };
+  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, lvl: levelInfo(save.xp).level, ttl: displayTitle(save) };
 }
 const kindOf = item => (item.shape ? 'skin' : item.track ? 'music' : item.fx ? 'name' : 'trail');
 function playerNameStyle() {
@@ -662,7 +670,7 @@ function openShare() {
   const li = levelInfo(save.xp);
   const image = renderShareCard(lastSum, {
     colors: C, fonts: { display: renderer.FD, body: renderer.FB, mono: renderer.FM },
-    playerColor: skinColor(playerSkin(), 1), level: li.level, title: titleOf(li.level), rank: rankOf(save.pr).label,
+    playerColor: skinColor(playerSkin(), 1), level: li.level, title: displayTitle(save), rank: rankOf(save.pr).label,
   });
   ui.openModal('share', { image, text: shareText(lastSum) });
 }
