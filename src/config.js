@@ -31,8 +31,8 @@ export const CFG = Object.freeze({
 
   // Motor
   FIXED_DT: 1 / 120,
-  // Servidor online por defecto cuando el juego se abre como archivo (vacío = hay que configurarlo en Ajustes)
-  ONLINE_URL: '',
+  // Servidor online por defecto cuando el juego se abre como archivo o dentro de un artifact
+  ONLINE_URL: 'wss://contracorriente.onrender.com/ws',
 });
 
 export const BOT = Object.freeze({ HERD: 0, CONTRA: 1, STUB: 2, LATE: 3 });
