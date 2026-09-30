@@ -613,7 +613,7 @@ const BUILDERS = {
       env.h.onReset();
       env.close();
     });
-    zone.append(reset, el('p', 'note', 'Tu progreso se guarda solo en este dispositivo.'));
+    zone.append(reset, el('p', 'note', `Tu progreso se guarda solo en este dispositivo. Versión ${CFG.VERSION}.`));
     body.append(zone);
   },
 

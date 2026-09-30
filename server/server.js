@@ -27,7 +27,9 @@ const server = http.createServer((req, res) => {
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('No encontrado'); return; }
     const type = TYPES[path.extname(file)] || 'application/octet-stream';
-    res.writeHead(200, { 'content-type': type, 'cache-control': file.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300' });
+    // La página, el manifiesto y el service worker se revalidan siempre: así cada despliegue se ve al recargar
+    const fresh = /\.(html|webmanifest)$|sw\.js$/.test(file);
+    res.writeHead(200, { 'content-type': type, 'cache-control': fresh ? 'no-cache' : 'public, max-age=3600' });
     res.end(data);
   });
 });

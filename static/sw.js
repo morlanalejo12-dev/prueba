@@ -15,7 +15,8 @@ self.addEventListener('activate', e => {
 // Primero la red (para recibir actualizaciones); si no hay conexión, lo guardado
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request)
+  // no-cache: pedir siempre la versión más nueva al servidor (sin pasar por la caché del navegador)
+  e.respondWith(fetch(e.request, { cache: 'no-cache' })
     .then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));

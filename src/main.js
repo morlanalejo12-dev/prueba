@@ -911,6 +911,7 @@ function setupPWA() {
 
 // ---------- Arranque ----------
 $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
+$('appVersion').textContent = 'v' + CFG.VERSION;
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
 setupPWA();
 applyTrack();

@@ -32,6 +32,7 @@ export const CFG = Object.freeze({
   // Motor
   FIXED_DT: 1 / 120,
   // Servidor online por defecto cuando el juego se abre como archivo o dentro de un artifact
+  VERSION: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev',
   ONLINE_URL: 'wss://contracorriente.onrender.com/ws',
 });
 

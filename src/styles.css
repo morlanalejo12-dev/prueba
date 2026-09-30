@@ -952,3 +952,4 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .standings li .nm { overflow: hidden; text-overflow: ellipsis; }
 .standings li span { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 .standings li span .sk { width: 22px; height: 22px; flex: none; transform: scale(0.7); }
+.app-version { margin: 4px 0 0; text-align: center; font: 600 10px/1 var(--f-mono); color: var(--faint, var(--muted)); opacity: 0.6; letter-spacing: 0.08em; }

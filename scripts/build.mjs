@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const minify = process.argv.includes('--min');
+const appVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 
 const result = await build({
   entryPoints: [join(root, 'src/main.js')],
@@ -19,6 +20,7 @@ const result = await build({
   minify,
   legalComments: 'none',
   charset: 'utf8',
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = readFileSync(join(root, 'src/styles.css'), 'utf8');
