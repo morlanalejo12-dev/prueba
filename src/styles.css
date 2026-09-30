@@ -1100,3 +1100,39 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .cloud-box .note { margin: 0; }
 .locked-tile .badge { display: none; }
 ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+/* ---------- v1.0 · Pantalla de inicio y cuenta ---------- */
+.start {
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(13, 10, 32, 0.35), rgba(13, 10, 32, 0.92) 75%),
+    linear-gradient(180deg, rgba(13, 10, 32, 0.6), rgba(13, 10, 32, 0.3) 35%, rgba(13, 10, 32, 0.9));
+}
+.start-inner { width: 100%; max-width: 360px; margin-block: auto; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s4); }
+.start-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: var(--s3); }
+.start-actions .btn { width: 100%; }
+.google-slot { display: flex; justify-content: center; min-height: 44px; }
+.start-or { display: flex; align-items: center; gap: 10px; color: var(--faint, var(--muted)); font: 600 12px/1 var(--f-mono); }
+.start-or::before, .start-or::after { content: ""; flex: 1; height: 1px; background: var(--edge); }
+.btn-link { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text); font: 700 15px/1 var(--f-body); padding: 12px; text-decoration: underline; text-underline-offset: 4px; }
+.start-warn { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.start-warn b { color: var(--gold); }
+.start-status { margin: 0; min-height: 1.2em; font: 600 13px/1.3 var(--f-body); color: var(--danger); }
+.legal-links { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; font-size: 12px; margin-top: var(--s4); }
+.legal-links a { color: var(--muted); }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form .redeem-input { text-transform: none; letter-spacing: 0.01em; font-family: var(--f-body); font-weight: 600; }
+.auth-form .btn { width: 100%; }
+.auth-switch { text-align: center; font-size: 14px; color: var(--muted); }
+.auth-switch button { appearance: none; border: 0; background: none; color: var(--gold); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.account-box { display: flex; flex-direction: column; gap: 8px; padding: var(--s3); border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); }
+.account-box .who { font: 700 15px/1.3 var(--f-body); overflow-wrap: anywhere; }
+.account-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.guest-warn { margin: 0; padding: 8px 10px; border-radius: var(--r1); background: rgba(255, 181, 71, 0.1); border: 1px solid rgba(255, 181, 71, 0.35); font-size: 13px; color: var(--gold); }
+.merge-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.merge-choice button { appearance: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); color: var(--text); text-align: left; }
+.merge-choice button b { font: 800 15px/1.2 var(--f-display); }
+.merge-choice button small { font: 600 12px/1.35 var(--f-mono); color: var(--muted); }
+.merge-choice button:hover { border-color: var(--gold); }
+.offline-pill { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); transform: translateX(-50%); z-index: 30; padding: 6px 14px; border-radius: 999px; background: #2a1650; border: 1px solid var(--edge); font: 700 12px/1.3 var(--f-body); color: var(--gold); }
+.soon-banner.ok { color: var(--mint); border-color: rgba(94, 242, 194, 0.5); background: rgba(94, 242, 194, 0.08); }

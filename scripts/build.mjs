@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const minify = process.argv.includes('--min');
+const SITE = (process.env.PUBLIC_URL || 'https://contracorriente.onrender.com').replace(/\/$/, '');
 const appVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 
 const result = await build({
@@ -24,7 +25,7 @@ const result = await build({
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = readFileSync(join(root, 'src/styles.css'), 'utf8');
-const template = readFileSync(join(root, 'src/index.html'), 'utf8');
+const template = readFileSync(join(root, 'src/index.html'), 'utf8').replaceAll('__SITE__', SITE);
 
 // Reemplazo con función: evita que los "$&" del código se interpreten como patrones
 // Temas grabados (assets/music): embebidos en el archivo suelto y en el artifact;
@@ -56,6 +57,9 @@ for (const f of readdirSync(join(root, 'static'))) {
   if (f === 'sw.js') writeFileSync(join(site, f), readFileSync(join(root, 'static', f), 'utf8').replace('__VERSION__', version));
   else copyFileSync(join(root, 'static', f), join(site, f));
 }
+// Buscadores: robots.txt y sitemap.xml con la dirección pública
+writeFileSync(join(site, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nSitemap: ${SITE}/sitemap.xml\n`);
+writeFileSync(join(site, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${['', 'terminos', 'privacidad', 'reembolsos'].map(p => `  <url><loc>${SITE}/${p}</loc></url>`).join('\n')}\n</urlset>\n`);
 
 const kb = n => (n / 1024).toFixed(1) + ' KB';
 console.log(`index.html ${kb(html.length)} · js ${kb(js.length)} · css ${kb(css.length)}`);

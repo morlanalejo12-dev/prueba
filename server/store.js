@@ -16,6 +16,7 @@ export class FileStore {
   ns(n) { return this.data[n] || (this.data[n] = {}); }
   async get(n, k) { return this.ns(n)[k] ?? null; }
   async set(n, k, v) { this.ns(n)[k] = v; this.flush(); }
+  async del(n, k) { delete this.ns(n)[k]; this.flush(); }
   async list(n) { return Object.entries(this.ns(n)).map(([key, value]) => ({ key, value })); }
   flush() {
     clearTimeout(this.timer);
@@ -32,6 +33,7 @@ export class MemoryStore {
   ns(n) { return this.data[n] || (this.data[n] = {}); }
   async get(n, k) { return this.ns(n)[k] ?? null; }
   async set(n, k, v) { this.ns(n)[k] = v; }
+  async del(n, k) { delete this.ns(n)[k]; }
   async list(n) { return Object.entries(this.ns(n)).map(([key, value]) => ({ key, value })); }
 }
 
@@ -47,6 +49,9 @@ export class SupabaseStore {
   }
   async set(n, k, v) {
     await fetch(this.url, { method: 'POST', headers: { ...this.h, Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ ns: n, key: k, value: v, updated: new Date().toISOString() }) });
+  }
+  async del(n, k) {
+    await fetch(`${this.url}?ns=eq.${encodeURIComponent(n)}&key=eq.${encodeURIComponent(k)}`, { method: 'DELETE', headers: this.h });
   }
   async list(n) {
     const r = await fetch(`${this.url}?ns=eq.${encodeURIComponent(n)}&select=key,value`, { headers: this.h });

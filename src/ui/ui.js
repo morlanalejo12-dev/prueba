@@ -313,6 +313,7 @@ export function createUI(h) {
   }
 
   function showScreen(name) {
+    $('start').hidden = name !== 'start';
     $('menu').hidden = name !== 'menu';
     $('results').hidden = name !== 'results';
     // Solo mover el foco si se está usando el teclado (evita el anillo de foco al tocar)

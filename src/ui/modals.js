@@ -41,7 +41,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', boards: 'Ranking', comeback: '¡Volviste!', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', boards: 'Ranking', comeback: '¡Volviste!', auth: 'Tu cuenta', merge: '¿Qué progreso usamos?', deleteAccount: 'Eliminar mi cuenta', guestNudge: 'No pierdas tu progreso', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -519,12 +519,12 @@ const BUILDERS = {
     body.append(ul, el('p', 'note', 'Todos los cosméticos son solo visuales: no dan ninguna ventaja en el juego.'));
   },
 
-  // Tienda Premium: Legendarias y Míticas. Precios listos; la compra se habilita en la v1.0
+  // Tienda Premium: Legendarias y Míticas. Se compra con Mercado Pago cuando está configurado (MP_ACCESS_TOKEN)
   premium(body, env) {
     const { save } = env, ctx = ownedCtx(save);
     body.append(el('p', 'premium-note', 'Acá van los cosméticos Legendarios y Míticos. Son solo visuales: no dan ninguna ventaja en el juego. Jugando gratis conseguís hasta la calidad Épica.'));
-    const soon = el('p', 'soon-banner', 'Las compras se habilitan en la versión 1.0');
-    body.append(soon);
+    if (!env.h.payOn()) body.append(el('p', 'soon-banner', 'Las compras todavía no están habilitadas'));
+    else body.append(el('p', 'soon-banner ok', 'Pagás con Mercado Pago (tarjeta, débito o dinero en cuenta). Lo comprado queda en tu cuenta.'));
     // El pase Premium también se vende acá
     const passCard = el('div', 'offer premium-offer pass-offer');
     passCard.style.setProperty('--rc', RARITY.mitica.col);
@@ -631,6 +631,84 @@ const BUILDERS = {
   },
 
   prize(body, env, data) { BUILDERS.redeemed(body, env, data); },
+
+  // Cuenta: login, registro, olvidé mi contraseña y nueva contraseña
+  auth(body, env, data) {
+    const mode = (data && data.mode) || 'login', a = env.h.authState();
+    const form = el('div', 'auth-form');
+    const msg = el('p', 'redeem-msg', a.msg || '');
+    msg.setAttribute('role', 'status');
+    const input = (type, ph, ac, val) => {
+      const i = el('input', 'redeem-input');
+      Object.assign(i, { type, placeholder: ph, autocomplete: ac, value: val || '' });
+      i.setAttribute('aria-label', ph);
+      form.append(i);
+      return i;
+    };
+    const titles = { login: 'Iniciá sesión para guardar tu progreso en la nube.', register: 'Creá tu cuenta gratis: tu progreso queda guardado aunque cambies de dispositivo.', forgot: 'Te mandamos un enlace a tu email para elegir una contraseña nueva.', reset: 'Elegí tu contraseña nueva.' };
+    form.append(el('p', '', titles[mode]));
+    let email, pass, name;
+    if (mode !== 'reset') email = input('email', 'Email', 'email', a.email);
+    if (mode === 'register') name = input('text', 'Tu nombre en el juego (opcional)', 'nickname', env.save.name);
+    if (mode !== 'forgot') pass = input('password', mode === 'login' ? 'Contraseña' : 'Contraseña (mínimo 8 caracteres)', mode === 'login' ? 'current-password' : 'new-password');
+    const labels = { login: 'Iniciar sesión', register: 'Crear cuenta', forgot: 'Enviar enlace', reset: 'Guardar contraseña' };
+    const go = el('button', 'btn btn-primary', a.busy ? 'Un momento…' : labels[mode]);
+    go.type = 'button';
+    go.disabled = !!a.busy;
+    const submit = () => env.h.onAuth(mode, { email: email && email.value, password: pass && pass.value, name: name && name.value, token: data && data.token });
+    go.addEventListener('click', submit);
+    for (const i of form.querySelectorAll('input')) onEnter(i, submit);
+    form.append(go, msg);
+    const sw = el('p', 'auth-switch');
+    const link = (text, m) => { const b = el('button', '', text); b.type = 'button'; b.addEventListener('click', () => env.h.onAuthMode(m)); return b; };
+    if (mode === 'login') { sw.append('¿No tenés cuenta? ', link('Creá una', 'register')); form.append(sw, el('p', 'auth-switch')); form.lastChild.append(link('Olvidé mi contraseña', 'forgot')); }
+    else if (mode === 'register') { sw.append('¿Ya tenés cuenta? ', link('Iniciá sesión', 'login')); form.append(sw); form.append(el('p', 'note', 'Al crear una cuenta aceptás los Términos y la Política de privacidad.')); }
+    else if (mode === 'forgot') { if (!a.canReset) form.append(el('p', 'note', 'Si no te llega el email, podés entrar con tu código de recuperación (Ajustes → Recuperar).')); sw.append(link('Volver', 'login')); form.append(sw); }
+    body.append(form);
+    if (email && !email.value) setTimeout(() => email.focus(), 50);
+  },
+
+  // Al iniciar sesión con progreso en el dispositivo y en la cuenta: elegir cuál usar
+  merge(body, env, data) {
+    body.append(el('p', '', 'Tenés progreso en este dispositivo y en tu cuenta. ¿Con cuál seguís? El otro se reemplaza.'));
+    const box = el('div', 'merge-choice');
+    for (const [k, label, info] of [['cloud', 'El de mi cuenta', data.cloud], ['local', 'El de este dispositivo', data.local]]) {
+      const b = el('button');
+      b.type = 'button';
+      b.append(el('b', '', label), el('small', '', `Nivel ${info.level} · ${fmt(info.rounds)} rondas · ${fmt(info.coins)} destellos`));
+      b.addEventListener('click', () => env.h.onMerge(k));
+      box.append(b);
+    }
+    body.append(box);
+  },
+
+  deleteAccount(body, env) {
+    body.append(el('p', '', 'Se borran tu cuenta, tu progreso en la nube y tu email de nuestros servidores. No se puede deshacer. Si compraste algo, también se pierde.'));
+    const inp = el('input', 'redeem-input');
+    Object.assign(inp, { type: 'text', placeholder: 'Escribí ELIMINAR para confirmar', autocomplete: 'off' });
+    inp.setAttribute('aria-label', 'Confirmación');
+    const b = el('button', 'btn btn-danger', 'Eliminar mi cuenta para siempre');
+    b.type = 'button';
+    const msg = el('p', 'redeem-msg');
+    b.addEventListener('click', async () => {
+      if (inp.value.trim().toUpperCase() !== 'ELIMINAR') { msg.textContent = 'Escribí ELIMINAR para confirmar.'; return; }
+      b.disabled = true;
+      const r = await env.h.onDeleteAccount();
+      if (r && r.error) { msg.textContent = r.error; b.disabled = false; }
+    });
+    body.append(inp, b, msg);
+  },
+
+  guestNudge(body, env) {
+    body.append(el('p', '', `Ya jugaste ${fmt(env.save.rounds)} rondas. Sin cuenta, tu progreso vive solo en este dispositivo: si borrás los datos del navegador o lo cambiás, se pierde.`));
+    const b = el('button', 'btn btn-primary', 'Crear cuenta gratis');
+    b.type = 'button';
+    b.addEventListener('click', () => env.h.onAuthMode('register'));
+    const later = el('button', 'btn btn-ghost', 'Más tarde');
+    later.type = 'button';
+    later.setAttribute('data-close', '');
+    body.append(b, later);
+  },
 
   levelup(body, env, data) {
     const hero = el('div', 'rank-hero rankup');
@@ -856,23 +934,43 @@ const BUILDERS = {
       inst.addEventListener('click', () => env.h.onInstall());
       body.append(inst, el('p', 'note', 'Queda en tu pantalla de inicio y funciona sin conexión.'));
     }
-    // Cuenta en la nube: el progreso se guarda en el servidor y se recupera con un código
+    // Cuenta
     const cl = env.h.cloudState();
-    const cloud = el('div', 'redeem cloud-box');
-    cloud.append(el('span', 'redeem-label', 'Cuenta en la nube'));
-    if (!cl.base) cloud.append(el('p', 'note', 'Necesita el servidor online.'));
-    else if (cl.has) {
-      cloud.append(el('p', 'note', 'Tu progreso se guarda solo. Para pasarlo a otro dispositivo, usá este código de recuperación (no lo compartas):'));
-      const code = el('strong', 'cloud-code', cl.code);
+    const acc = el('div', 'account-box');
+    acc.append(el('span', 'redeem-label', 'Tu cuenta'));
+    if (!cl.base) acc.append(el('p', 'note', 'Las cuentas necesitan conexión con el servidor.'));
+    else if (cl.email) {
+      acc.append(el('span', 'who', cl.email), el('small', 'note', 'Tu progreso se guarda en la nube automáticamente.'));
+      const row = el('div', 'row');
+      const out = el('button', 'btn btn-ghost btn-sm', 'Cerrar sesión');
+      out.type = 'button';
+      out.addEventListener('click', () => env.h.onLogout());
+      const pw = el('button', 'btn btn-ghost btn-sm', 'Cambiar contraseña');
+      pw.type = 'button';
+      pw.addEventListener('click', () => env.h.onAuthMode('reset'));
+      const del = el('button', 'btn btn-ghost btn-sm', 'Eliminar mi cuenta');
+      del.type = 'button';
+      del.addEventListener('click', () => env.h.onOpen('deleteAccount'));
+      row.append(out, pw, del);
+      acc.append(row);
+    } else {
+      acc.append(el('p', 'guest-warn', 'Estás jugando sin cuenta: tu progreso se puede perder.'));
+      const row = el('div', 'row');
+      const reg = el('button', 'btn btn-primary btn-sm', 'Crear cuenta');
+      reg.type = 'button';
+      reg.addEventListener('click', () => env.h.onAuthMode('register'));
+      const log = el('button', 'btn btn-ghost btn-sm', 'Iniciar sesión');
+      log.type = 'button';
+      log.addEventListener('click', () => env.h.onAuthMode('login'));
+      row.append(reg, log);
+      acc.append(row);
+    }
+    if (cl.base && cl.has) {
+      acc.append(el('small', 'note', 'Código de recuperación (para entrar desde otro dispositivo; no lo compartas):'), el('strong', 'cloud-code', cl.code));
       const copy = el('button', 'btn btn-ghost btn-sm', 'Copiar código');
       copy.type = 'button';
       copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(cl.code); copy.textContent = '¡Copiado!'; } catch (e) { copy.textContent = cl.code; } });
-      cloud.append(code, copy);
-    } else {
-      const mk = el('button', 'btn btn-primary btn-sm', 'Activar guardado en la nube');
-      mk.type = 'button';
-      mk.addEventListener('click', () => env.h.onCloudCreate());
-      cloud.append(el('p', 'note', cl.status || 'Guardá tu progreso para no perderlo si cambiás de celular.'), mk);
+      acc.append(copy);
     }
     if (cl.base) {
       const row = el('div', 'redeem-row');
@@ -886,9 +984,9 @@ const BUILDERS = {
       go.addEventListener('click', doIt);
       onEnter(inp, doIt);
       row.append(inp, go);
-      cloud.append(el('small', 'note', '¿Tenés progreso en otro dispositivo? Pegá su código:'), row, msg);
+      acc.append(el('small', 'note', '¿Tenés un código de recuperación? Pegalo acá:'), row, msg);
     }
-    body.append(cloud);
+    body.append(acc);
     const rules = el('button', 'btn btn-ghost', 'Cómo se juega');
     rules.type = 'button';
     rules.addEventListener('click', () => env.h.onOpen('how'));
@@ -907,7 +1005,9 @@ const BUILDERS = {
       env.h.onReset();
       env.close();
     });
-    zone.append(reset, el('p', 'note', `Tu progreso se guarda solo en este dispositivo. Versión ${CFG.VERSION}.`));
+    const legal = el('nav', 'legal-links');
+    legal.innerHTML = '<a href="terminos" target="_blank" rel="noopener">Términos</a><a href="privacidad" target="_blank" rel="noopener">Privacidad</a><a href="reembolsos" target="_blank" rel="noopener">Reembolsos</a><a href="arrepentimiento" target="_blank" rel="noopener">Arrepentimiento</a>';
+    zone.append(reset, el('p', 'note', `Borra el progreso de este dispositivo. Versión ${CFG.VERSION}.`), legal);
     body.append(zone);
   },
 

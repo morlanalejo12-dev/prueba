@@ -1,6 +1,7 @@
 // Servidor de Contracorriente: sirve el juego (dist/site) y el modo online por WebSocket en /ws.
 // Uso: npm run build && npm start   (puerto: variable PORT, por defecto 8080)
 import http from 'node:http';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,10 +15,23 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'd
 const PORT = Number(process.env.PORT) || 8080;
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg',
+  '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.webm': 'video/webm',
 };
 
 const api = makeApi(makeStore());
+
+const SECURITY = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+};
+// Caché de archivos comprimidos (se recalcula si el archivo cambia)
+const gzCache = new Map();
+function gz(file, data) {
+  const key = file + ':' + data.length;
+  if (!gzCache.has(key)) gzCache.set(key, zlib.gzipSync(data, { level: 9 }));
+  return gzCache.get(key);
+}
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -30,12 +44,28 @@ const server = http.createServer(async (req, res) => {
   let file = path.normalize(path.join(ROOT, decodeURIComponent(url.pathname)));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
   if (file === ROOT || file.endsWith(path.sep)) file = path.join(ROOT, 'index.html');
+  // Páginas sin extensión: /terminos → terminos.html
+  if (!path.extname(file) && fs.existsSync(file + '.html')) file += '.html';
   fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('No encontrado'); return; }
+    if (err) {
+      res.writeHead(404, { 'content-type': 'text/html; charset=utf-8', ...SECURITY });
+      res.end('<!doctype html><meta charset="utf-8"><title>No encontrado</title><body style="background:#0d0a20;color:#f3efff;font-family:system-ui;text-align:center;padding:60px"><h1>No encontrado</h1><p><a style="color:#ffb547" href="/">Volver al juego</a></p>');
+      return;
+    }
     const type = TYPES[path.extname(file)] || 'application/octet-stream';
     // La página, el manifiesto y el service worker se revalidan siempre: así cada despliegue se ve al recargar
-    const fresh = /\.(html|webmanifest)$|sw\.js$/.test(file);
-    res.writeHead(200, { 'content-type': type, 'cache-control': fresh ? 'no-cache' : 'public, max-age=3600' });
+    const fresh = /\.(html|webmanifest|txt|xml)$|sw\.js$/.test(file);
+    const headers = { 'content-type': type, 'cache-control': fresh ? 'no-cache' : 'public, max-age=86400', ...SECURITY };
+    if (String(req.headers['x-forwarded-proto'] || '').includes('https')) headers['strict-transport-security'] = 'max-age=31536000';
+    // Comprimir texto (la página pesa ~300 KB y queda en ~80 KB)
+    if (/text|javascript|json|svg|xml|manifest/.test(type) && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+      headers['content-encoding'] = 'gzip';
+      headers.vary = 'Accept-Encoding';
+      res.writeHead(200, headers);
+      res.end(gz(file, data));
+      return;
+    }
+    res.writeHead(200, headers);
     res.end(data);
   });
 });

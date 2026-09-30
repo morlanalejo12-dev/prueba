@@ -99,7 +99,7 @@ test('API: cuenta en la nube, recuperación, tablas y estadísticas', async () =
   const { makeApi } = await import('../server/api.js');
   const { MemoryStore } = await import('../server/store.js');
   const { Readable } = await import('node:stream');
-  const api = makeApi(new MemoryStore());
+  const api = makeApi(new MemoryStore(), { ADMIN_KEY: 'clave' });
   const call = async (method, path, body) => {
     const req = Readable.from(body ? [Buffer.from(JSON.stringify(body))] : []);
     req.method = method;
@@ -123,7 +123,8 @@ test('API: cuenta en la nube, recuperación, tablas y estadísticas', async () =
   assert.equal(b.ranks.AAAAAA, 2);
   assert.equal(b.top[1].score, 500, 'se guarda el mejor puntaje');
   await call('POST', '/api/events', { device: 'dev1', events: [{ e: 'session' }, { e: 'round', alive: false, fork: 0, why: 'majority' }] });
-  const st = (await call('GET', '/api/stats')).json;
+  assert.equal((await call('GET', '/api/stats')).code, 403, 'sin clave no hay estadísticas');
+  const st = (await call('GET', '/api/stats?key=clave')).json;
   assert.equal(st.dias[0].rounds, 1);
   assert.equal(st.dias[0].deathFork['0'], 1);
   assert.equal(st.jugadores, 1);

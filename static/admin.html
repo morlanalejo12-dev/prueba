@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel · Contracorriente</title><meta name="robots" content="noindex"><link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#0d0a20;--card:#17123a;--edge:#2c2560;--text:#f3efff;--muted:#a69ecb;--gold:#ffb547;--mint:#5ef2c2;--red:#ff5470}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 60px}h1{margin:0 0 4px;font-size:24px}h2{font-size:16px;margin:0 0 10px;color:var(--gold)}
+.muted{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:14px 16px}.big{font-size:28px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--edge)}th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}.bar{height:10px;border-radius:5px;background:var(--red);display:inline-block;vertical-align:middle}
+.row{display:grid;grid-template-columns:160px 1fr 60px;gap:8px;align-items:center;margin:4px 0;font-size:13.5px}
+input,button{font:inherit;padding:10px 14px;border-radius:10px;border:1px solid var(--edge);background:#0f0b26;color:var(--text)}button{background:var(--gold);color:#1a1333;font-weight:800;border:0;cursor:pointer}
+section{margin-top:18px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.two{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>Panel de Contracorriente</h1><p class="muted">Estadísticas anónimas de uso. Se actualizan en vivo; los datos de hoy van cambiando.</p>
+<form id="f"><input id="key" type="password" placeholder="Clave de administrador (ADMIN_KEY)" autocomplete="current-password"> <button>Ver estadísticas</button></form>
+<p id="err" style="color:var(--red)"></p>
+<div id="out" hidden>
+  <div class="grid" id="kpis"></div>
+  <div class="two">
+    <section class="card"><h2>Retención por día de llegada</h2><table id="ret"></table><p class="muted">D1: volvieron al día siguiente. D7: volvieron a los 7 días. Referencia de un buen juego casual: D1 ≥ 35%, D7 ≥ 15%.</p></section>
+    <section class="card"><h2>¿Dónde muere la gente? (últimos 14 días)</h2><div id="deaths"></div><p class="muted">Bifurcación en la que termina la ronda. "Antes de la 1.ª" suele ser un muro.</p></section>
+  </div>
+  <section class="card"><h2>Por día</h2><table id="days"></table></section>
+  <div class="two">
+    <section class="card"><h2>Causas de muerte</h2><div id="why"></div></section>
+    <section class="card"><h2>Secciones que abren</h2><div id="opens"></div></section>
+  </div>
+</div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+const WHY = { wall: 'Muro', majority: 'Camino de la mayoría', inverted: 'Inversión', lottery: 'Muerte súbita' };
+function bars(el, obj, label = k => k) {
+  const rows = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  el.innerHTML = rows.length ? rows.map(([k, v]) => `<div class="row"><span>${label(k)}</span><span><i class="bar" style="width:${Math.max(2, v / max * 100)}%"></i></span><b>${v}</b></div>`).join('') : '<p class="muted">Todavía no hay datos.</p>';
+}
+async function load() {
+  const key = $('key').value.trim();
+  try { localStorage.setItem('cc-admin', key); } catch (e) {}
+  const r = await fetch('/api/stats?key=' + encodeURIComponent(key));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('err').textContent = d.error || 'No se pudo cargar.'; $('out').hidden = true; return; }
+  $('err').textContent = ''; $('out').hidden = false;
+  const today = d.dias[0] || {};
+  const sum = k => d.dias.reduce((a, x) => a + (x[k] || 0), 0);
+  $('kpis').innerHTML = [
+    ['Jugadores (total)', d.jugadores], ['Hoy', today.devices || 0], ['Sesiones hoy', today.sessions || 0],
+    ['Rondas hoy', today.rounds || 0], ['Rondas por jugador (14 días)', (sum('rounds') / Math.max(1, sum('devices'))).toFixed(1)],
+  ].map(([l, v]) => `<div class="card"><div class="muted">${l}</div><div class="big">${v}</div></div>`).join('');
+  const ret = Object.entries(d.retencion).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 14);
+  $('ret').innerHTML = '<tr><th>Llegaron</th><th>Nuevos</th><th>D1</th><th>D7</th></tr>' + ret.map(([k, v]) => `<tr><td>${k}</td><td>${v.nuevos}</td><td>${pct(v.d1, v.nuevos)}</td><td>${pct(v.d7, v.nuevos)}</td></tr>`).join('');
+  $('days').innerHTML = '<tr><th>Día</th><th>Jugadores</th><th>Sesiones</th><th>Rondas</th><th>Sobrevivieron</th><th>Desafío</th><th>Online</th></tr>' + d.dias.map(x => `<tr><td>${x.day}</td><td>${x.devices}</td><td>${x.sessions}</td><td>${x.rounds}</td><td>${pct(x.survivedAll, x.rounds)}</td><td>${(x.modes || {}).challenge || 0}</td><td>${(x.modes || {}).online || 0}</td></tr>`).join('');
+  const deaths = {}, why = {}, opens = {};
+  for (const x of d.dias) {
+    for (const [k, v] of Object.entries(x.deathFork || {})) deaths[k] = (deaths[k] || 0) + v;
+    for (const [k, v] of Object.entries(x.why || {})) why[k] = (why[k] || 0) + v;
+    for (const [k, v] of Object.entries(x.opens || {})) opens[k] = (opens[k] || 0) + v;
+  }
+  bars($('deaths'), deaths, k => (+k < 0 ? 'Antes de la 1.ª' : `Bifurcación ${+k + 1}`));
+  bars($('why'), why, k => WHY[k] || k);
+  bars($('opens'), opens);
+}
+$('f').addEventListener('submit', e => { e.preventDefault(); load(); });
+try { const k = localStorage.getItem('cc-admin'); if (k) { $('key').value = k; load(); } } catch (e) {}
+</script></body></html>

@@ -1,8 +1,8 @@
-# Contracorriente: prototipo jugable
+# Contracorriente
 
 Un juego online de un solo control: cada minuto, todos los jugadores caen juntos por el mismo túnel. Cuando el túnel se divide, **el camino que eligió más gente se derrumba**.
 
-Este prototipo responde una sola pregunta: **¿la bifurcación genera tensión y dan ganas de jugar otra ronda?**
+Se juega en el navegador, sin descargar nada. **Para lanzarlo, seguí [LANZAMIENTO.md](LANZAMIENTO.md)**: tiene el resumen de costos y el paso a paso.
 
 ## Publicarlo en una URL (con modo online)
 
@@ -47,9 +47,20 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 - **Códigos promocionales** en Ajustes y en la Tienda.
 - **129 cosméticos:** skins, estelas, 10 temas de música y 28 estilos de nombre.
 - **Niveles de cuenta hasta el 120**, con títulos y distintivos.
-- **Pase de temporada** de 100 niveles (20 gratis), **Tienda Premium** (se habilita en la v1.0) y **amigos**.
+- **Pase de temporada** de 100 niveles (20 gratis), **Tienda Premium** con Mercado Pago y **amigos**.
 
 ## Novedades
+
+### v1.0 · Lista para lanzar
+- **Pantalla de inicio:** se puede iniciar sesión, crear una cuenta gratis (con email o con Google) o *Jugar sin cuenta*, con el aviso de que ese progreso vive solo en el dispositivo y se puede perder. A los invitados se les recuerda crear una cuenta a las 3, 10 y 25 rondas.
+- **Cuentas completas:** progreso en la nube entre dispositivos, cerrar sesión, cambiar la contraseña, recuperarla por email y eliminar la cuenta. Al entrar con progreso en dos lugares, el juego pregunta con cuál seguir.
+- **Pagos con Mercado Pago:** el Pase Premium y la Tienda se pueden comprar. El servidor verifica cada pago con Mercado Pago antes de entregarlo. Queda apagado hasta cargar las credenciales.
+- **Textos legales** para Argentina: términos, privacidad, reembolsos y botón de arrepentimiento, enlazados desde el inicio y Ajustes.
+- **Panel `/admin`** con jugadores, retención D1/D7, dónde muere la gente y qué secciones se abren.
+- **Listo para compartir:** imagen y descripción al pegar el link en WhatsApp o redes, `robots.txt` y mapa del sitio para buscadores.
+- **Más rápido y seguro:** compresión gzip, cabeceras de seguridad y límite de intentos en el inicio de sesión.
+- Aviso *Sin conexión* y página 404 propia.
+
 
 ### v0.12 · Retención y justicia
 - **Morir se siente justo:**
@@ -222,6 +233,8 @@ npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 | `src/game/pass.js` | Pase de temporada: niveles, premios y reclamos |
 | `server/friends.js` | Presencia de amigos e invitaciones |
 | `server/api.js`, `server/store.js` | API HTTP (cuentas en la nube, tablas, estadísticas) y almacenamiento (archivo o Supabase) |
+| `server/accounts.js`, `server/payments.js` | Cuentas (email, Google, invitado) y pagos con Mercado Pago |
+| `scripts/legal.mjs`, `static/` | Genera los textos legales; páginas estáticas, panel `/admin` e imagen para compartir |
 | `src/game/events.js`, `src/game/unlocks.js` | Desafío del día, modo del finde, racha, regreso y menú progresivo |
 | `assets/music/` | Temas grabados (MP3); el build los embebe en el `index.html` |
 | `src/ui/` | Menú, HUD, resultados, ventanas e íconos |
@@ -238,6 +251,5 @@ La simulación publica eventos (`orb`, `nearMiss`, `forkResolved`, `playerDied`�
 
 ## Próximos pasos
 
-- Cuentas en la nube (progreso compartido entre dispositivos) y ranking global.
 - Salas por región para bajar la latencia.
-- Clips automáticos para compartir.
+- Temporada 2 del pase y nuevos modos de fin de semana.

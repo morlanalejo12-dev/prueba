@@ -121,9 +121,16 @@ const ui = createUI({
   onShareChallenge: () => shareChallenge(),
   onShareClip: () => shareClip(),
   onOpen: kind => ui.openModal(kind),
+  authState: () => authState,
+  onAuthMode: (mode, extra) => { authState.msg = (extra && extra.msg) || ''; ui.openModal('auth', { mode, ...(extra || {}) }); },
+  onAuth: (mode, data) => doAuth(mode, data),
+  onMerge: choice => finishMerge(choice),
+  onLogout: () => logout(),
+  onDeleteAccount: () => deleteAccount(),
+  payOn: () => !!(serverCfg && serverCfg.payments),
   boardsState: () => boardsState,
   onBoard: (tab, scope) => loadBoard(tab, scope),
-  cloudState: () => ({ has: !!save.cloud, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : '', status: cloudStatus, base: !!apiBase(save.server) }),
+  cloudState: () => ({ has: !!save.cloud, email: save.cloud && save.cloud.email, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : '', status: cloudStatus, base: !!apiBase(save.server) && serverCfg !== false }),
   onCloudCreate: () => ensureCloud(true),
   onRestore: code => restoreCloud(code),
   onHome: () => { audio.play('ui'); leaveOnline(); toMenu(); },
@@ -261,11 +268,7 @@ const ui = createUI({
     refreshMenu();
     ui.openModal('profile', { tab: 'ach' });
   },
-  onBuyPremium: () => {
-    track({ e: 'open', k: 'buy-premium' });
-    audio.play('ui');
-    ui.toast('Próximamente', 'Las compras se habilitan en la versión 1.0');
-  },
+  onBuyPremium: item => buyPremium(item),
   // Amigos
   friendsState: () => ({ status: net ? net.status : 'off', presence, msg: friendsMsg, room: online.room }),
   onCopyFriendCode: async () => { try { await navigator.clipboard.writeText(save.friendId); return true; } catch (e) { return false; } },
@@ -486,6 +489,171 @@ async function shareClip() {
   document.body.append(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+// ---------- Cuenta: inicio de sesión, registro, Google, compras ----------
+let serverCfg = null;                 // null = cargando, false = sin servidor
+const authState = { busy: false, msg: '', email: '', canReset: false };
+const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
+const loggedIn = () => !!(save.cloud && save.cloud.email);
+const keepSettings = () => { const k = {}; for (const x of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server', 'guestOk']) k[x] = save[x]; return k; };
+
+async function loadConfig() {
+  if (!apiBase(save.server) || /claude|anthropic/.test(location.hostname)) { serverCfg = false; return; }
+  try { serverCfg = await api().config(); } catch (e) { serverCfg = false; }
+  authState.canReset = !!(serverCfg && serverCfg.reset);
+  if (serverCfg && serverCfg.google && hosted) setupGoogle(serverCfg.google);
+  updateStart();
+}
+
+// Pantalla inicial: la primera vez (o después de cerrar sesión), si no hay cuenta ni se eligió jugar sin cuenta
+const needsStart = () => !loggedIn() && !save.guestOk;
+function updateStart() {
+  const st = $('startStatus');
+  if (!st) return;
+  const off = serverCfg === false;
+  $('startLogin').disabled = off || serverCfg === null;
+  $('startRegister').disabled = off || serverCfg === null;
+  st.textContent = off ? 'Sin conexión con el servidor: por ahora podés jugar sin cuenta.' : serverCfg === null ? 'Conectando…' : '';
+  st.classList.toggle('ok', !off);
+}
+function showStart() {
+  state = 'menu';
+  ui.showHud(false);
+  ui.showScreen('start');
+  updateStart();
+}
+
+function setupGoogle(clientId) {
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.async = true;
+  s.onload = () => {
+    try {
+      window.google.accounts.id.initialize({ client_id: clientId, callback: r => doAuth('google', { credential: r.credential }) });
+      const slot = $('googleBtn');
+      slot.hidden = false;
+      window.google.accounts.id.renderButton(slot, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', locale: 'es', width: 300 });
+    } catch (e) { /* sin Google */ }
+  };
+  document.head.append(s);
+}
+
+let pendingAuth = null;
+async function doAuth(mode, d) {
+  authState.busy = true; authState.msg = ''; authState.email = d.email || authState.email;
+  if (ui.modalKind === 'auth') ui.refreshModal();
+  let r = null;
+  try {
+    const c = save.cloud || {};
+    if (mode === 'login') r = await api().login({ email: d.email, password: d.password });
+    else if (mode === 'register') r = await api().register({ email: d.email, password: d.password, name: d.name, id: c.email ? undefined : c.id, secret: c.email ? undefined : c.secret });
+    else if (mode === 'google') r = await api().google({ credential: d.credential, id: c.email ? undefined : c.id, secret: c.email ? undefined : c.secret });
+    else if (mode === 'forgot') { await api().resetRequest(d.email); authState.msg = 'Si ese email tiene cuenta, te llegó un enlace para elegir una contraseña nueva. Revisá también el correo no deseado.'; }
+    else if (mode === 'reset') {
+      if (d.token) r = await api().resetConfirm(d.token, d.password);
+      else if (save.cloud) { await api().password(save.cloud.id, save.cloud.secret, d.password); authState.msg = ''; ui.closeModal(); ui.toast('Cuenta', 'Contraseña actualizada'); }
+    }
+  } catch (e) {
+    authState.msg = e.message && e.message !== 'error' && !/fetch|abort|network/i.test(e.message) ? e.message : 'No se pudo conectar con el servidor. Probá de nuevo en unos segundos.';
+  }
+  authState.busy = false;
+  if (r) {
+    if (mode === 'register' && d.name) save.name = cleanName(d.name) || save.name;
+    afterAuth(r);
+  } else if (ui.modalKind === 'auth') ui.refreshModal();
+  else if (authState.msg && mode === 'google') { $('startStatus').textContent = authState.msg; }
+}
+
+const summaryOf = sv => ({ level: levelInfo(sv.xp || 0).level, rounds: sv.rounds || 0, coins: sv.coins || 0 });
+function afterAuth(r) {
+  const localHas = save.rounds > 0 && !(save.cloud && save.cloud.id === r.id);
+  if (r.save && localHas && (r.save.rounds || 0) > 0) {
+    pendingAuth = r;
+    ui.openModal('merge', { cloud: summaryOf(r.save), local: summaryOf(save) });
+    return;
+  }
+  // La misma cuenta que ya usaba este dispositivo (invitado que se registra): gana lo local, que es lo más nuevo
+  const same = save.cloud && save.cloud.id === r.id;
+  adopt(r, !same && r.save && (r.save.rounds || 0) > 0 ? 'cloud' : 'local');
+}
+function finishMerge(choice) { if (pendingAuth) adopt(pendingAuth, choice); pendingAuth = null; }
+function adopt(r, which) {
+  if (which === 'cloud') {
+    const k = keepSettings();
+    save = loadSave({ get: () => JSON.stringify(r.save), set: () => {} });
+    Object.assign(save, k);
+  }
+  save.cloud = { id: r.id, secret: r.secret, email: r.email || null };
+  save.guestOk = true;
+  applyEnt(r.ent);
+  persist();
+  cloudSoon(true);
+  applyTrack();
+  ui.closeModal();
+  toMenu();
+  ui.toast('Sesión iniciada', r.email || 'Tu progreso se guarda en la nube');
+  sendProfile();
+}
+// Lo comprado lo decide el servidor
+function applyEnt(ent) {
+  if (!ent) return;
+  if (ent.pass) save.premiumPass = true;
+  for (const id of Object.keys(ent.items || {})) save.owned[id] = true;
+}
+async function refreshEnt() {
+  if (!save.cloud || serverCfg === false) return;
+  try { const me = await api().me(save.cloud.id, save.cloud.secret); applyEnt(me.ent); if (me.email && !save.cloud.email) save.cloud.email = me.email; persist(); refreshMenu(); } catch (e) {
+    if (e.status === 401) { save.cloud = null; persist(); }
+  }
+}
+async function logout() {
+  const c = save.cloud;
+  if (c) { cloudSoon(true); try { await api().logout(c.id, c.secret); } catch (e) { /* igual se cierra */ } }
+  const k = keepSettings();
+  leaveOnline();
+  save = resetSave(store, { ...k, guestOk: false });
+  ensureMissions(save, env().today);
+  applyTrack();
+  ui.closeModal();
+  showStart();
+}
+async function deleteAccount() {
+  const c = save.cloud;
+  if (!c) return { error: 'No hay cuenta.' };
+  try { await api().remove(c.id, c.secret); } catch (e) { return { error: 'No se pudo eliminar. Probá de nuevo.' }; }
+  const k = keepSettings();
+  save = resetSave(store, { ...k, guestOk: false });
+  ui.closeModal();
+  showStart();
+  ui.toast('Cuenta eliminada', 'Borramos tu cuenta y tus datos');
+  return {};
+}
+
+async function buyPremium(item) {
+  track({ e: 'open', k: 'buy-' + item });
+  if (!serverCfg || !serverCfg.payments) { audio.play('ui'); ui.toast('Próximamente', 'Las compras todavía no están habilitadas'); return; }
+  if (!loggedIn()) { ui.openModal('auth', { mode: 'register' }); authState.msg = 'Creá una cuenta para comprar: así lo que pagás queda guardado para siempre.'; ui.refreshModal(); return; }
+  try {
+    ui.toast('Mercado Pago', 'Abriendo el pago…');
+    const r = await api().checkout(save.cloud.id, save.cloud.secret, item);
+    persist();
+    location.href = r.url;
+  } catch (e) { ui.toast('No se pudo iniciar el pago', e.message || 'Probá de nuevo'); }
+}
+
+// Recordatorio para quien juega sin cuenta (a las 3, 10 y 25 rondas)
+function maybeNudge() {
+  if (loggedIn() || serverCfg === false || !apiBase(save.server)) return;
+  if (![3, 10, 25].includes(save.rounds)) return;
+  setTimeout(() => { if (state === 'results' && !ui.modalOpen) ui.openModal('guestNudge'); }, 2600);
+}
+
+// Enlaces legales: en el archivo suelto apuntan al sitio publicado
+function fixLegalLinks(root = document) {
+  if (hosted) return;
+  const site = apiBase(save.server);
+  root.querySelectorAll('.legal-links a').forEach(a => { if (site) a.href = site + '/' + a.getAttribute('href').replace(/^.*\//, ''); });
 }
 
 // ---------- Amigos ----------
@@ -741,6 +909,7 @@ function finishRound({ quick = false } = {}) {
   ui.showScreen('results');
   nextT = CFG.NEXT_S;
   sendProfile();
+  maybeNudge();
   if (online.invite) { const inv = online.invite; online.invite = null; setTimeout(() => ui.openModal('invite', inv), 1200); }
   if (R.online) {
     ui.renderStandings(R.standings, net && net.id);
@@ -1250,6 +1419,37 @@ audio.loadSample = async name => {
 setupPWA();
 applyTrack();
 toMenu();
+if (needsStart()) showStart();
+loadConfig().then(() => { if (loggedIn()) refreshEnt(); });
+$('startLogin').addEventListener('click', () => { audio.unlock(); authState.msg = ''; ui.openModal('auth', { mode: 'login' }); });
+$('startRegister').addEventListener('click', () => { audio.unlock(); authState.msg = ''; ui.openModal('auth', { mode: 'register' }); });
+$('startGuest').addEventListener('click', () => { audio.unlock(); save.guestOk = true; persist(); toMenu(); });
+fixLegalLinks();
+// Vuelta de Mercado Pago o de un enlace para restablecer la contraseña
+{
+  const q = new URLSearchParams(location.search);
+  const pago = q.get('pago'), reset = q.get('reset');
+  if (pago || reset) history.replaceState(null, '', location.pathname);
+  if (pago === 'ok') {
+    setTimeout(() => ui.toast('¡Gracias por tu compra!', 'Se acredita en unos segundos'), 800);
+    let n = 0;
+    const iv = setInterval(() => { refreshEnt(); if (++n > 12) clearInterval(iv); }, 5000);
+  } else if (pago === 'pendiente') setTimeout(() => ui.toast('Pago pendiente', 'Te lo acreditamos cuando Mercado Pago lo apruebe'), 800);
+  else if (pago === 'error') setTimeout(() => ui.toast('El pago no se completó', 'No se te cobró nada'), 800);
+  if (reset && /^[A-Z0-9]{24}$/.test(reset)) setTimeout(() => ui.openModal('auth', { mode: 'reset', token: reset }), 600);
+}
+// Errores inesperados y conexión
+window.addEventListener('error', e => track({ e: 'error', m: String(e.message || '').slice(0, 120) }));
+window.addEventListener('unhandledrejection', e => track({ e: 'error', m: String((e.reason && e.reason.message) || e.reason || '').slice(0, 120) }));
+{
+  const pill = document.createElement('div');
+  pill.className = 'offline-pill';
+  pill.textContent = 'Sin conexión: seguís jugando solo; tu progreso se sube cuando vuelva';
+  pill.hidden = navigator.onLine !== false;
+  document.body.append(pill);
+  window.addEventListener('offline', () => { pill.hidden = false; });
+  window.addEventListener('online', () => { pill.hidden = true; cloudSoon(true); flushEvents(); });
+}
 track({ e: 'session' });
 cloudReady = true;
 setTimeout(flushEvents, 3000);

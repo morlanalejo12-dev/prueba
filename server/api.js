@@ -1,11 +1,10 @@
 // API HTTP del juego: cuentas en la nube, tablas de puntaje y estadísticas de uso.
 // Todo responde JSON y admite CORS (el juego también se abre como archivo suelto).
-import crypto from 'node:crypto';
+import { Accounts } from './accounts.js';
+import { paymentsConfig, createCheckout, verifyPayment, catalog } from './payments.js';
 
 const MAX_BODY = 256 * 1024;
-const ID_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const rid = n => Array.from(crypto.randomBytes(n), b => ID_CHARS[b % ID_CHARS.length]).join('');
-const sha = s => crypto.createHash('sha256').update(s).digest('hex');
+const MAX_SCORE = 60000;       // puntaje máximo creíble en una ronda (filtra trampas groseras)
 const day = (d = new Date()) => d.toISOString().slice(0, 10);
 const clean = (s, n) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n);
 const FID = /^[A-Z0-9]{6}$/;
@@ -21,38 +20,104 @@ function readBody(req) {
   });
 }
 
-export function makeApi(store) {
+// Límite simple por IP para las rutas sensibles (login, registro, recuperación)
+function limiter(max, windowMs) {
+  const hits = new Map();
+  return ip => {
+    const now = Date.now(), h = hits.get(ip) || { n: 0, t: now };
+    if (now - h.t > windowMs) { h.n = 0; h.t = now; }
+    h.n++;
+    hits.set(ip, h);
+    if (hits.size > 5000) hits.clear();
+    return h.n <= max;
+  };
+}
+
+export function makeApi(store, env = process.env, fetchImpl = fetch) {
+  const accounts = new Accounts(store);
+  const pay = paymentsConfig(env);
+  const strict = limiter(20, 60000);
+  const STRICT = new Set(['/api/login', '/api/register', '/api/google', '/api/restore', '/api/account', '/api/password', '/api/reset/request', '/api/reset/confirm']);
   const send = (res, code, obj) => {
     res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'cache-control': 'no-store' });
     res.end(JSON.stringify(obj));
   };
 
   const routes = {
-    // Cuenta nueva (invitado): id público + secreto. El código de recuperación es "ID-SECRETO".
-    'POST /api/account': async () => {
-      const id = rid(8), secret = rid(10);
-      await store.set('acct', id, { h: sha(secret), save: null, created: Date.now(), updated: 0 });
-      return { id, secret };
+    // Qué está habilitado en este servidor (Google, pagos)
+    'GET /api/config': async () => ({ google: env.GOOGLE_CLIENT_ID || null, payments: pay.on, currency: pay.currency, reset: !!(env.RESEND_API_KEY && env.PUBLIC_URL) }),
+    // Cuenta nueva (invitado): id + clave. El código de recuperación es "ID-CLAVE".
+    'POST /api/account': async () => accounts.createGuest(),
+    'POST /api/register': async b => { const r = await accounts.register(b); return r.error ? [400, r] : r; },
+    'POST /api/login': async b => { const r = await accounts.login(b); return r.error ? [401, r] : r; },
+    'POST /api/google': async b => { const r = await accounts.google(b, env.GOOGLE_CLIENT_ID, fetchImpl); return r.error ? [401, r] : r; },
+    'POST /api/password': async b => { const r = await accounts.changePassword(b); return r.error ? [400, r] : r; },
+    'POST /api/logout': async b => accounts.logout(b),
+    // Siempre responde lo mismo (no revela si el email existe)
+    'POST /api/reset/request': async b => {
+      if (!env.RESEND_API_KEY || !env.PUBLIC_URL) return [503, { error: 'La recuperación por email todavía no está disponible. Usá tu código de recuperación.' }];
+      const r = await accounts.resetRequest(b.email);
+      if (r) {
+        const link = `${env.PUBLIC_URL.replace(/\/$/, '')}/?reset=${r.token}`;
+        await fetchImpl('https://api.resend.com/emails', {
+          method: 'POST', headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: env.MAIL_FROM || 'Contracorriente <onboarding@resend.dev>', to: [r.email], subject: 'Restablecé tu contraseña de Contracorriente',
+            html: `<p>Hola:</p><p>Pediste restablecer tu contraseña de Contracorriente. Tocá este enlace (vence en 30 minutos):</p><p><a href="${link}">${link}</a></p><p>Si no fuiste vos, ignorá este email.</p>`,
+          }),
+        }).catch(() => {});
+      }
+      return { ok: true };
+    },
+    'POST /api/reset/confirm': async b => { const r = await accounts.resetConfirm(b); return r.error ? [400, r] : r; },
+    'POST /api/delete': async b => { const r = await accounts.remove(b); return r.error ? [401, r] : r; },
+    // Datos de la cuenta: email y compras (lo comprado lo decide el servidor, no el dispositivo)
+    'POST /api/me': async b => {
+      const acct = await accounts.auth(b.id, b.secret);
+      if (!acct) return [401, { error: 'Cuenta inválida.' }];
+      return { email: acct.email || null, google: !!acct.google, ent: acct.ent || { pass: false, items: {} }, updated: acct.updated };
     },
     'PUT /api/save': async b => {
-      const acct = await auth(b.id, b.secret);
+      const acct = await accounts.auth(b.id, b.secret);
       if (!acct || !b.save || typeof b.save !== 'object') return [401, { error: 'Cuenta inválida.' }];
       acct.save = b.save;
-      acct.updated = Date.now();
-      await store.set('acct', b.id, acct);
-      return { ok: true, updated: acct.updated };
+      await accounts.put(b.id, acct);
+      return { ok: true, updated: acct.updated, ent: acct.ent || { pass: false, items: {} } };
     },
     'POST /api/restore': async b => {
       const [id, secret] = String(b.code || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').split('-');
-      const acct = await auth(id, secret);
+      const acct = await accounts.auth(id, secret);
       if (!acct) return [404, { error: 'Código de recuperación inválido.' }];
-      return { id, secret, save: acct.save, updated: acct.updated };
+      return { id, secret, save: acct.save, updated: acct.updated, email: acct.email || null, ent: acct.ent };
+    },
+    // Pagos
+    'POST /api/pay/checkout': async b => {
+      if (!pay.on) return [503, { error: 'Las compras se habilitan pronto.' }];
+      const acct = await accounts.auth(b.id, b.secret);
+      if (!acct) return [401, { error: 'Iniciá sesión para comprar.' }];
+      if (!acct.email) return [403, { error: 'Creá una cuenta con email para comprar: así no perdés lo que pagás.' }];
+      if (!catalog()[b.item]) return [400, { error: 'Ese artículo no está a la venta.' }];
+      const r = await createCheckout({ accountId: b.id, item: b.item }, pay, fetchImpl);
+      return r.error ? [502, r] : r;
+    },
+    'POST /api/pay/webhook': async (b, url) => {
+      if (!pay.on) return { ok: true };
+      const pid = (b && b.data && b.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id');
+      const type = (b && b.type) || url.searchParams.get('type') || url.searchParams.get('topic');
+      if (type && type !== 'payment') return { ok: true };
+      if (await store.get('payment', String(pid))) return { ok: true };
+      const v = await verifyPayment(pid, pay, fetchImpl);
+      if (v) {
+        await accounts.grant(v.accountId, v.item);
+        await store.set('payment', String(pid), { ...v, at: Date.now() });
+      }
+      return { ok: true };
     },
     // Puntajes: se guarda el mejor de cada jugador por tabla
     'POST /api/score': async b => {
       if (!BOARD.test(b.board || '') || !FID.test(b.pid || '')) return [400, { error: 'Datos inválidos.' }];
       const score = Math.floor(+b.score);
-      if (!(score >= 0 && score < 1e6)) return [400, { error: 'Puntaje inválido.' }];
+      if (!(score >= 0 && score <= MAX_SCORE)) return [400, { error: 'Puntaje inválido.' }];
       const ns = 'board:' + b.board, prev = await store.get(ns, b.pid);
       if (!prev || score > prev.score) {
         await store.set(ns, b.pid, { score, name: clean(b.name, 16) || 'Jugador', nameStyle: clean(b.nameStyle, 24), lvl: Math.max(1, Math.min(120, Math.floor(+b.lvl) || 1)), log: clean(b.log, 60), at: Date.now() });
@@ -87,7 +152,8 @@ export function makeApi(store) {
       await store.set('day', today, c);
       return { ok: true };
     },
-    'GET /api/stats': async () => {
+    'GET /api/stats': async (b, url) => {
+      if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return [403, { error: 'Falta la clave de administrador.' }];
       const days = (await store.list('day')).sort((a, b) => (a.key < b.key ? 1 : -1)).slice(0, 14)
         .map(({ key, value }) => { const { _seen, ...v } = value; return { day: key, ...v }; });
       const devs = await store.list('dev');
@@ -104,12 +170,6 @@ export function makeApi(store) {
     },
   };
 
-  async function auth(id, secret) {
-    if (!/^[A-Z0-9]{8}$/.test(id || '') || !secret) return null;
-    const acct = await store.get('acct', id);
-    return acct && acct.h === sha(secret) ? acct : null;
-  }
-
   async function board(id, ids) {
     const rows = (await store.list('board:' + id)).map(({ key, value }) => ({ pid: key, ...value })).sort((a, b) => b.score - a.score || a.at - b.at);
     const mine = {};
@@ -121,6 +181,8 @@ export function makeApi(store) {
   return async function handle(req, res, url) {
     if (!url.pathname.startsWith('/api/')) return false;
     if (req.method === 'OPTIONS') { send(res, 204, {}); return true; }
+    const ip = String(req.headers && (req.headers['x-forwarded-for'] || '')).split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '?';
+    if (STRICT.has(url.pathname) && !strict(ip)) { send(res, 429, { error: 'Demasiados intentos. Esperá un minuto.' }); return true; }
     const fn = routes[`${req.method} ${url.pathname}`];
     if (!fn) { send(res, 404, { error: 'No existe.' }); return true; }
     try {

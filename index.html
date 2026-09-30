@@ -5,7 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Contracorriente</title>
 <meta name="theme-color" content="#0d0a20">
-<meta name="description" content="Todos caen a la vez por el mismo túnel. En cada bifurcación se derrumba el camino con más gente.">
+<meta name="description" content="Juego online gratis en el navegador: todos caen a la vez por el mismo túnel y en cada bifurcación se derrumba el camino con más gente. Sobrevive el que no sigue a la masa.">
+<link rel="canonical" href="https://contracorriente.onrender.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Contracorriente">
+<meta property="og:title" content="Contracorriente · Sobrevive el que no sigue a la masa">
+<meta property="og:description" content="Todos caen a la vez. En cada bifurcación se derrumba el camino con más gente. Gratis, en el navegador, sin descargar nada.">
+<meta property="og:url" content="https://contracorriente.onrender.com/">
+<meta property="og:image" content="https://contracorriente.onrender.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_AR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Contracorriente">
+<meta name="twitter:description" content="Todos caen a la vez. Sobrevive el que no sigue a la masa. Gratis en el navegador.">
+<meta name="twitter:image" content="https://contracorriente.onrender.com/og.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Contracorriente">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Figtree:wght@400;600;700;800&family=Chivo+Mono:wght@500;700&display=swap">
@@ -1111,6 +1128,42 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .cloud-box .note { margin: 0; }
 .locked-tile .badge { display: none; }
 ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+/* ---------- v1.0 · Pantalla de inicio y cuenta ---------- */
+.start {
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(13, 10, 32, 0.35), rgba(13, 10, 32, 0.92) 75%),
+    linear-gradient(180deg, rgba(13, 10, 32, 0.6), rgba(13, 10, 32, 0.3) 35%, rgba(13, 10, 32, 0.9));
+}
+.start-inner { width: 100%; max-width: 360px; margin-block: auto; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s4); }
+.start-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: var(--s3); }
+.start-actions .btn { width: 100%; }
+.google-slot { display: flex; justify-content: center; min-height: 44px; }
+.start-or { display: flex; align-items: center; gap: 10px; color: var(--faint, var(--muted)); font: 600 12px/1 var(--f-mono); }
+.start-or::before, .start-or::after { content: ""; flex: 1; height: 1px; background: var(--edge); }
+.btn-link { appearance: none; border: 0; background: none; cursor: pointer; color: var(--text); font: 700 15px/1 var(--f-body); padding: 12px; text-decoration: underline; text-underline-offset: 4px; }
+.start-warn { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.start-warn b { color: var(--gold); }
+.start-status { margin: 0; min-height: 1.2em; font: 600 13px/1.3 var(--f-body); color: var(--danger); }
+.legal-links { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; font-size: 12px; margin-top: var(--s4); }
+.legal-links a { color: var(--muted); }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form .redeem-input { text-transform: none; letter-spacing: 0.01em; font-family: var(--f-body); font-weight: 600; }
+.auth-form .btn { width: 100%; }
+.auth-switch { text-align: center; font-size: 14px; color: var(--muted); }
+.auth-switch button { appearance: none; border: 0; background: none; color: var(--gold); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.account-box { display: flex; flex-direction: column; gap: 8px; padding: var(--s3); border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); }
+.account-box .who { font: 700 15px/1.3 var(--f-body); overflow-wrap: anywhere; }
+.account-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.guest-warn { margin: 0; padding: 8px 10px; border-radius: var(--r1); background: rgba(255, 181, 71, 0.1); border: 1px solid rgba(255, 181, 71, 0.35); font-size: 13px; color: var(--gold); }
+.merge-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.merge-choice button { appearance: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); color: var(--text); text-align: left; }
+.merge-choice button b { font: 800 15px/1.2 var(--f-display); }
+.merge-choice button small { font: 600 12px/1.35 var(--f-mono); color: var(--muted); }
+.merge-choice button:hover { border-color: var(--gold); }
+.offline-pill { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); transform: translateX(-50%); z-index: 30; padding: 6px 14px; border-radius: 999px; background: #2a1650; border: 1px solid var(--edge); font: 700 12px/1.3 var(--f-body); color: var(--gold); }
+.soon-banner.ok { color: var(--mint); border-color: rgba(94, 242, 194, 0.5); background: rgba(94, 242, 194, 0.08); }
 </style>
 </head>
 <body>
@@ -1150,6 +1203,24 @@ ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-dir
     <button id="nextNow" class="btn btn-primary btn-sm" type="button">Otra ronda</button>
   </div>
 </div>
+
+<section id="start" class="screen start" hidden aria-labelledby="startLogo">
+  <div class="start-inner">
+    <p class="eyebrow">Un juego de decisiones en masa</p>
+    <h1 id="startLogo" class="logo"><span class="l1">Contra</span><span class="l2">corriente</span></h1>
+    <p class="tagline">Todos caen a la vez. Sobrevive el que no sigue a la masa.</p>
+    <div class="start-actions">
+      <button id="startLogin" class="btn btn-primary" type="button">Iniciar sesión</button>
+      <button id="startRegister" class="btn btn-ghost" type="button">Crear cuenta gratis</button>
+      <div id="googleBtn" class="google-slot" hidden></div>
+      <div class="start-or"><span>o</span></div>
+      <button id="startGuest" class="btn btn-link" type="button">Jugar sin cuenta</button>
+      <p class="start-warn">Sin cuenta, tu progreso se guarda solo en este dispositivo y <b>se puede perder</b> si borrás los datos del navegador o cambiás de dispositivo.</p>
+      <p id="startStatus" class="start-status" role="status"></p>
+    </div>
+    <nav class="legal-links"><a href="terminos" target="_blank" rel="noopener">Términos</a><a href="privacidad" target="_blank" rel="noopener">Privacidad</a><a href="reembolsos" target="_blank" rel="noopener">Reembolsos</a></nav>
+  </div>
+</section>
 
 <section id="menu" class="screen menu" aria-labelledby="logo">
   <header class="topbar">
@@ -1346,7 +1417,7 @@ ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-dir
     // Motor
     FIXED_DT: 1 / 120,
     // Servidor online por defecto cuando el juego se abre como archivo o dentro de un artifact
-    VERSION: true ? "0.12.0" : "dev",
+    VERSION: true ? "1.0.0" : "dev",
     ONLINE_URL: "wss://contracorriente.onrender.com/ws"
   });
   var BOT = Object.freeze({ HERD: 0, CONTRA: 1, STUB: 2, LATE: 3 });
@@ -5199,6 +5270,10 @@ ${c.log}
     levelup: "¡Subiste de nivel!",
     boards: "Ranking",
     comeback: "¡Volviste!",
+    auth: "Tu cuenta",
+    merge: "¿Qué progreso usamos?",
+    deleteAccount: "Eliminar mi cuenta",
+    guestNudge: "No pierdas tu progreso",
     codes: "Canjear código",
     redeemed: "¡Código canjeado!"
   };
@@ -5733,12 +5808,12 @@ ${c.log}
       }
       body.append(ul, el("p", "note", "Todos los cosméticos son solo visuales: no dan ninguna ventaja en el juego."));
     },
-    // Tienda Premium: Legendarias y Míticas. Precios listos; la compra se habilita en la v1.0
+    // Tienda Premium: Legendarias y Míticas. Se compra con Mercado Pago cuando está configurado (MP_ACCESS_TOKEN)
     premium(body, env2) {
       const { save: save2 } = env2, ctx = ownedCtx(save2);
       body.append(el("p", "premium-note", "Acá van los cosméticos Legendarios y Míticos. Son solo visuales: no dan ninguna ventaja en el juego. Jugando gratis conseguís hasta la calidad Épica."));
-      const soon = el("p", "soon-banner", "Las compras se habilitan en la versión 1.0");
-      body.append(soon);
+      if (!env2.h.payOn()) body.append(el("p", "soon-banner", "Las compras todavía no están habilitadas"));
+      else body.append(el("p", "soon-banner ok", "Pagás con Mercado Pago (tarjeta, débito o dinero en cuenta). Lo comprado queda en tu cuenta."));
       const passCard = el("div", "offer premium-offer pass-offer");
       passCard.style.setProperty("--rc", RARITY.mitica.col);
       const pic = el("span", "pass-ic", "100");
@@ -5867,6 +5942,101 @@ ${c.log}
     },
     prize(body, env2, data) {
       BUILDERS.redeemed(body, env2, data);
+    },
+    // Cuenta: login, registro, olvidé mi contraseña y nueva contraseña
+    auth(body, env2, data) {
+      const mode2 = data && data.mode || "login", a = env2.h.authState();
+      const form = el("div", "auth-form");
+      const msg = el("p", "redeem-msg", a.msg || "");
+      msg.setAttribute("role", "status");
+      const input = (type, ph, ac, val) => {
+        const i = el("input", "redeem-input");
+        Object.assign(i, { type, placeholder: ph, autocomplete: ac, value: val || "" });
+        i.setAttribute("aria-label", ph);
+        form.append(i);
+        return i;
+      };
+      const titles = { login: "Iniciá sesión para guardar tu progreso en la nube.", register: "Creá tu cuenta gratis: tu progreso queda guardado aunque cambies de dispositivo.", forgot: "Te mandamos un enlace a tu email para elegir una contraseña nueva.", reset: "Elegí tu contraseña nueva." };
+      form.append(el("p", "", titles[mode2]));
+      let email, pass, name;
+      if (mode2 !== "reset") email = input("email", "Email", "email", a.email);
+      if (mode2 === "register") name = input("text", "Tu nombre en el juego (opcional)", "nickname", env2.save.name);
+      if (mode2 !== "forgot") pass = input("password", mode2 === "login" ? "Contraseña" : "Contraseña (mínimo 8 caracteres)", mode2 === "login" ? "current-password" : "new-password");
+      const labels = { login: "Iniciar sesión", register: "Crear cuenta", forgot: "Enviar enlace", reset: "Guardar contraseña" };
+      const go = el("button", "btn btn-primary", a.busy ? "Un momento…" : labels[mode2]);
+      go.type = "button";
+      go.disabled = !!a.busy;
+      const submit = () => env2.h.onAuth(mode2, { email: email && email.value, password: pass && pass.value, name: name && name.value, token: data && data.token });
+      go.addEventListener("click", submit);
+      for (const i of form.querySelectorAll("input")) onEnter(i, submit);
+      form.append(go, msg);
+      const sw = el("p", "auth-switch");
+      const link = (text, m) => {
+        const b = el("button", "", text);
+        b.type = "button";
+        b.addEventListener("click", () => env2.h.onAuthMode(m));
+        return b;
+      };
+      if (mode2 === "login") {
+        sw.append("¿No tenés cuenta? ", link("Creá una", "register"));
+        form.append(sw, el("p", "auth-switch"));
+        form.lastChild.append(link("Olvidé mi contraseña", "forgot"));
+      } else if (mode2 === "register") {
+        sw.append("¿Ya tenés cuenta? ", link("Iniciá sesión", "login"));
+        form.append(sw);
+        form.append(el("p", "note", "Al crear una cuenta aceptás los Términos y la Política de privacidad."));
+      } else if (mode2 === "forgot") {
+        if (!a.canReset) form.append(el("p", "note", "Si no te llega el email, podés entrar con tu código de recuperación (Ajustes → Recuperar)."));
+        sw.append(link("Volver", "login"));
+        form.append(sw);
+      }
+      body.append(form);
+      if (email && !email.value) setTimeout(() => email.focus(), 50);
+    },
+    // Al iniciar sesión con progreso en el dispositivo y en la cuenta: elegir cuál usar
+    merge(body, env2, data) {
+      body.append(el("p", "", "Tenés progreso en este dispositivo y en tu cuenta. ¿Con cuál seguís? El otro se reemplaza."));
+      const box = el("div", "merge-choice");
+      for (const [k, label, info] of [["cloud", "El de mi cuenta", data.cloud], ["local", "El de este dispositivo", data.local]]) {
+        const b = el("button");
+        b.type = "button";
+        b.append(el("b", "", label), el("small", "", `Nivel ${info.level} · ${fmt(info.rounds)} rondas · ${fmt(info.coins)} destellos`));
+        b.addEventListener("click", () => env2.h.onMerge(k));
+        box.append(b);
+      }
+      body.append(box);
+    },
+    deleteAccount(body, env2) {
+      body.append(el("p", "", "Se borran tu cuenta, tu progreso en la nube y tu email de nuestros servidores. No se puede deshacer. Si compraste algo, también se pierde."));
+      const inp = el("input", "redeem-input");
+      Object.assign(inp, { type: "text", placeholder: "Escribí ELIMINAR para confirmar", autocomplete: "off" });
+      inp.setAttribute("aria-label", "Confirmación");
+      const b = el("button", "btn btn-danger", "Eliminar mi cuenta para siempre");
+      b.type = "button";
+      const msg = el("p", "redeem-msg");
+      b.addEventListener("click", async () => {
+        if (inp.value.trim().toUpperCase() !== "ELIMINAR") {
+          msg.textContent = "Escribí ELIMINAR para confirmar.";
+          return;
+        }
+        b.disabled = true;
+        const r = await env2.h.onDeleteAccount();
+        if (r && r.error) {
+          msg.textContent = r.error;
+          b.disabled = false;
+        }
+      });
+      body.append(inp, b, msg);
+    },
+    guestNudge(body, env2) {
+      body.append(el("p", "", `Ya jugaste ${fmt(env2.save.rounds)} rondas. Sin cuenta, tu progreso vive solo en este dispositivo: si borrás los datos del navegador o lo cambiás, se pierde.`));
+      const b = el("button", "btn btn-primary", "Crear cuenta gratis");
+      b.type = "button";
+      b.addEventListener("click", () => env2.h.onAuthMode("register"));
+      const later = el("button", "btn btn-ghost", "Más tarde");
+      later.type = "button";
+      later.setAttribute("data-close", "");
+      body.append(b, later);
     },
     levelup(body, env2, data) {
       const hero = el("div", "rank-hero rankup");
@@ -6114,12 +6284,37 @@ ${c.log}
         body.append(inst, el("p", "note", "Queda en tu pantalla de inicio y funciona sin conexión."));
       }
       const cl = env2.h.cloudState();
-      const cloud = el("div", "redeem cloud-box");
-      cloud.append(el("span", "redeem-label", "Cuenta en la nube"));
-      if (!cl.base) cloud.append(el("p", "note", "Necesita el servidor online."));
-      else if (cl.has) {
-        cloud.append(el("p", "note", "Tu progreso se guarda solo. Para pasarlo a otro dispositivo, usá este código de recuperación (no lo compartas):"));
-        const code = el("strong", "cloud-code", cl.code);
+      const acc2 = el("div", "account-box");
+      acc2.append(el("span", "redeem-label", "Tu cuenta"));
+      if (!cl.base) acc2.append(el("p", "note", "Las cuentas necesitan conexión con el servidor."));
+      else if (cl.email) {
+        acc2.append(el("span", "who", cl.email), el("small", "note", "Tu progreso se guarda en la nube automáticamente."));
+        const row = el("div", "row");
+        const out = el("button", "btn btn-ghost btn-sm", "Cerrar sesión");
+        out.type = "button";
+        out.addEventListener("click", () => env2.h.onLogout());
+        const pw = el("button", "btn btn-ghost btn-sm", "Cambiar contraseña");
+        pw.type = "button";
+        pw.addEventListener("click", () => env2.h.onAuthMode("reset"));
+        const del = el("button", "btn btn-ghost btn-sm", "Eliminar mi cuenta");
+        del.type = "button";
+        del.addEventListener("click", () => env2.h.onOpen("deleteAccount"));
+        row.append(out, pw, del);
+        acc2.append(row);
+      } else {
+        acc2.append(el("p", "guest-warn", "Estás jugando sin cuenta: tu progreso se puede perder."));
+        const row = el("div", "row");
+        const reg = el("button", "btn btn-primary btn-sm", "Crear cuenta");
+        reg.type = "button";
+        reg.addEventListener("click", () => env2.h.onAuthMode("register"));
+        const log = el("button", "btn btn-ghost btn-sm", "Iniciar sesión");
+        log.type = "button";
+        log.addEventListener("click", () => env2.h.onAuthMode("login"));
+        row.append(reg, log);
+        acc2.append(row);
+      }
+      if (cl.base && cl.has) {
+        acc2.append(el("small", "note", "Código de recuperación (para entrar desde otro dispositivo; no lo compartas):"), el("strong", "cloud-code", cl.code));
         const copy = el("button", "btn btn-ghost btn-sm", "Copiar código");
         copy.type = "button";
         copy.addEventListener("click", async () => {
@@ -6130,12 +6325,7 @@ ${c.log}
             copy.textContent = cl.code;
           }
         });
-        cloud.append(code, copy);
-      } else {
-        const mk = el("button", "btn btn-primary btn-sm", "Activar guardado en la nube");
-        mk.type = "button";
-        mk.addEventListener("click", () => env2.h.onCloudCreate());
-        cloud.append(el("p", "note", cl.status || "Guardá tu progreso para no perderlo si cambiás de celular."), mk);
+        acc2.append(copy);
       }
       if (cl.base) {
         const row = el("div", "redeem-row");
@@ -6154,9 +6344,9 @@ ${c.log}
         go.addEventListener("click", doIt);
         onEnter(inp, doIt);
         row.append(inp, go);
-        cloud.append(el("small", "note", "¿Tenés progreso en otro dispositivo? Pegá su código:"), row, msg);
+        acc2.append(el("small", "note", "¿Tenés un código de recuperación? Pegalo acá:"), row, msg);
       }
-      body.append(cloud);
+      body.append(acc2);
       const rules = el("button", "btn btn-ghost", "Cómo se juega");
       rules.type = "button";
       rules.addEventListener("click", () => env2.h.onOpen("how"));
@@ -6178,7 +6368,9 @@ ${c.log}
         env2.h.onReset();
         env2.close();
       });
-      zone.append(reset, el("p", "note", `Tu progreso se guarda solo en este dispositivo. Versión ${CFG.VERSION}.`));
+      const legal = el("nav", "legal-links");
+      legal.innerHTML = '<a href="terminos" target="_blank" rel="noopener">Términos</a><a href="privacidad" target="_blank" rel="noopener">Privacidad</a><a href="reembolsos" target="_blank" rel="noopener">Reembolsos</a><a href="arrepentimiento" target="_blank" rel="noopener">Arrepentimiento</a>';
+      zone.append(reset, el("p", "note", `Borra el progreso de este dispositivo. Versión ${CFG.VERSION}.`), legal);
       body.append(zone);
     },
     share(body, env2, data) {
@@ -6652,6 +6844,7 @@ ${c.log}
       return dailyState(save2, env3.today, env3.yesterday).available;
     }
     function showScreen(name) {
+      $("start").hidden = name !== "start";
       $("menu").hidden = name !== "menu";
       $("results").hidden = name !== "results";
       if (lastInputKeyboard) {
@@ -7084,7 +7277,18 @@ ${c.log}
     restore: (code) => call(base, "POST", "/api/restore", { code }),
     submitScore: (data) => call(base, "POST", "/api/score", data),
     board: (b, ids) => call(base, "GET", `/api/board?b=${encodeURIComponent(b)}&ids=${ids.join(",")}`),
-    events: (device, events) => call(base, "POST", "/api/events", { device, events }, 5e3)
+    events: (device, events) => call(base, "POST", "/api/events", { device, events }, 5e3),
+    config: () => call(base, "GET", "/api/config", null, 25e3),
+    register: (data) => call(base, "POST", "/api/register", data, 25e3),
+    login: (data) => call(base, "POST", "/api/login", data, 25e3),
+    google: (data) => call(base, "POST", "/api/google", data, 25e3),
+    me: (id, secret) => call(base, "POST", "/api/me", { id, secret }),
+    logout: (id, secret) => call(base, "POST", "/api/logout", { id, secret }),
+    remove: (id, secret) => call(base, "POST", "/api/delete", { id, secret }),
+    password: (id, secret, password) => call(base, "POST", "/api/password", { id, secret, password }),
+    resetRequest: (email) => call(base, "POST", "/api/reset/request", { email }),
+    resetConfirm: (token, password) => call(base, "POST", "/api/reset/confirm", { token, password }),
+    checkout: (id, secret, item) => call(base, "POST", "/api/pay/checkout", { id, secret, item }, 2e4)
   });
 
   // src/render/clip.js
@@ -7596,9 +7800,19 @@ ${c.log}
     onShareChallenge: () => shareChallenge(),
     onShareClip: () => shareClip(),
     onOpen: (kind) => ui.openModal(kind),
+    authState: () => authState,
+    onAuthMode: (mode2, extra) => {
+      authState.msg = extra && extra.msg || "";
+      ui.openModal("auth", { mode: mode2, ...extra || {} });
+    },
+    onAuth: (mode2, data) => doAuth(mode2, data),
+    onMerge: (choice) => finishMerge(choice),
+    onLogout: () => logout(),
+    onDeleteAccount: () => deleteAccount(),
+    payOn: () => !!(serverCfg && serverCfg.payments),
     boardsState: () => boardsState,
     onBoard: (tab, scope) => loadBoard(tab, scope),
-    cloudState: () => ({ has: !!save.cloud, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : "", status: cloudStatus, base: !!apiBase(save.server) }),
+    cloudState: () => ({ has: !!save.cloud, email: save.cloud && save.cloud.email, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : "", status: cloudStatus, base: !!apiBase(save.server) && serverCfg !== false }),
     onCloudCreate: () => ensureCloud(true),
     onRestore: (code) => restoreCloud(code),
     onHome: () => {
@@ -7637,8 +7851,8 @@ ${c.log}
     onInvite: async () => {
       const r = online.room;
       if (!r) return false;
-      const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
-      const link = hosted ? `${location.origin}${location.pathname}?sala=${r.code}` : "";
+      const hosted2 = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
+      const link = hosted2 ? `${location.origin}${location.pathname}?sala=${r.code}` : "";
       const text = `¡Sumate a mi sala de Contracorriente! Código: ${r.code}${link ? " · " + link : ""}`;
       try {
         await navigator.clipboard.writeText(text);
@@ -7816,11 +8030,7 @@ ${c.log}
       refreshMenu();
       ui.openModal("profile", { tab: "ach" });
     },
-    onBuyPremium: () => {
-      track({ e: "open", k: "buy-premium" });
-      audio.play("ui");
-      ui.toast("Próximamente", "Las compras se habilitan en la versión 1.0");
-    },
+    onBuyPremium: (item) => buyPremium(item),
     // Amigos
     friendsState: () => ({ status: net ? net.status : "off", presence, msg: friendsMsg, room: online.room }),
     onCopyFriendCode: async () => {
@@ -8106,6 +8316,217 @@ ${c.log}
       a.remove();
     }, 2e3);
   }
+  var serverCfg = null;
+  var authState = { busy: false, msg: "", email: "", canReset: false };
+  var hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
+  var loggedIn = () => !!(save.cloud && save.cloud.email);
+  var keepSettings = () => {
+    const k = {};
+    for (const x of ["sfx", "music", "vib", "notif", "relTouch", "server", "guestOk"]) k[x] = save[x];
+    return k;
+  };
+  async function loadConfig() {
+    if (!apiBase(save.server) || /claude|anthropic/.test(location.hostname)) {
+      serverCfg = false;
+      return;
+    }
+    try {
+      serverCfg = await api().config();
+    } catch (e) {
+      serverCfg = false;
+    }
+    authState.canReset = !!(serverCfg && serverCfg.reset);
+    if (serverCfg && serverCfg.google && hosted) setupGoogle(serverCfg.google);
+    updateStart();
+  }
+  var needsStart = () => !loggedIn() && !save.guestOk;
+  function updateStart() {
+    const st = $("startStatus");
+    if (!st) return;
+    const off = serverCfg === false;
+    $("startLogin").disabled = off || serverCfg === null;
+    $("startRegister").disabled = off || serverCfg === null;
+    st.textContent = off ? "Sin conexión con el servidor: por ahora podés jugar sin cuenta." : serverCfg === null ? "Conectando…" : "";
+    st.classList.toggle("ok", !off);
+  }
+  function showStart() {
+    state = "menu";
+    ui.showHud(false);
+    ui.showScreen("start");
+    updateStart();
+  }
+  function setupGoogle(clientId) {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => {
+      try {
+        window.google.accounts.id.initialize({ client_id: clientId, callback: (r) => doAuth("google", { credential: r.credential }) });
+        const slot = $("googleBtn");
+        slot.hidden = false;
+        window.google.accounts.id.renderButton(slot, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 300 });
+      } catch (e) {
+      }
+    };
+    document.head.append(s);
+  }
+  var pendingAuth = null;
+  async function doAuth(mode2, d) {
+    authState.busy = true;
+    authState.msg = "";
+    authState.email = d.email || authState.email;
+    if (ui.modalKind === "auth") ui.refreshModal();
+    let r = null;
+    try {
+      const c = save.cloud || {};
+      if (mode2 === "login") r = await api().login({ email: d.email, password: d.password });
+      else if (mode2 === "register") r = await api().register({ email: d.email, password: d.password, name: d.name, id: c.email ? void 0 : c.id, secret: c.email ? void 0 : c.secret });
+      else if (mode2 === "google") r = await api().google({ credential: d.credential, id: c.email ? void 0 : c.id, secret: c.email ? void 0 : c.secret });
+      else if (mode2 === "forgot") {
+        await api().resetRequest(d.email);
+        authState.msg = "Si ese email tiene cuenta, te llegó un enlace para elegir una contraseña nueva. Revisá también el correo no deseado.";
+      } else if (mode2 === "reset") {
+        if (d.token) r = await api().resetConfirm(d.token, d.password);
+        else if (save.cloud) {
+          await api().password(save.cloud.id, save.cloud.secret, d.password);
+          authState.msg = "";
+          ui.closeModal();
+          ui.toast("Cuenta", "Contraseña actualizada");
+        }
+      }
+    } catch (e) {
+      authState.msg = e.message && e.message !== "error" && !/fetch|abort|network/i.test(e.message) ? e.message : "No se pudo conectar con el servidor. Probá de nuevo en unos segundos.";
+    }
+    authState.busy = false;
+    if (r) {
+      if (mode2 === "register" && d.name) save.name = cleanName(d.name) || save.name;
+      afterAuth(r);
+    } else if (ui.modalKind === "auth") ui.refreshModal();
+    else if (authState.msg && mode2 === "google") {
+      $("startStatus").textContent = authState.msg;
+    }
+  }
+  var summaryOf = (sv) => ({ level: levelInfo(sv.xp || 0).level, rounds: sv.rounds || 0, coins: sv.coins || 0 });
+  function afterAuth(r) {
+    const localHas = save.rounds > 0 && !(save.cloud && save.cloud.id === r.id);
+    if (r.save && localHas && (r.save.rounds || 0) > 0) {
+      pendingAuth = r;
+      ui.openModal("merge", { cloud: summaryOf(r.save), local: summaryOf(save) });
+      return;
+    }
+    const same = save.cloud && save.cloud.id === r.id;
+    adopt(r, !same && r.save && (r.save.rounds || 0) > 0 ? "cloud" : "local");
+  }
+  function finishMerge(choice) {
+    if (pendingAuth) adopt(pendingAuth, choice);
+    pendingAuth = null;
+  }
+  function adopt(r, which) {
+    if (which === "cloud") {
+      const k = keepSettings();
+      save = loadSave({ get: () => JSON.stringify(r.save), set: () => {
+      } });
+      Object.assign(save, k);
+    }
+    save.cloud = { id: r.id, secret: r.secret, email: r.email || null };
+    save.guestOk = true;
+    applyEnt(r.ent);
+    persist();
+    cloudSoon(true);
+    applyTrack();
+    ui.closeModal();
+    toMenu();
+    ui.toast("Sesión iniciada", r.email || "Tu progreso se guarda en la nube");
+    sendProfile();
+  }
+  function applyEnt(ent) {
+    if (!ent) return;
+    if (ent.pass) save.premiumPass = true;
+    for (const id of Object.keys(ent.items || {})) save.owned[id] = true;
+  }
+  async function refreshEnt() {
+    if (!save.cloud || serverCfg === false) return;
+    try {
+      const me = await api().me(save.cloud.id, save.cloud.secret);
+      applyEnt(me.ent);
+      if (me.email && !save.cloud.email) save.cloud.email = me.email;
+      persist();
+      refreshMenu();
+    } catch (e) {
+      if (e.status === 401) {
+        save.cloud = null;
+        persist();
+      }
+    }
+  }
+  async function logout() {
+    const c = save.cloud;
+    if (c) {
+      cloudSoon(true);
+      try {
+        await api().logout(c.id, c.secret);
+      } catch (e) {
+      }
+    }
+    const k = keepSettings();
+    leaveOnline();
+    save = resetSave(store, { ...k, guestOk: false });
+    ensureMissions(save, env().today);
+    applyTrack();
+    ui.closeModal();
+    showStart();
+  }
+  async function deleteAccount() {
+    const c = save.cloud;
+    if (!c) return { error: "No hay cuenta." };
+    try {
+      await api().remove(c.id, c.secret);
+    } catch (e) {
+      return { error: "No se pudo eliminar. Probá de nuevo." };
+    }
+    const k = keepSettings();
+    save = resetSave(store, { ...k, guestOk: false });
+    ui.closeModal();
+    showStart();
+    ui.toast("Cuenta eliminada", "Borramos tu cuenta y tus datos");
+    return {};
+  }
+  async function buyPremium(item) {
+    track({ e: "open", k: "buy-" + item });
+    if (!serverCfg || !serverCfg.payments) {
+      audio.play("ui");
+      ui.toast("Próximamente", "Las compras todavía no están habilitadas");
+      return;
+    }
+    if (!loggedIn()) {
+      ui.openModal("auth", { mode: "register" });
+      authState.msg = "Creá una cuenta para comprar: así lo que pagás queda guardado para siempre.";
+      ui.refreshModal();
+      return;
+    }
+    try {
+      ui.toast("Mercado Pago", "Abriendo el pago…");
+      const r = await api().checkout(save.cloud.id, save.cloud.secret, item);
+      persist();
+      location.href = r.url;
+    } catch (e) {
+      ui.toast("No se pudo iniciar el pago", e.message || "Probá de nuevo");
+    }
+  }
+  function maybeNudge() {
+    if (loggedIn() || serverCfg === false || !apiBase(save.server)) return;
+    if (![3, 10, 25].includes(save.rounds)) return;
+    setTimeout(() => {
+      if (state === "results" && !ui.modalOpen) ui.openModal("guestNudge");
+    }, 2600);
+  }
+  function fixLegalLinks(root = document) {
+    if (hosted) return;
+    const site = apiBase(save.server);
+    root.querySelectorAll(".legal-links a").forEach((a) => {
+      if (site) a.href = site + "/" + a.getAttribute("href").replace(/^.*\//, "");
+    });
+  }
   var presence = {};
   var friendsMsg = "";
   function ensureConnected() {
@@ -8384,6 +8805,7 @@ ${c.log}
     ui.showScreen("results");
     nextT = CFG.NEXT_S;
     sendProfile();
+    maybeNudge();
     if (online.invite) {
       const inv = online.invite;
       online.invite = null;
@@ -8948,8 +9370,8 @@ ${c.log}
   });
   var installPrompt = null;
   function setupPWA() {
-    const hosted = /^https?:$/.test(location.protocol) && window.self === window.top;
-    if (!hosted) return;
+    const hosted2 = /^https?:$/.test(location.protocol) && window.self === window.top;
+    if (!hosted2) return;
     const link = (rel, href) => {
       const l = document.createElement("link");
       l.rel = rel;
@@ -8982,6 +9404,59 @@ ${c.log}
   setupPWA();
   applyTrack();
   toMenu();
+  if (needsStart()) showStart();
+  loadConfig().then(() => {
+    if (loggedIn()) refreshEnt();
+  });
+  $("startLogin").addEventListener("click", () => {
+    audio.unlock();
+    authState.msg = "";
+    ui.openModal("auth", { mode: "login" });
+  });
+  $("startRegister").addEventListener("click", () => {
+    audio.unlock();
+    authState.msg = "";
+    ui.openModal("auth", { mode: "register" });
+  });
+  $("startGuest").addEventListener("click", () => {
+    audio.unlock();
+    save.guestOk = true;
+    persist();
+    toMenu();
+  });
+  fixLegalLinks();
+  {
+    const q = new URLSearchParams(location.search);
+    const pago = q.get("pago"), reset = q.get("reset");
+    if (pago || reset) history.replaceState(null, "", location.pathname);
+    if (pago === "ok") {
+      setTimeout(() => ui.toast("¡Gracias por tu compra!", "Se acredita en unos segundos"), 800);
+      let n = 0;
+      const iv = setInterval(() => {
+        refreshEnt();
+        if (++n > 12) clearInterval(iv);
+      }, 5e3);
+    } else if (pago === "pendiente") setTimeout(() => ui.toast("Pago pendiente", "Te lo acreditamos cuando Mercado Pago lo apruebe"), 800);
+    else if (pago === "error") setTimeout(() => ui.toast("El pago no se completó", "No se te cobró nada"), 800);
+    if (reset && /^[A-Z0-9]{24}$/.test(reset)) setTimeout(() => ui.openModal("auth", { mode: "reset", token: reset }), 600);
+  }
+  window.addEventListener("error", (e) => track({ e: "error", m: String(e.message || "").slice(0, 120) }));
+  window.addEventListener("unhandledrejection", (e) => track({ e: "error", m: String(e.reason && e.reason.message || e.reason || "").slice(0, 120) }));
+  {
+    const pill = document.createElement("div");
+    pill.className = "offline-pill";
+    pill.textContent = "Sin conexión: seguís jugando solo; tu progreso se sube cuando vuelva";
+    pill.hidden = navigator.onLine !== false;
+    document.body.append(pill);
+    window.addEventListener("offline", () => {
+      pill.hidden = false;
+    });
+    window.addEventListener("online", () => {
+      pill.hidden = true;
+      cloudSoon(true);
+      flushEvents();
+    });
+  }
   track({ e: "session" });
   cloudReady = true;
   setTimeout(flushEvents, 3e3);

@@ -1,10 +1,34 @@
 # Despliegue en Render (https://render.com): New → Blueprint → elegir este repositorio.
-# Sirve el juego y el modo online en la misma dirección.
+# Sirve el juego, el modo online, las cuentas y los pagos en la misma dirección.
+# Las variables con "sync: false" se completan a mano en Render → Environment (ver LANZAMIENTO.md).
 services:
   - type: web
     name: contracorriente
     runtime: node
-    plan: free
+    plan: free            # para el lanzamiento: starter (sin demoras al despertar)
     buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_KEY          # clave del panel /admin (Render la genera; la ves en Environment)
+        generateValue: true
+      - key: PUBLIC_URL         # dirección pública, por ejemplo https://contracorriente.com
+        sync: false
+      - key: SUPABASE_URL       # base de datos permanente (cuentas, progreso, compras)
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID   # botón "Continuar con Google" (opcional)
+        sync: false
+      - key: RESEND_API_KEY     # emails de "olvidé mi contraseña" (opcional)
+        sync: false
+      - key: MAIL_FROM          # por ejemplo: Contracorriente <hola@contracorriente.com>
+        sync: false
+      - key: MP_ACCESS_TOKEN    # Mercado Pago: activa la Tienda Premium y el Pase
+        sync: false
+      - key: MP_CURRENCY        # ARS (por defecto) o USD
+        value: ARS
+      - key: MP_USD_RATE        # pesos por dólar para convertir los precios
+        sync: false
