@@ -36,7 +36,7 @@ const pages = {
 <li>El Juego ofrece cosméticos (skins, estelas, estilos de nombre, música) y un pase de temporada. <b>Son solo visuales y no dan ninguna ventaja en el juego.</b></li>
 <li>Lo que comprás es una licencia personal, no transferible, para usar ese contenido dentro del Juego mientras el servicio exista. No tiene valor monetario ni se puede canjear por dinero.</li>
 <li>Los destellos (moneda del juego) se ganan jugando y no se venden.</li>
-<li>Los pagos se procesan a través de Mercado Pago; el Titular no guarda datos de tarjetas.</li>
+<li>Los pagos se procesan a través de Mercado Pago, PayPal o dLocal Go, según el medio que elijas; el Titular no guarda datos de tarjetas. Los precios se muestran en la moneda del país elegido y el monto final se confirma en la página de pago.</li>
 <li>Derecho de arrepentimiento y reembolsos: ver <a href="reembolsos">Reembolsos</a> y <a href="arrepentimiento">Botón de arrepentimiento</a>.</li></ul>
 <h2>6. Propiedad intelectual</h2><p>El Juego, su código, diseño, música y marcas pertenecen al Titular o a sus licenciantes. No podés copiarlos ni distribuirlos sin autorización.</p>
 <h2>7. Responsabilidad</h2><p>El Juego se ofrece "tal cual". El Titular hace lo posible para que funcione bien, pero no garantiza que esté libre de errores o disponible siempre. Nada de esto limita los derechos que te da la Ley de Defensa del Consumidor (Ley 24.240).</p>
@@ -51,7 +51,7 @@ const pages = {
 <li><b>Para jugar online:</b> el nombre que elegís, tu aspecto en el juego, tu nivel y tu código de amigo.</li>
 <li><b>Ranking:</b> tu nombre, nivel y puntajes.</li>
 <li><b>Estadísticas de uso anónimas:</b> un identificador aleatorio del dispositivo, rondas jugadas, en qué parte del juego perdés y qué secciones abrís. No incluyen tu nombre ni tu email.</li>
-<li><b>Compras:</b> qué compraste y el número de operación. Los datos de pago los maneja Mercado Pago; nosotros no vemos tu tarjeta.</li>
+<li><b>Compras:</b> qué compraste y el número de operación. Los datos de pago los manejan Mercado Pago, PayPal o dLocal Go; nosotros no vemos tu tarjeta.</li>
 <li><b>Datos técnicos:</b> la dirección IP, solo para limitar abusos (por ejemplo, muchos intentos de inicio de sesión). No se guarda en forma permanente.</li></ul>
 <h2>Para qué</h2><p>Para que puedas jugar, guardar y recuperar tu progreso, jugar con otras personas, mostrar el ranking, entregarte lo que compraste y mejorar el juego. No vendemos tus datos ni los usamos para publicidad.</p>
 <h2>Dónde se guardan</h2><p>En los servidores del proveedor de hosting y de base de datos del Juego [COMPLETAR: por ejemplo, Render y Supabase], que pueden estar fuera de Argentina.</p>
@@ -62,14 +62,14 @@ const pages = {
   reembolsos: ['Reembolsos', `
 <p>Queremos que estés conforme con lo que comprás en <b>Contracorriente</b>.</p>
 <h2>Derecho de arrepentimiento</h2><p>Por la Ley 24.240 (art. 34) podés revocar una compra dentro de los <b>10 días corridos</b> desde que la hiciste, sin dar explicaciones. Usá el <a href="arrepentimiento">Botón de arrepentimiento</a>. Te devolvemos el dinero por el mismo medio de pago y retiramos el contenido comprado de tu cuenta.</p>
-<h2>Problemas con una compra</h2><p>Si pagaste y no recibiste lo que compraste, o se te cobró dos veces, escribinos a ${CONTACTO} con tu email de cuenta y el número de operación de Mercado Pago. Lo resolvemos y, si corresponde, te devolvemos el dinero.</p>
+<h2>Problemas con una compra</h2><p>Si pagaste y no recibiste lo que compraste, o se te cobró dos veces, escribinos a ${CONTACTO} con tu email de cuenta y el número de operación del medio de pago. Lo resolvemos y, si corresponde, te devolvemos el dinero.</p>
 <h2>Fuera de esos casos</h2><p>El contenido virtual ya entregado no tiene devolución, salvo que la ley disponga otra cosa.</p>`],
 
   arrepentimiento: ['Botón de arrepentimiento', `
 <div class="box"><p>Si compraste algo en Contracorriente en los últimos <b>10 días</b>, podés arrepentirte y pedir la devolución del dinero.</p>
 <p><a href="mailto:${CONTACTO}?subject=Arrepentimiento%20de%20compra&body=Email%20de%20mi%20cuenta%3A%0AN%C3%BAmero%20de%20operaci%C3%B3n%20de%20Mercado%20Pago%3A%0AFecha%20de%20compra%3A%0AQu%C3%A9%20compr%C3%A9%3A" style="display:inline-block;background:#ffb547;color:#1a1333;font-weight:800;padding:12px 18px;border-radius:999px;text-decoration:none">Quiero arrepentirme de mi compra</a></p>
 <p class="meta">Te vamos a responder con un código de trámite dentro de las 24 horas (Resolución 424/2020 de la Secretaría de Comercio Interior).</p></div>
-<p>Incluí el email de tu cuenta, el número de operación de Mercado Pago y qué compraste. No tenés que explicar el motivo.</p>`],
+<p>Incluí el email de tu cuenta, el número de operación del medio de pago y qué compraste. No tenés que explicar el motivo.</p>`],
 };
 
 for (const [file, [title, body]] of Object.entries(pages)) writeFileSync(join(out, file + '.html'), page(title, body));

@@ -49,31 +49,90 @@ test('Google: verifica el token con Google y rechaza tokens de otra app', async 
   assert.equal(a.email, 'beto@gmail.com');
 });
 
-test('pagos: apagados sin credenciales; con Mercado Pago, solo se entrega un pago aprobado y por el precio correcto', async () => {
+test('pagos: apagados sin credenciales; Mercado Pago solo entrega pagos aprobados por el precio correcto', async () => {
   const off = client();
   assert.equal((await off.call('GET', '/api/config')).json.payments, false);
-  const calls = [];
+  const pays = {};
   const fakeMp = async (url, opt) => {
-    calls.push(url);
-    if (url.endsWith('/checkout/preferences')) return { ok: true, json: async () => ({ init_point: 'https://mp/pagar/1' }) };
-    const id = url.split('/').pop();
-    const pays = { 11: { status: 'approved', external_reference: 'REF:pass', transaction_amount: 4788 }, 12: { status: 'rejected', external_reference: 'REF:pass', transaction_amount: 4788 }, 13: { status: 'approved', external_reference: 'REF:pass', transaction_amount: 10 } };
-    const p = pays[id];
-    if (p) p.external_reference = p.external_reference.replace('REF', globalThis.__acc);
+    if (url.endsWith('/checkout/preferences')) { const b = JSON.parse(opt.body); globalThis.__pref = b; return { ok: true, json: async () => ({ id: 'pref1', init_point: 'https://mp/pagar/1' }) }; }
+    const p = pays[url.split('/').pop()];
     return { ok: !!p, json: async () => p };
   };
-  const { call } = client({ MP_ACCESS_TOKEN: 'tok', PUBLIC_URL: 'https://juego.com', MP_CURRENCY: 'ARS', MP_USD_RATE: '1200' }, fakeMp);
+  const { call } = client({ MP_ACCESS_TOKEN: 'tok', PUBLIC_URL: 'https://juego.com', FX_ARS: '1200' }, fakeMp);
+  const cfg = (await call('GET', '/api/config')).json;
+  assert.deepEqual(cfg.pay, { mp: true, dlocal: false, paypal: false });
   const g = (await call('POST', '/api/account', {})).json;
-  globalThis.__acc = g.id;
-  assert.equal((await call('POST', '/api/pay/checkout', { id: g.id, secret: g.secret, item: 'pass' })).code, 403, 'un invitado no puede comprar');
+  assert.equal((await call('POST', '/api/pay/checkout', { id: g.id, secret: g.secret, item: 'pass', country: 'AR', method: 'mp' })).code, 403, 'un invitado no puede comprar');
   await call('POST', '/api/register', { email: 'c@c.com', password: '12345678', id: g.id, secret: g.secret });
   const log = (await call('POST', '/api/login', { email: 'c@c.com', password: '12345678' })).json;
-  assert.equal((await call('POST', '/api/pay/checkout', { id: log.id, secret: log.secret, item: 'pass' })).json.url, 'https://mp/pagar/1');
+  assert.equal((await call('POST', '/api/pay/checkout', { id: log.id, secret: log.secret, item: 'pass', country: 'BR', method: 'mp' })).code, 502, 'Mercado Pago es solo para Argentina');
+  const co = (await call('POST', '/api/pay/checkout', { id: log.id, secret: log.secret, item: 'pass', country: 'AR', method: 'mp' })).json;
+  assert.equal(co.url, 'https://mp/pagar/1');
+  assert.equal(globalThis.__pref.items[0].unit_price, 2399, 'precio argentino: 3,99 × 1200 × 0,5 redondeado');
+  assert.equal(globalThis.__pref.items[0].currency_id, 'ARS');
+  pays[11] = { status: 'approved', external_reference: co.order, transaction_amount: 2399, currency_id: 'ARS' };
+  pays[12] = { status: 'rejected', external_reference: co.order, transaction_amount: 2399, currency_id: 'ARS' };
+  pays[13] = { status: 'approved', external_reference: co.order, transaction_amount: 10, currency_id: 'ARS' };
   await call('POST', '/api/pay/webhook', { type: 'payment', data: { id: '12' } });
   await call('POST', '/api/pay/webhook', { type: 'payment', data: { id: '13' } });
   assert.equal((await call('POST', '/api/me', { id: log.id, secret: log.secret })).json.ent.pass, false, 'rechazado o monto bajo: no se entrega');
   await call('POST', '/api/pay/webhook', { type: 'payment', data: { id: '11' } });
-  assert.equal((await call('POST', '/api/me', { id: log.id, secret: log.secret })).json.ent.pass, true);
+  await call('POST', '/api/pay/webhook', { type: 'payment', data: { id: '11' } });
+  const me = (await call('POST', '/api/me', { id: log.id, secret: log.secret })).json;
+  assert.equal(me.ent.pass, true);
+  assert.equal(me.ent.bought.pass, 1, 'un aviso repetido no entrega dos veces');
+  assert.equal((await call('POST', '/api/pay/status', { id: log.id, secret: log.secret, order: co.order })).json.status, 'paid');
+  assert.equal((await call('POST', '/api/pay/checkout', { id: log.id, secret: log.secret, item: 'pass', country: 'AR', method: 'mp' })).code, 409, 'no se compra dos veces');
+});
+
+test('pagos: dLocal Go cobra en moneda local y entrega el pack completo', async () => {
+  let created;
+  const fake = async (url, opt) => {
+    if (url.endsWith('/v1/payments') && opt.method === 'POST') {
+      created = JSON.parse(opt.body);
+      assert.equal(opt.headers.Authorization, 'Bearer key:sec');
+      return { ok: true, json: async () => ({ id: 'DP-1', redirect_url: 'https://dlocal/pagar' }) };
+    }
+    if (url.endsWith('/v1/payments/DP-1')) return { ok: true, json: async () => ({ id: 'DP-1', status: 'PAID', order_id: created.order_id, amount: created.amount, currency: created.currency }) };
+    return { ok: false, json: async () => ({}) };
+  };
+  const { call } = client({ DLOCAL_API_KEY: 'key', DLOCAL_SECRET_KEY: 'sec', PUBLIC_URL: 'https://juego.com' }, fake);
+  const r = (await call('POST', '/api/register', { email: 'br@x.com', password: '12345678' })).json;
+  assert.equal((await call('POST', '/api/pay/checkout', { id: r.id, secret: r.secret, item: 'pack-mitico', country: 'US', method: 'dlocal' })).code, 502, 'dLocal no opera en EE. UU.');
+  const co = (await call('POST', '/api/pay/checkout', { id: r.id, secret: r.secret, item: 'pack-mitico', country: 'BR', method: 'dlocal' })).json;
+  assert.equal(co.url, 'https://dlocal/pagar');
+  assert.equal(created.currency, 'BRL');
+  assert.equal(created.country, 'BR');
+  assert.equal(created.amount, 18.9);
+  await call('POST', '/api/pay/dlocal', { payment_id: 'DP-1' });
+  const ent = (await call('POST', '/api/me', { id: r.id, secret: r.secret })).json.ent;
+  assert.ok(ent.items.dragon_estelar && ent.items.quasar && ent.items.gusano, 'el pack entrega todo lo que incluye');
+  assert.equal((await call('POST', '/api/pay/checkout', { id: r.id, secret: r.secret, item: 'pack-todo', country: 'BR', method: 'dlocal' })).code, 409, 'packs con algo ya comprado no se venden');
+});
+
+test('pagos: PayPal captura al volver y el Pack de Inicio da destellos una sola vez', async () => {
+  let order;
+  const fake = async (url, opt) => {
+    if (url.endsWith('/v1/oauth2/token')) return { ok: true, json: async () => ({ access_token: 'T' }) };
+    if (url.endsWith('/v2/checkout/orders')) { order = JSON.parse(opt.body); return { ok: true, json: async () => ({ id: 'PP1', links: [{ rel: 'payer-action', href: 'https://paypal/aprobar' }] }) }; }
+    if (url.endsWith('/v2/checkout/orders/PP1/capture')) {
+      const a = order.purchase_units[0].amount;
+      return { ok: true, json: async () => ({ status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ status: 'COMPLETED', amount: { currency_code: a.currency_code, value: a.value } }] } }] }) };
+    }
+    return { ok: false, json: async () => ({}) };
+  };
+  const { call } = client({ PAYPAL_CLIENT_ID: 'id', PAYPAL_SECRET: 's', PUBLIC_URL: 'https://juego.com' }, fake);
+  const r = (await call('POST', '/api/register', { email: 'us@x.com', password: '12345678' })).json;
+  const co = (await call('POST', '/api/pay/checkout', { id: r.id, secret: r.secret, item: 'pack-inicio', country: 'AR', method: 'paypal' })).json;
+  assert.equal(co.url, 'https://paypal/aprobar');
+  assert.deepEqual(order.purchase_units[0].amount, { currency_code: 'USD', value: '0.99' }, 'PayPal cobra en dólares fuera de la zona euro');
+  const back = await call('GET', '/api/pay/paypal?o=' + co.order);
+  assert.equal(back.code, 302);
+  await call('GET', '/api/pay/paypal?o=' + co.order);
+  const ent = (await call('POST', '/api/me', { id: r.id, secret: r.secret })).json.ent;
+  assert.equal(ent.coins, 1500, 'los destellos del pack se entregan una sola vez');
+  assert.ok(ent.items.pionera && ent.items.estela_pionera);
+  assert.equal((await call('POST', '/api/pay/checkout', { id: r.id, secret: r.secret, item: 'pack-inicio', country: 'AR', method: 'paypal' })).code, 409, 'el Pack de Inicio es de una sola vez');
 });
 
 test('límite de intentos por IP en el login', async () => {

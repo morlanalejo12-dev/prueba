@@ -1,6 +1,7 @@
 // Cuentas: invitado (código de recuperación), email + contraseña y Google.
 // Una cuenta guarda: hashes de sus claves de sesión, el progreso, y lo comprado (entitlements).
 import crypto from 'node:crypto';
+import { grantsOf } from '../src/game/prices.js';
 
 const ID_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const rid = n => Array.from(crypto.randomBytes(n), b => ID_CHARS[b % ID_CHARS.length]).join('');
@@ -152,12 +153,16 @@ export class Accounts {
     return { ok: true };
   }
 
+  // Entrega una compra (artículo suelto, pase o pack). ent.coins suma los destellos comprados.
   async grant(id, item) {
     const acct = await this.get(id);
     if (!acct) return false;
-    acct.ent = acct.ent || { pass: false, items: {} };
-    if (item === 'pass') acct.ent.pass = true;
-    else acct.ent.items[item] = true;
+    const ent = acct.ent = { pass: false, items: {}, coins: 0, bought: {}, ...(acct.ent || {}) };
+    const g = grantsOf(item);
+    if (g.pass) ent.pass = true;
+    for (const it of g.items) ent.items[it] = true;
+    ent.coins = (ent.coins || 0) + g.coins;
+    ent.bought = { ...(ent.bought || {}), [item]: (ent.bought && ent.bought[item] || 0) + 1 };
     await this.put(id, acct);
     return true;
   }

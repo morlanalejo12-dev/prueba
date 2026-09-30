@@ -67,9 +67,10 @@
 </div>
 
 <section id="start" class="screen start" hidden aria-labelledby="startLogo">
+  <button id="startLang" class="icon-btn start-lang" type="button" aria-label="País e idioma"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button>
   <div class="start-inner">
     <p class="eyebrow">Un juego de decisiones en masa</p>
-    <h1 id="startLogo" class="logo"><span class="l1">Contra</span><span class="l2">corriente</span></h1>
+    <h1 id="startLogo" class="logo" data-noi18n><span class="l1">Contra</span><span class="l2">corriente</span></h1>
     <p class="tagline">Todos caen a la vez. Sobrevive el que no sigue a la masa.</p>
     <div class="start-actions">
       <button id="startLogin" class="btn btn-primary" type="button">Iniciar sesión</button>
@@ -96,6 +97,10 @@
     </button>
     <div class="top-actions">
       <button id="coinsBtn" class="coin-pill" type="button" aria-label="Destellos: abrir la tienda"><span id="coinIcon"></span><b id="coins">0</b></button>
+      <button id="notifBtn" class="icon-btn" type="button" aria-label="Notificaciones">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <em id="bNotif" class="badge count" hidden>0</em>
+      </button>
       <button id="boardsBtn" class="icon-btn" type="button" aria-label="Ranking">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
       </button>
@@ -107,7 +112,7 @@
 
   <div class="menu-main">
     <p class="eyebrow">Temporada 1 · Primera corriente</p>
-    <h1 id="logo" class="logo"><span class="l1">Contra</span><span class="l2">corriente</span></h1>
+    <h1 id="logo" class="logo" data-noi18n><span class="l1">Contra</span><span class="l2">corriente</span></h1>
     <p class="tagline">Todos caen a la vez. Sobrevive el que no sigue a la masa.</p>
     <button id="rankBtn" class="rank-card" type="button" aria-label="Ver tu rango">
       <span id="rankEmblem" class="rank-emblem"></span>
@@ -208,7 +213,6 @@
       <button id="again" class="btn btn-primary" type="button">Jugar otra <span id="rNext" class="count-pill">10</span></button>
       <div class="row">
         <button id="shareBtn" class="btn btn-ghost" type="button">Compartir</button>
-        <button id="clipBtn" class="btn btn-ghost" type="button" hidden>Clip</button>
         <button id="home" class="btn btn-ghost" type="button">Menú</button>
       </div>
     </div>

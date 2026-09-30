@@ -9,6 +9,7 @@ import { WebSocketServer } from 'ws';
 import { Lobby, GLOBAL, PROTOCOL, cleanName } from './rooms.js';
 import { Friends } from './friends.js';
 import { makeStore } from './store.js';
+import { Social } from './social.js';
 import { makeApi } from './api.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'site');
@@ -18,7 +19,8 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.webm': 'video/webm',
 };
 
-const api = makeApi(makeStore());
+const store = makeStore();
+const api = makeApi(store);
 
 const SECURITY = {
   'x-content-type-options': 'nosniff',
@@ -72,6 +74,7 @@ const server = http.createServer(async (req, res) => {
 
 const lobby = new Lobby();
 const friends = new Friends();
+const social = new Social(store, friends);
 const clients = new Map();
 let nextId = 1;
 
@@ -108,8 +111,14 @@ wss.on('connection', ws => {
       case 'hello':
         if (m.v !== PROTOCOL) { err('Actualizá el juego: la versión no coincide con el servidor.'); return; }
         setProfile(m);
-        friends.register(me, String(m.friendId || ''));
         me.send(JSON.stringify({ t: 'welcome', id, now: Date.now() }));
+        // El código de amigo solo se activa si la clave coincide (así nadie puede hacerse pasar por otro)
+        social.claim(String(m.friendId || ''), String(m.friendKey || ''), me).then(ok => {
+          if (!ok) { me.send(JSON.stringify({ t: 'socialErr', msg: 'Tu código de amigo está en uso en otra cuenta.' })); return; }
+          friends.register(me, m.friendId);
+          me.fid = m.friendId;
+          return social.state(me.fid).then(st => me.send(JSON.stringify(st)));
+        }).catch(() => {});
         break;
       case 'join': {
         leave();
@@ -128,8 +137,30 @@ wss.on('connection', ws => {
         if (me.room) me.room.profileChanged(me);
         break;
       case 'leave': leave(); break;
-      case 'friends': me.send(JSON.stringify({ t: 'friends', list: friends.presence(m.ids) })); break;
-      case 'invite': { const e = friends.invite(me, String(m.to || '')); if (e) err(e); else me.send(JSON.stringify({ t: 'invSent', to: m.to })); break; }
+      case 'social': if (me.fid) social.state(me.fid).then(st => me.send(JSON.stringify(st))).catch(() => {}); break;
+      case 'freq': case 'faccept': case 'fdecline': case 'fcancel': case 'fremove': {
+        if (!me.fid) { err('Conectando con tus amigos… probá en unos segundos.'); return; }
+        if (Date.now() - (me.lastSocial || 0) < 300) return;
+        me.lastSocial = Date.now();
+        const to = String(m.id || '').toUpperCase();
+        const op = { freq: 'request', faccept: 'accept', fdecline: 'decline', fcancel: 'cancel', fremove: 'remove' }[m.t];
+        social[op](me.fid, to).then(async e => {
+          if (e && !m.quiet) me.send(JSON.stringify({ t: 'socialErr', msg: e }));
+          if (!e && m.t === 'freq') me.send(JSON.stringify({ t: 'freqSent', id: to }));
+          me.send(JSON.stringify(await social.state(me.fid)));
+        }).catch(() => err('No se pudo completar. Probá de nuevo.'));
+        break;
+      }
+      case 'invite': {
+        const to = String(m.to || '');
+        if (!me.fid) { err('Conectando con tus amigos… probá en unos segundos.'); return; }
+        social.get(me.fid).then(s => {
+          if (!s.friends.includes(to)) { err('Solo podés invitar a tus amigos.'); return; }
+          const e = friends.invite(me, to);
+          if (e) err(e); else me.send(JSON.stringify({ t: 'invSent', to }));
+        }).catch(() => {});
+        break;
+      }
       case 'start': if (me.room && !me.room.requestStart(id)) err('Solo el anfitrión puede empezar la ronda.'); break;
       case 'in': if (me.room) me.room.input(id, +m.x, +m.y); break;
       case 'dash': if (me.room) me.room.dash(id, +m.d); break;

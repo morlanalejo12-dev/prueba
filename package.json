@@ -1,6 +1,6 @@
 {
   "name": "contracorriente",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Juego online de un botón: en cada bifurcación se derrumba el camino con más gente.",
   "type": "module",

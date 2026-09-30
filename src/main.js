@@ -21,7 +21,6 @@ import { redeemCode } from './game/codes.js';
 import { newlyUnlocked } from './game/unlocks.js';
 import { challengeDay, challengeSeed, recordChallenge, challengeShareText, weekendMode, weekKey, comebackReward } from './game/events.js';
 import { Api, apiBase } from './net/api.js';
-import { ClipRecorder } from './render/clip.js';
 import { claimPass, claimablePass, passInfo } from './game/pass.js';
 import { claimAchievement, claimableAch } from './game/progress.js';
 import { musicById } from './game/music.js';
@@ -29,6 +28,10 @@ import { nameStyleById } from './game/names.js';
 import { NetClient, serverUrl } from './net/client.js';
 import { NetRound } from './net/netround.js';
 import { cleanName } from './util/name.js';
+import { COUNTRIES, LANGS, CURRENCIES, countryById, guessCountry, guessLang, localPrice, formatPrice, catalog, methodsFor, PACKS, packAvailable, DLOCAL_COUNTRIES } from './game/prices.js';
+import { SKINS, TRAILS } from './game/skins.js';
+import { NAME_STYLES } from './game/names.js';
+import { setLang, t as tr } from './i18n/i18n.js';
 
 const store = localStore();
 let save = loadSave(store);
@@ -39,6 +42,11 @@ const persist = () => { writeSave(store, save); if (cloudReady) cloudSoon(); };
 const audio = new AudioEngine();
 audio.sfxOn = save.sfx;
 audio.musicOn = save.music;
+audio.sfxVol = save.sfxVol;
+if (!save.country) save.country = guessCountry();
+if (!save.lang) save.lang = guessLang(save.country);
+setLang(save.lang);
+audio.musicVol = save.musicVol;
 const renderer = new Renderer($('game'));
 const C = renderer.C;
 const fx = new Fx();
@@ -119,7 +127,6 @@ const ui = createUI({
   onChallenge: () => { audio.unlock(); leaveOnline(); startRound('challenge'); },
   onWeekend: () => { audio.unlock(); leaveOnline(); startRound('weekend'); },
   onShareChallenge: () => shareChallenge(),
-  onShareClip: () => shareClip(),
   onOpen: kind => ui.openModal(kind),
   authState: () => authState,
   onAuthMode: (mode, extra) => { authState.msg = (extra && extra.msg) || ''; ui.openModal('auth', { mode, ...(extra || {}) }); },
@@ -148,7 +155,7 @@ const ui = createUI({
     const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
     const link = hosted ? `${location.origin}${location.pathname}?sala=${r.code}` : '';
     const text = `¡Sumate a mi sala de Contracorriente! Código: ${r.code}${link ? ' · ' + link : ''}`;
-    try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; }
+    try { await navigator.clipboard.writeText(tr(text)); return true; } catch (e) { return false; }
   },
   onDash: dir => doDash(dir),
   onPredict: lane => {
@@ -175,6 +182,7 @@ const ui = createUI({
     track({ e: 'open', k: kind });
     if (!save.seenFeat[kind]) { save.seenFeat[kind] = true; persist(); refreshMenu(); }
     if (kind === 'friends') { if (ensureConnected()) requestPresence(); }
+    if (kind === 'notifs') { ensureConnected(); requestPresence(); setTimeout(() => { for (const x of notifInfo) x.seen = true; updateNotifBadge(); }, 1500); }
     if (kind === 'shop' && save.shopSeen !== env().today) { save.shopSeen = env().today; persist(); refreshMenu(); }
     if (kind !== 'music' && previewTrack) { previewTrack = null; applyTrack(); }
   },
@@ -269,28 +277,51 @@ const ui = createUI({
     ui.openModal('profile', { tab: 'ach' });
   },
   onBuyPremium: item => buyPremium(item),
+  price: item => priceText(item),
+  priceInfo: () => priceInfo(),
+  payState: item => {
+    const c = countryById(save.country);
+    const methods = methodsFor(item, save.country, payEnabled(), fxOver()).map(m => ({ ...m, text: formatPrice(m.price, save.lang) }));
+    const local = { BR: 'Pix, boleto o tarjeta', MX: 'OXXO, SPEI o tarjeta', CO: 'PSE, Efecty o tarjeta', CL: 'Webpay, Khipu o tarjeta', PE: 'PagoEfectivo, Yape o tarjeta', AR: 'Tarjeta, transferencia o efectivo', UY: 'Abitab, Redpagos o tarjeta' }[c.id] || 'Tarjeta, transferencia o efectivo';
+    return { title: payTitle(item), methods, local, msg: payMsg };
+  },
+  onPay: (item, method) => startPayment(item, method),
+  regionState: () => {
+    const c = countryById(save.country), l = LANGS.find(x => x.id === save.lang) || LANGS[0];
+    return { country: c.id, countryName: c.name, flag: c.flag, lang: l.id, langName: l.name, countries: COUNTRIES, langs: LANGS };
+  },
+  onSetLang: id => { save.lang = id; save.langSet = true; persist(); setLang(id); audio.play('ui'); ui.refreshModal(); refreshMenu(); },
+  onSetCountry: id => {
+    const prev = countryById(save.country);
+    save.country = id;
+    // Si el idioma seguía al país, cambiarlo también (Brasil → portugués, etc.)
+    if (!save.langSet && countryById(id).lang !== prev.lang) { save.lang = countryById(id).lang; setLang(save.lang); }
+    persist(); audio.play('ui'); ui.refreshModal();
+  },
   // Amigos
-  friendsState: () => ({ status: net ? net.status : 'off', presence, msg: friendsMsg, room: online.room }),
+  friendsState: () => ({ status: net ? net.status : 'off', social, msg: friendsMsg, room: online.room }),
   onCopyFriendCode: async () => { try { await navigator.clipboard.writeText(save.friendId); return true; } catch (e) { return false; } },
   onAddFriend: raw => {
     const id = String(raw || '').toUpperCase().trim();
     if (!/^[A-Z0-9]{6}$/.test(id)) return { error: 'El código de amigo tiene 6 caracteres.' };
     if (id === save.friendId) return { error: 'Ese es tu propio código.' };
-    if (save.friends.some(f => f.id === id)) return { error: 'Ya está en tu lista.' };
-    if (save.friends.length >= 100) return { error: 'Llegaste al máximo de 100 amigos.' };
-    save.friends.push({ id, name: '' });
-    persist();
-    audio.play('claim');
+    if (social && social.friends.some(f => f.id === id)) return { error: 'Ya son amigos.' };
+    if (!ensureConnected() || !net || net.status !== 'on' || !social) return { error: 'Sin conexión con el servidor. Probá en unos segundos.' };
+    net.send({ t: 'freq', id });
+    audio.play('ui');
     friendsMsg = '';
-    ensureConnected();
-    requestPresence();
-    ui.refreshModal();
-    return {};
+    return { ok: 'Enviando solicitud…' };
   },
-  onRemoveFriend: id => { save.friends = save.friends.filter(f => f.id !== id); persist(); audio.play('ui'); ui.refreshModal(); },
+  onAnswerRequest: (id, yes) => { audio.play(yes ? 'claim' : 'ui'); socialSend(yes ? 'faccept' : 'fdecline', id); },
+  onCancelRequest: id => { audio.play('ui'); socialSend('fcancel', id); },
+  onRemoveFriend: id => { audio.play('ui'); socialSend('fremove', id); },
   onInviteFriend: id => { audio.play('ui'); if (net) net.send({ t: 'invite', to: id }); },
   onJoinFriend: code => { audio.play('ui'); onlineGo(save.name || 'Jugador', null, code === 'GLOBAL' ? 'global' : 'join', code); },
-  onAcceptInvite: code => { audio.play('ui'); online.invite = null; onlineGo(save.name || 'Jugador', null, 'join', code); },
+  // Notificaciones
+  notifState: () => ({ requests: social ? social.in : [], invites: liveInvites(), info: notifInfo, status: net ? net.status : 'off' }),
+  onAcceptInvite: code => { audio.play('ui'); invites = invites.filter(x => x.code !== code); updateNotifBadge(); onlineGo(save.name || 'Jugador', null, 'join', code); },
+  onDeclineInvite: code => { audio.play('ui'); invites = invites.filter(x => x.code !== code); updateNotifBadge(); ui.refreshModal(); },
+  onDismissNotif: at => { notifInfo = notifInfo.filter(x => x.at !== at); updateNotifBadge(); ui.refreshModal(); },
   onRoomOpen: kind => { audio.play('ui'); ui.openModal(kind, kind === 'collection' ? { tab: 'skins' } : undefined); },
   onCollectionTab: tab => { audio.play('ui'); ui.openModal('collection', { tab }); },
   onBuy: offer => {
@@ -311,9 +342,10 @@ const ui = createUI({
     if (r.reward.kind === 'reset') {
       // Cuenta nueva para probar el progreso desde cero (se conservan solo los ajustes)
       const keep = {};
-      for (const k of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server']) keep[k] = save[k];
+      for (const k of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server', 'sfxVol', 'musicVol', 'country', 'lang']) keep[k] = save[k];
       leaveOnline();
       save = resetSave(store, keep);
+      reconnectSocial();
       ensureMissions(save, env().today);
       previewTrack = null;
       applyTrack();
@@ -364,25 +396,36 @@ const ui = createUI({
     installPrompt = null;
     ui.refreshModal();
   },
+  onVolume: (key, v, done) => {
+    save[key + 'Vol'] = v;
+    if (v > 0 && !save[key]) save[key] = true;
+    audio.unlock();
+    audio.setSfx(save.sfx, save.sfxVol);
+    audio.setMusic(save.music, save.musicVol);
+    if (done) { persist(); if (key === 'sfx') audio.play('orb'); }
+  },
   onToggle: key => {
     save[key] = !save[key];
     persist();
     audio.unlock();
-    audio.setSfx(save.sfx);
-    audio.setMusic(save.music);
+    audio.setSfx(save.sfx, save.sfxVol);
+    audio.setMusic(save.music, save.musicVol);
     if (key === 'vib') buzz(25);
     audio.play('ui');
   },
   onReset: () => {
     save = resetSave(store);
+    reconnectSocial();
     previewTrack = null;
     applyTrack();
     ensureMissions(save, env().today);
-    audio.setSfx(save.sfx);
-    audio.setMusic(save.music);
+    audio.setSfx(save.sfx, save.sfxVol);
+    audio.setMusic(save.music, save.musicVol);
     refreshMenu();
   },
 });
+// Pruebas automáticas: ?dev=1 expone la interfaz (no cambia nada del juego)
+if (/[?&]dev=1\b/.test(location.search)) window.__cc = { ui, get save() { return save; }, finishRound: () => finishRound() };
 
 // ---------- Transiciones de estado ----------
 let orbTierSeen = 0;
@@ -475,28 +518,13 @@ function flushEvents() {
 }
 setInterval(flushEvents, 30000);
 
-// Clip del colapso para compartir
-const clip = new ClipRecorder(() => $('game'));
-async function shareClip() {
-  const f = clip.file();
-  if (!f) return;
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: '¡Mirá este colapso en Contracorriente!' }); return; }
-  } catch (e) { /* cancelado */ }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(f);
-  a.download = f.name;
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
-}
 
 // ---------- Cuenta: inicio de sesión, registro, Google, compras ----------
 let serverCfg = null;                 // null = cargando, false = sin servidor
 const authState = { busy: false, msg: '', email: '', canReset: false };
 const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
 const loggedIn = () => !!(save.cloud && save.cloud.email);
-const keepSettings = () => { const k = {}; for (const x of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server', 'guestOk']) k[x] = save[x]; return k; };
+const keepSettings = () => { const k = {}; for (const x of ['sfx', 'music', 'vib', 'notif', 'relTouch', 'server', 'guestOk', 'sfxVol', 'musicVol', 'country', 'lang', 'langSet']) k[x] = save[x]; return k; };
 
 async function loadConfig() {
   if (!apiBase(save.server) || /claude|anthropic/.test(location.hostname)) { serverCfg = false; return; }
@@ -593,13 +621,24 @@ function adopt(r, which) {
   ui.closeModal();
   toMenu();
   ui.toast('Sesión iniciada', r.email || 'Tu progreso se guarda en la nube');
-  sendProfile();
+  if (which === 'cloud') reconnectSocial(); else sendProfile();
 }
 // Lo comprado lo decide el servidor
 function applyEnt(ent) {
-  if (!ent) return;
-  if (ent.pass) save.premiumPass = true;
-  for (const id of Object.keys(ent.items || {})) save.owned[id] = true;
+  if (!ent) return false;
+  let got = false;
+  if (ent.pass && !save.premiumPass) { save.premiumPass = true; got = true; }
+  for (const id of Object.keys(ent.items || {})) if (!save.owned[id]) { save.owned[id] = true; got = true; }
+  // Destellos comprados (packs): se suman una sola vez
+  const extra = (ent.coins || 0) - (save.entCoins || 0);
+  if (extra > 0) { save.coins += extra; save.entCoins = ent.coins; got = true; }
+  save.bought = { ...(ent.bought || {}) };
+  if (got && save.pendingOrder) {
+    save.pendingOrder = null;
+    audio.play('claim');
+    ui.toast('Compra acreditada', '¡Ya es tuyo! Gracias por apoyar el juego');
+  }
+  return got;
 }
 async function refreshEnt() {
   if (!save.cloud || serverCfg === false) return;
@@ -613,6 +652,7 @@ async function logout() {
   const k = keepSettings();
   leaveOnline();
   save = resetSave(store, { ...k, guestOk: false });
+  reconnectSocial();
   ensureMissions(save, env().today);
   applyTrack();
   ui.closeModal();
@@ -624,22 +664,67 @@ async function deleteAccount() {
   try { await api().remove(c.id, c.secret); } catch (e) { return { error: 'No se pudo eliminar. Probá de nuevo.' }; }
   const k = keepSettings();
   save = resetSave(store, { ...k, guestOk: false });
+  reconnectSocial();
   ui.closeModal();
   showStart();
   ui.toast('Cuenta eliminada', 'Borramos tu cuenta y tus datos');
   return {};
 }
 
+// ---------- Precios y pagos ----------
+const fxOver = () => (serverCfg && serverCfg.fx) || {};
+const payEnabled = () => (serverCfg && serverCfg.pay) || {};
+// Precio que se muestra: el del primer medio de pago disponible (o el precio local de referencia)
+function priceOf(item) {
+  const m = methodsFor(item, save.country, payEnabled(), fxOver())[0];
+  const it = catalog()[item];
+  return m ? m.price : localPrice(it ? it.usd : 0, save.country, fxOver());
+}
+const priceText = item => formatPrice(priceOf(item), save.lang);
+const ALL_COSMETICS = [...SKINS, ...TRAILS, ...NAME_STYLES];
+function priceInfo() {
+  const c = countryById(save.country);
+  const packs = PACKS.map(p => {
+    const worthP = localPrice(p.worth, save.country, fxOver()), pr = priceOf(p.id);
+    const worthScaled = { amount: pr.amount * (p.worth / p.usd), cur: pr.cur };
+    return {
+      ...p, available: packAvailable(p, save.owned, save.premiumPass, save.bought || {}),
+      price: formatPrice(pr, save.lang), worth: formatPrice(pr.cur === worthP.cur ? worthP : worthScaled, save.lang),
+      save: Math.round((1 - p.usd / p.worth) * 100),
+      preview: p.items.slice(0, 5).map(id => ALL_COSMETICS.find(k => k.id === id)).filter(Boolean),
+    };
+  });
+  return { flag: c.flag, cur: c.cur, country: c.name, packs };
+}
+function payTitle(item) {
+  const p = PACKS.find(x => x.id === item);
+  if (p) return p.name;
+  if (item === 'pass') return 'Pase Premium · Temporada 1';
+  const k = ALL_COSMETICS.find(x => x.id === item);
+  return k ? k.name : item;
+}
+let payMsg = '';
+async function startPayment(item, method) {
+  payMsg = '';
+  try {
+    const r = await api().checkout(save.cloud.id, save.cloud.secret, item, save.country, method);
+    save.pendingOrder = r.order;
+    persist();
+    track({ e: 'open', k: 'pay-' + method });
+    location.href = r.url;
+  } catch (e) {
+    payMsg = e.message || 'No se pudo iniciar el pago. Probá de nuevo.';
+    if (ui.modalKind === 'pay') ui.refreshModal();
+  }
+}
+
 async function buyPremium(item) {
   track({ e: 'open', k: 'buy-' + item });
-  if (!serverCfg || !serverCfg.payments) { audio.play('ui'); ui.toast('Próximamente', 'Las compras todavía no están habilitadas'); return; }
-  if (!loggedIn()) { ui.openModal('auth', { mode: 'register' }); authState.msg = 'Creá una cuenta para comprar: así lo que pagás queda guardado para siempre.'; ui.refreshModal(); return; }
-  try {
-    ui.toast('Mercado Pago', 'Abriendo el pago…');
-    const r = await api().checkout(save.cloud.id, save.cloud.secret, item);
-    persist();
-    location.href = r.url;
-  } catch (e) { ui.toast('No se pudo iniciar el pago', e.message || 'Probá de nuevo'); }
+  audio.play('ui');
+  if (!serverCfg || !serverCfg.payments) { ui.toast('Próximamente', 'Las compras todavía no están habilitadas'); return; }
+  if (!loggedIn() || !save.cloud.email) { ui.openModal('auth', { mode: 'register' }); authState.msg = 'Creá una cuenta para comprar: así lo que pagás queda guardado para siempre.'; ui.refreshModal(); return; }
+  payMsg = '';
+  ui.openModal('pay', { item });
 }
 
 // Recordatorio para quien juega sin cuenta (a las 3, 10 y 25 rondas)
@@ -657,8 +742,25 @@ function fixLegalLinks(root = document) {
 }
 
 // ---------- Amigos ----------
-const presence = {};
-let friendsMsg = '';
+let social = null;           // amigos y solicitudes (llega del servidor)
+let invites = [];            // invitaciones a salas (duran 10 minutos)
+let notifInfo = [];          // avisos: "aceptó tu solicitud"
+let friendsMsg = '', socialSig = '';
+const liveInvites = () => (invites = invites.filter(x => Date.now() - x.at < 10 * 60000));
+function socialSend(t, id) {
+  if (net && net.status === 'on') net.send({ t, id });
+  else { ui.toast('Amigos', 'Sin conexión con el servidor.'); ensureConnected(); }
+}
+function updateNotifBadge() {
+  const n = (social ? social.in.length : 0) + liveInvites().length + notifInfo.filter(x => !x.seen).length;
+  const b = document.getElementById('bNotif');
+  if (!b) return;
+  b.hidden = !n;
+  b.textContent = n > 9 ? '9+' : String(n);
+  const btn = document.getElementById('notifBtn');
+  if (btn) btn.setAttribute('aria-label', n ? `Notificaciones (${n} nuevas)` : 'Notificaciones');
+}
+const openNotifs = () => { if (state !== 'playing' && state !== 'countdown') ui.openModal('notifs'); };
 function ensureConnected() {
   const u = serverUrl(save.server);
   if (!u) return false;
@@ -668,13 +770,20 @@ function ensureConnected() {
   net.connect(u, profile());
   return true;
 }
+// Cambió el código de amigo (otra cuenta o cierre de sesión): volver a conectarse con el nuevo
+function reconnectSocial() {
+  social = null; socialSig = ''; invites = []; notifInfo = [];
+  updateNotifBadge();
+  if (net && !online.room && online.url) net.connect(online.url, profile());
+  else sendProfile();
+}
 function requestPresence() {
-  if (net && net.status === 'on' && save.friends.length) net.send({ t: 'friends', ids: save.friends.map(f => f.id) });
+  if (net && net.status === 'on') net.send({ t: 'social' });
 }
 function refreshFriends() {
   // No reconstruir mientras se escribe un código
   const inp = document.getElementById('friendInput');
-  if (ui.modalKind === 'friends' && !(inp && (inp.value || document.activeElement === inp))) ui.refreshModal();
+  if (ui.modalKind === 'notifs' || (ui.modalKind === 'friends' && !(inp && (inp.value || document.activeElement === inp)))) ui.refreshModal();
 }
 
 function nextGlobalText() {
@@ -705,7 +814,7 @@ function onlineGo(nameRaw, url, action, code) {
 }
 
 function profile() {
-  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, lvl: levelInfo(save.xp).level, ttl: displayTitle(save) };
+  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId, friendKey: save.friendKey, lvl: levelInfo(save.xp).level, ttl: displayTitle(save) };
 }
 const kindOf = item => (item.shape ? 'skin' : item.track ? 'music' : item.fx ? 'name' : 'trail');
 function playerNameStyle() {
@@ -734,8 +843,15 @@ function leaveOnline() {
 }
 
 let retries = 0;
+let bgRetry = 0;
 function onNetStatus(status, msg) {
+  if (status === 'on') bgRetry = 0;
   if (status !== 'error') return;
+  // Sin sala: reintentar en segundo plano (cada vez más espaciado) para no perder notificaciones
+  if (!online.room && !online.pending && retries === 0) {
+    bgRetry = Math.min(bgRetry + 1, 6);
+    setTimeout(() => { if (!net || net.status === 'error' || net.status === 'off') ensureConnected(); }, 5000 * 2 ** bgRetry);
+  }
   online.msg = msg || 'Sin conexión.';
   const wasIn = online.room || (retries > 0 ? online.lastRoom : null);
   if (online.room) online.lastRoom = online.room;
@@ -760,21 +876,50 @@ function onNetStatus(status, msg) {
 
 function onNet(m) {
   switch (m.t) {
-    case 'welcome': retries = 0; doJoin(); requestPresence(); break;
-    case 'friends': {
-      let changed = false;
-      for (const p of m.list) {
-        if (JSON.stringify(presence[p.id]) !== JSON.stringify(p)) { presence[p.id] = p; changed = true; }
-        const f = save.friends.find(x => x.id === p.id);
-        if (f && p.name && f.name !== p.name) { f.name = p.name; persist(); }
+    case 'welcome': {
+      retries = 0; doJoin();
+      // Amigos de versiones anteriores (lista local): se les manda una solicitud una sola vez
+      if (save.friendsLegacy && save.friendsLegacy.length) {
+        const list = save.friendsLegacy; save.friendsLegacy = []; persist();
+        list.forEach((id, i) => setTimeout(() => net && net.send({ t: 'freq', id, quiet: true }), 1200 + i * 350));
       }
-      if (changed) refreshFriends();
+      break;
+    }
+    case 'social': {
+      const sig = JSON.stringify(m);
+      if (sig === socialSig) break;
+      socialSig = sig;
+      social = { friends: m.friends || [], in: m.in || [], out: m.out || [] };
+      const ids = social.friends.map(f => ({ id: f.id, name: f.name || '' }));
+      if (JSON.stringify(ids) !== JSON.stringify(save.friends)) { save.friends = ids; persist(); }
+      updateNotifBadge();
+      refreshFriends();
+      break;
+    }
+    case 'notif': {
+      const p = m.from || {};
+      audio.play('claim');
+      if (m.kind === 'freq') ui.toast('Solicitud de amistad', `${p.name || 'Alguien'} quiere ser tu amigo`, openNotifs);
+      else if (m.kind === 'faccept') {
+        notifInfo = [{ ...p, text: 'Aceptó tu solicitud de amistad', at: Date.now() }, ...notifInfo].slice(0, 20);
+        ui.toast('Amigos', `${p.name || 'Tu amigo'} aceptó tu solicitud`, openNotifs);
+      }
+      updateNotifBadge();
+      if (ui.modalKind === 'notifs') ui.refreshModal();
+      break;
+    }
+    case 'freqSent': friendsMsg = 'Solicitud enviada. Cuando la acepte, aparece en tu lista.'; ui.refreshModal(); break;
+    case 'socialErr': {
+      friendsMsg = m.msg;
+      if (ui.modalKind === 'friends') ui.refreshModal(); else ui.toast('Amigos', m.msg);
       break;
     }
     case 'invited': {
-      const inv = { from: m.from, code: m.code, nameStyle: m.nameStyle };
-      if (state === 'playing' || state === 'countdown') { online.invite = inv; ui.toast('Invitación', `${m.from} te invitó a su sala`); }
-      else { audio.play('claim'); ui.openModal('invite', inv); }
+      invites = [{ from: m.from, code: m.code, nameStyle: m.nameStyle, at: Date.now() }, ...invites.filter(x => x.code !== m.code)].slice(0, 10);
+      audio.play('claim');
+      ui.toast('Invitación a sala', `${m.from} te invitó a su sala`, openNotifs);
+      updateNotifBadge();
+      if (ui.modalKind === 'notifs') ui.refreshModal();
       break;
     }
     case 'invSent': ui.toast('Amigos', 'Invitación enviada'); break;
@@ -858,7 +1003,6 @@ function startRound(kind = 'normal') {
   const guided = kind === 'normal' ? (save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0) : 0;
   const seed = kind === 'challenge' ? challengeSeed(challengeDay()) : randSeed();
   R = new Round({ seed, guided, mode: kind === 'weekend' ? wk.id : 'normal' });
-  clip.reset();
   ui.setOnlineMode(false);
   resetView();
   pred = null;
@@ -910,13 +1054,11 @@ function finishRound({ quick = false } = {}) {
   nextT = CFG.NEXT_S;
   sendProfile();
   maybeNudge();
-  if (online.invite) { const inv = online.invite; online.invite = null; setTimeout(() => ui.openModal('invite', inv), 1200); }
   if (R.online) {
     ui.renderStandings(R.standings, net && net.id);
     ui.setAgain('Volver a la sala', null);
   } else if (lastSum.kind === 'challenge') { ui.setAgain('Reintentar desafío', null); nextT = Infinity; }
   else ui.setAgain('Jugar otra', nextT);
-  ui.setClip(clip.available);
   if (rep.shieldUsed) setTimeout(() => { ui.toast('Escudo de racha', `Faltaste un día y tu racha de ${save.streak} días sigue viva`); audio.play('claim'); }, 900);
 
   if (lastSum.outlier) { audio.play('outlier'); buzz([30, 50, 30, 50, 60]); }
@@ -958,7 +1100,7 @@ function finishRound({ quick = false } = {}) {
 }
 
 async function shareChallenge() {
-  const text = challengeShareText(save);
+  const text = tr(challengeShareText(save));
   try { if (navigator.share) { await navigator.share({ text }); return 'shared'; } } catch (e) { /* cancelado */ }
   try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) { return text; }
 }
@@ -978,7 +1120,7 @@ async function openShare() {
     colors: C, fonts: { display: renderer.FD, body: renderer.FB, mono: renderer.FM },
     playerColor: skinColor(playerSkin(), 1), level: li.level, title: displayTitle(save), rank: rankOf(save.pr).label,
   });
-  ui.openModal('share', { image, text: shareText(lastSum) });
+  ui.openModal('share', { image, text: tr(shareText(lastSum)) });
 }
 
 // ---------- Eventos de la simulación ----------
@@ -1012,7 +1154,7 @@ function handle(e) {
       break;
     }
     case 'gatePass': audio.play('pass'); break;
-    case 'forkAnnounce': announce(e.fork); if (state === 'playing') clip.start(); break;
+    case 'forkAnnounce': announce(e.fork); break;
     case 'forkResolved': onForkResolved(e); break;
     case 'playerDied': onPlayerDied(e); break;
     case 'milestone':
@@ -1075,7 +1217,6 @@ function announce(f) {
 }
 
 function onForkResolved(e) {
-  if (!R.demo) clip.stopAfter(1800, !!(e.collapsed.length || e.lottery));
   if (e.fx && e.fx.length) fx.fall(e.fx, C.danger);
   if (R.demo) return;
   // Resultado de la predicción del espectador
@@ -1421,8 +1562,11 @@ applyTrack();
 toMenu();
 if (needsStart()) showStart();
 loadConfig().then(() => { if (loggedIn()) refreshEnt(); });
+// Conectarse en segundo plano para recibir solicitudes e invitaciones
+setTimeout(() => ensureConnected(), 600);
 $('startLogin').addEventListener('click', () => { audio.unlock(); authState.msg = ''; ui.openModal('auth', { mode: 'login' }); });
 $('startRegister').addEventListener('click', () => { audio.unlock(); authState.msg = ''; ui.openModal('auth', { mode: 'register' }); });
+$('startLang').addEventListener('click', () => { audio.unlock(); ui.openModal('region'); });
 $('startGuest').addEventListener('click', () => { audio.unlock(); save.guestOk = true; persist(); toMenu(); });
 fixLegalLinks();
 // Vuelta de Mercado Pago o de un enlace para restablecer la contraseña
@@ -1433,8 +1577,8 @@ fixLegalLinks();
   if (pago === 'ok') {
     setTimeout(() => ui.toast('¡Gracias por tu compra!', 'Se acredita en unos segundos'), 800);
     let n = 0;
-    const iv = setInterval(() => { refreshEnt(); if (++n > 12) clearInterval(iv); }, 5000);
-  } else if (pago === 'pendiente') setTimeout(() => ui.toast('Pago pendiente', 'Te lo acreditamos cuando Mercado Pago lo apruebe'), 800);
+    const iv = setInterval(async () => { await refreshEnt(); if (!save.pendingOrder || ++n > 24) clearInterval(iv); }, 2500);
+  } else if (pago === 'pendiente') setTimeout(() => ui.toast('Pago pendiente', 'Te lo acreditamos apenas se apruebe'), 800);
   else if (pago === 'error') setTimeout(() => ui.toast('El pago no se completó', 'No se te cobró nada'), 800);
   if (reset && /^[A-Z0-9]{24}$/.test(reset)) setTimeout(() => ui.openModal('auth', { mode: 'reset', token: reset }), 600);
 }

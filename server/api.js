@@ -1,7 +1,8 @@
 // API HTTP del juego: cuentas en la nube, tablas de puntaje y estadísticas de uso.
 // Todo responde JSON y admite CORS (el juego también se abre como archivo suelto).
 import { Accounts } from './accounts.js';
-import { paymentsConfig, createCheckout, verifyPayment, catalog } from './payments.js';
+import { paymentsConfig, createCheckout, verifyMp, verifyDlocal, capturePaypal } from './payments.js';
+import { catalog, packById, packAvailable } from '../src/game/prices.js';
 
 const MAX_BODY = 256 * 1024;
 const MAX_SCORE = 60000;       // puntaje máximo creíble en una ronda (filtra trampas groseras)
@@ -45,7 +46,7 @@ export function makeApi(store, env = process.env, fetchImpl = fetch) {
 
   const routes = {
     // Qué está habilitado en este servidor (Google, pagos)
-    'GET /api/config': async () => ({ google: env.GOOGLE_CLIENT_ID || null, payments: pay.on, currency: pay.currency, reset: !!(env.RESEND_API_KEY && env.PUBLIC_URL) }),
+    'GET /api/config': async () => ({ google: env.GOOGLE_CLIENT_ID || null, payments: pay.on, pay: pay.enabled, fx: pay.fx, reset: !!(env.RESEND_API_KEY && env.PUBLIC_URL) }),
     // Cuenta nueva (invitado): id + clave. El código de recuperación es "ID-CLAVE".
     'POST /api/account': async () => accounts.createGuest(),
     'POST /api/register': async b => { const r = await accounts.register(b); return r.error ? [400, r] : r; },
@@ -97,21 +98,41 @@ export function makeApi(store, env = process.env, fetchImpl = fetch) {
       if (!acct) return [401, { error: 'Iniciá sesión para comprar.' }];
       if (!acct.email) return [403, { error: 'Creá una cuenta con email para comprar: así no perdés lo que pagás.' }];
       if (!catalog()[b.item]) return [400, { error: 'Ese artículo no está a la venta.' }];
-      const r = await createCheckout({ accountId: b.id, item: b.item }, pay, fetchImpl);
+      const ent = acct.ent || {};
+      const pk = packById(b.item);
+      if (pk && !packAvailable(pk, ent.items || {}, !!ent.pass, ent.bought || {})) return [409, { error: 'Ya tenés algo de este pack.' }];
+      if ((b.item === 'pass' && ent.pass) || (ent.items && ent.items[b.item])) return [409, { error: 'Ya es tuyo.' }];
+      const r = await createCheckout({ accountId: b.id, item: b.item, country: String(b.country || 'XX'), method: String(b.method || '') }, pay, store, fetchImpl);
       return r.error ? [502, r] : r;
     },
+    // Aviso de Mercado Pago
     'POST /api/pay/webhook': async (b, url) => {
-      if (!pay.on) return { ok: true };
       const pid = (b && b.data && b.data.id) || url.searchParams.get('data.id') || url.searchParams.get('id');
       const type = (b && b.type) || url.searchParams.get('type') || url.searchParams.get('topic');
-      if (type && type !== 'payment') return { ok: true };
-      if (await store.get('payment', String(pid))) return { ok: true };
-      const v = await verifyPayment(pid, pay, fetchImpl);
-      if (v) {
-        await accounts.grant(v.accountId, v.item);
-        await store.set('payment', String(pid), { ...v, at: Date.now() });
-      }
+      if (!pay.mp || (type && type !== 'payment')) return { ok: true };
+      await fulfill(await verifyMp(pid, pay, store, fetchImpl), 'mp:' + pid);
       return { ok: true };
+    },
+    // Aviso de dLocal Go
+    'POST /api/pay/dlocal': async b => {
+      if (!pay.dlocal) return { ok: true };
+      const pid = b && (b.payment_id || b.id);
+      await fulfill(await verifyDlocal(pid, pay, store, fetchImpl), 'dl:' + pid);
+      return { ok: true };
+    },
+    // Vuelta de PayPal: se captura el pago y se vuelve al juego
+    'GET /api/pay/paypal': async (b, url) => {
+      const o = url.searchParams.get('o') || '';
+      const done = await fulfill(await capturePaypal(o, pay, store, fetchImpl), 'pp:' + o);
+      return { redirect: `${pay.publicUrl || ''}/?pago=${done ? 'ok' : 'error'}` };
+    },
+    // Estado de una orden (el juego lo consulta al volver del pago)
+    'POST /api/pay/status': async b => {
+      const acct = await accounts.auth(b.id, b.secret);
+      if (!acct) return [401, { error: 'Cuenta inválida.' }];
+      const o = await store.get('order', String(b.order || ''));
+      if (!o || o.acct !== b.id) return [404, { error: 'No existe.' }];
+      return { status: o.status, item: o.item, ent: acct.ent };
     },
     // Puntajes: se guarda el mejor de cada jugador por tabla
     'POST /api/score': async b => {
@@ -170,6 +191,17 @@ export function makeApi(store, env = process.env, fetchImpl = fetch) {
     },
   };
 
+  // Entrega lo comprado una sola vez por orden (los avisos pueden llegar repetidos)
+  async function fulfill(orderId, payRef) {
+    if (!orderId) return false;
+    const o = await store.get('order', orderId);
+    if (!o) return false;
+    if (o.status === 'paid') return true;
+    await accounts.grant(o.acct, o.item);
+    await store.set('order', orderId, { ...o, status: 'paid', paid: Date.now(), payRef });
+    return true;
+  }
+
   async function board(id, ids) {
     const rows = (await store.list('board:' + id)).map(({ key, value }) => ({ pid: key, ...value })).sort((a, b) => b.score - a.score || a.at - b.at);
     const mine = {};
@@ -188,7 +220,7 @@ export function makeApi(store, env = process.env, fetchImpl = fetch) {
     try {
       const body = req.method === 'GET' ? {} : await readBody(req);
       const out = await fn(body, url);
-      if (Array.isArray(out)) send(res, out[0], out[1]); else send(res, 200, out);
+      if (out && out.redirect) { res.writeHead(302, { location: out.redirect, 'cache-control': 'no-store' }); res.end(); } else if (Array.isArray(out)) send(res, out[0], out[1]); else send(res, 200, out);
     } catch (e) {
       send(res, 400, { error: 'Pedido inválido.' });
     }

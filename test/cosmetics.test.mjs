@@ -26,7 +26,7 @@ test('calidades: gratis hasta Épica; Legendaria y Mítica solo de pago; Fundado
     assert.ok(RARITY[k.rarity], k.id);
     const s = k.src;
     if (free.includes(s.type) || (s.type === 'pass' && s.lvl <= PASS_FREE)) assert.ok(FREE_RARITIES.includes(k.rarity), `${k.id} es gratis y ${k.rarity}`);
-    if (k.rarity === 'legendaria' || k.rarity === 'mitica') assert.ok(s.type === 'premium' || (s.type === 'pass' && s.lvl > PASS_FREE), k.id);
+    if (k.rarity === 'legendaria' || k.rarity === 'mitica') assert.ok(s.type === 'premium' || s.type === 'offer' || (s.type === 'pass' && s.lvl > PASS_FREE), k.id);
     if (k.rarity === 'fundador') assert.equal(s.type, 'code', k.id);
     if (s.type === 'code') assert.equal(k.rarity, 'fundador', k.id);
   }

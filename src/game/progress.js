@@ -27,6 +27,8 @@ const DEFAULTS = {
   titleSel: 0,
   // v0.12
   seenFeat: {}, shieldWeek: '', shieldUsed: false, lastSeen: '', challenge: { day: '', best: 0, tries: 0, log: '' }, cloud: null,
+  // v1.1
+  friendKey: '', friendsLegacy: [], sfxVol: 0.8, musicVol: 0.7, country: '', lang: '', langSet: false, entCoins: 0, bought: {}, pendingOrder: null,
 };
 
 // Lo que cada jugador tenía con las reglas anteriores a la v0.9 (por nivel, liga o logro) se conserva
@@ -38,6 +40,11 @@ const LEGACY = {
 };
 
 const FRIEND_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const newFriendKey = () => {
+  const b = new Uint8Array(20);
+  (globalThis.crypto && crypto.getRandomValues ? crypto.getRandomValues(b) : b.forEach((_, i) => { b[i] = Math.random() * 256; }));
+  return Array.from(b, x => FRIEND_CHARS[x % FRIEND_CHARS.length]).join('');
+};
 export const newFriendId = () => Array.from({ length: 6 }, () => FRIEND_CHARS[Math.floor(Math.random() * FRIEND_CHARS.length)]).join('');
 
 export { SKINS, TRAILS, MUSIC, NAME_STYLES };
@@ -216,7 +223,12 @@ export function loadSave(store) {
   // v0.12: quien ya jugaba no ve como "nuevas" las secciones que ya conocía
   if (data && (data.v || 0) < 6) for (const f of FEATURES) if (save.rounds >= f.rounds) save.seenFeat[f.id] = true;
   if (!save.challenge || typeof save.challenge !== 'object') save.challenge = { ...DEFAULTS.challenge };
-  save.v = 6;
+  // v1.1: amigos con solicitudes en el servidor. Los de la lista vieja reciben una solicitud automática
+  if (typeof save.friendKey !== 'string' || !/^[A-Z0-9]{20}$/.test(save.friendKey)) save.friendKey = newFriendKey();
+  if (data && (data.v || 0) < 7 && save.friends.length) save.friendsLegacy = save.friends.map(f => f.id);
+  if (!Array.isArray(save.friendsLegacy)) save.friendsLegacy = [];
+  for (const k of ['sfxVol', 'musicVol']) if (typeof save[k] !== 'number' || !(save[k] >= 0 && save[k] <= 1)) save[k] = DEFAULTS[k];
+  save.v = 7;
   return save;
 }
 
@@ -226,7 +238,7 @@ export function writeSave(store, save) {
 
 // keep: ajustes que se conservan (sonido, control, servidor); todo lo demás vuelve a cero
 export function resetSave(store, keep = {}) {
-  const fresh = { ...DEFAULTS, ...keep, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: '', next: 0 } };
+  const fresh = { ...DEFAULTS, ...keep, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendsLegacy: [], friendId: newFriendId(), friendKey: newFriendKey(), daily: { last: '', next: 0 } };
   writeSave(store, fresh);
   return fresh;
 }

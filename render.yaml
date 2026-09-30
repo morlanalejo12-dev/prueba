@@ -26,9 +26,15 @@ services:
         sync: false
       - key: MAIL_FROM          # por ejemplo: Contracorriente <hola@contracorriente.com>
         sync: false
-      - key: MP_ACCESS_TOKEN    # Mercado Pago: activa la Tienda Premium y el Pase
+      - key: MP_ACCESS_TOKEN    # Mercado Pago (Argentina, cobra en pesos)
         sync: false
-      - key: MP_CURRENCY        # ARS (por defecto) o USD
-        value: ARS
-      - key: MP_USD_RATE        # pesos por dólar para convertir los precios
+      - key: PAYPAL_CLIENT_ID   # PayPal (todo el mundo, en dólares o euros)
+        sync: false
+      - key: PAYPAL_SECRET
+        sync: false
+      - key: DLOCAL_API_KEY     # dLocal Go (12 países de Latinoamérica, en moneda local)
+        sync: false
+      - key: DLOCAL_SECRET_KEY
+        sync: false
+      - key: FX_ARS             # opcional: pesos argentinos por dólar para los precios (también FX_BRL, FX_CLP, etc.)
         sync: false

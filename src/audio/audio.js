@@ -13,6 +13,8 @@ export class AudioEngine {
     this.ctx = null;
     this.sfxOn = true;
     this.musicOn = true;
+    this.sfxVol = 0.8;
+    this.musicVol = 0.7;
     this.level = 0;
     this.target = 0.15;
     this.step = 0;
@@ -120,10 +122,10 @@ export class AudioEngine {
       const comp = c.createDynamicsCompressor();
       this.master.connect(comp).connect(c.destination);
       this.sfx = c.createGain();
-      this.sfx.gain.value = this.sfxOn ? 1 : 0;
+      this.sfx.gain.value = this.sfxLevel();
       this.sfx.connect(this.master);
       this.music = c.createGain();
-      this.music.gain.value = this.musicOn ? 0.5 : 0;
+      this.music.gain.value = this.musicLevel();
       this.lp = c.createBiquadFilter();
       this.lp.type = 'lowpass';
       this.lp.frequency.value = 700;
@@ -141,14 +143,20 @@ export class AudioEngine {
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
   }
 
-  setSfx(on) {
+  // Volumen (0 a 1). Los valores por defecto (0.8 y 0.7) suenan igual que antes de tener barras
+  sfxLevel() { return this.sfxOn ? this.sfxVol * 1.25 : 0; }
+  musicLevel() { return this.musicOn ? this.musicVol * 0.72 : 0; }
+
+  setSfx(on, vol = this.sfxVol) {
     this.sfxOn = on;
-    if (this.ctx) this.sfx.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.02);
+    this.sfxVol = vol;
+    if (this.ctx) this.sfx.gain.setTargetAtTime(this.sfxLevel(), this.ctx.currentTime, 0.02);
   }
 
-  setMusic(on) {
+  setMusic(on, vol = this.musicVol) {
     this.musicOn = on;
-    if (this.ctx) this.music.gain.setTargetAtTime(on ? 0.5 : 0, this.ctx.currentTime, 0.2);
+    this.musicVol = vol;
+    if (this.ctx) this.music.gain.setTargetAtTime(this.musicLevel(), this.ctx.currentTime, 0.12);
   }
 
   setIntensity(v) { this.target = v; }

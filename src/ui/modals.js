@@ -41,7 +41,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', boards: 'Ranking', comeback: '¡Volviste!', auth: 'Tu cuenta', merge: '¿Qué progreso usamos?', deleteAccount: 'Eliminar mi cuenta', guestNudge: 'No pierdas tu progreso', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', notifs: 'Notificaciones', pay: 'Elegí cómo pagar', region: 'País e idioma', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', boards: 'Ranking', comeback: '¡Volviste!', auth: 'Tu cuenta', merge: '¿Qué progreso usamos?', deleteAccount: 'Eliminar mi cuenta', guestNudge: 'No pierdas tu progreso', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -75,6 +75,27 @@ function redeemBox(env) {
 
 export function buildModal(kind, body, env, data) {
   BUILDERS[kind](body, env, data);
+}
+
+// Solicitudes recibidas con Aceptar y Rechazar
+function requestList(env, list) {
+  const ul = el('ul', 'notif-list');
+  for (const r of list) {
+    const li = el('li', 'freq');
+    const t = el('span', 'n-text');
+    t.append(nameTag(r.name || r.id, nameStyleById(r.nameStyle || 'nm-blanco')), el('small', '', `Nivel ${r.lvl || 1} · quiere ser tu amigo`));
+    const acts = el('span', 'n-acts');
+    const yes = el('button', 'btn btn-primary btn-sm', 'Aceptar');
+    yes.type = 'button';
+    const no = el('button', 'btn btn-ghost btn-sm', 'Rechazar');
+    no.type = 'button';
+    yes.addEventListener('click', () => { yes.disabled = no.disabled = true; env.h.onAnswerRequest(r.id, true); });
+    no.addEventListener('click', () => { yes.disabled = no.disabled = true; env.h.onAnswerRequest(r.id, false); });
+    acts.append(yes, no);
+    li.append(t, acts);
+    ul.append(li);
+  }
+  return ul;
 }
 
 const BUILDERS = {
@@ -476,7 +497,7 @@ const BUILDERS = {
     const buy = el('button', 'btn btn-sm ' + (save.premiumPass ? 'btn-ghost' : 'btn-primary'));
     buy.type = 'button';
     if (save.premiumPass) { buy.textContent = 'Activo'; buy.disabled = true; }
-    else { buy.append(usd(PASS_PRICE_USD)); buy.addEventListener('click', () => env.h.onBuyPremium('pass')); }
+    else { buy.append(env.h.price('pass')); buy.addEventListener('click', () => env.h.onBuyPremium('pass')); }
     prem.append(pt, buy);
     body.append(prem);
     const claim = PASS.filter(r => r.lvl <= pi.level && !save.passClaimed[r.lvl] && (!r.premium || save.premiumPass));
@@ -521,11 +542,41 @@ const BUILDERS = {
 
   // Tienda Premium: Legendarias y Míticas. Se compra con Mercado Pago cuando está configurado (MP_ACCESS_TOKEN)
   premium(body, env) {
-    const { save } = env, ctx = ownedCtx(save);
-    body.append(el('p', 'premium-note', 'Acá van los cosméticos Legendarios y Míticos. Son solo visuales: no dan ninguna ventaja en el juego. Jugando gratis conseguís hasta la calidad Épica.'));
+    const { save } = env, ctx = ownedCtx(save), pr = env.h.priceInfo();
+    const top = el('div', 'price-region');
+    const reg = el('button', 'btn-link', `${pr.flag} Precios en ${pr.cur} · Cambiar país`);
+    reg.type = 'button';
+    reg.addEventListener('click', () => env.h.onOpen('region'));
+    top.append(reg);
+    body.append(top);
     if (!env.h.payOn()) body.append(el('p', 'soon-banner', 'Las compras todavía no están habilitadas'));
-    else body.append(el('p', 'soon-banner ok', 'Pagás con Mercado Pago (tarjeta, débito o dinero en cuenta). Lo comprado queda en tu cuenta.'));
-    // El pase Premium también se vende acá
+    // Packs: primero el de inicio (el más barato), después los que ahorran más
+    const packs = pr.packs.filter(p => p.available);
+    if (packs.length) {
+      body.append(el('h3', '', 'Packs'));
+      for (const p of packs) {
+        const card = el('div', 'pack-card' + (p.id === 'pack-inicio' ? ' starter' : p.id === 'pack-todo' ? ' best' : ''));
+        const left = el('div', 'pack-info');
+        const head = el('div', 'pack-head');
+        head.append(el('b', '', p.name));
+        const tag = p.id === 'pack-inicio' ? 'Solo una vez' : p.id === 'pack-todo' ? 'Mejor valor' : `Ahorrás ${p.save}%`;
+        head.append(el('span', 'pack-tag', tag));
+        left.append(head, el('small', '', p.desc));
+        const prev = el('div', 'pack-prev');
+        for (const it of p.preview) prev.append(it.shape ? skinPreview(it) : it.type ? trailPreview(it) : nameTag(save.name || 'Nombre', it));
+        left.append(prev);
+        const right = el('div', 'pack-buy');
+        if (p.worth) right.append(el('s', 'pack-worth', p.worth));
+        const btn = el('button', 'btn btn-primary btn-sm', p.price);
+        btn.type = 'button';
+        btn.addEventListener('click', () => env.h.onBuyPremium(p.id));
+        right.append(btn);
+        if (p.id !== 'pack-inicio') right.append(el('small', 'pack-save', `-${p.save}%`));
+        card.append(left, right);
+        body.append(card);
+      }
+    }
+    body.append(el('h3', '', 'Pase de temporada'));
     const passCard = el('div', 'offer premium-offer pass-offer');
     passCard.style.setProperty('--rc', RARITY.mitica.col);
     const pic = el('span', 'pass-ic', '100');
@@ -536,9 +587,10 @@ const BUILDERS = {
     const pbtn = el('button', 'btn btn-sm ' + (save.premiumPass ? 'btn-ghost' : 'btn-primary'));
     pbtn.type = 'button';
     if (save.premiumPass) { pbtn.textContent = 'Activo'; pbtn.disabled = true; }
-    else { pbtn.textContent = usd(PASS_PRICE_USD); pbtn.addEventListener('click', () => env.h.onBuyPremium('pass')); }
+    else { pbtn.textContent = env.h.price('pass'); pbtn.addEventListener('click', () => env.h.onBuyPremium('pass')); }
     passCard.append(pic, pinfo, pbtn);
     body.append(passCard);
+    body.append(el('h3', '', 'Cosméticos'));
     const items = [
       ...SKINS.filter(k => k.src.type === 'premium').map(item => ({ kind: 'skin', item })),
       ...TRAILS.filter(k => k.src.type === 'premium').map(item => ({ kind: 'trail', item })),
@@ -559,10 +611,66 @@ const BUILDERS = {
       const btn = el('button', 'btn btn-sm ' + (own ? 'btn-ghost' : 'btn-primary'));
       btn.type = 'button';
       if (own) { btn.textContent = 'Tuya'; btn.disabled = true; }
-      else { btn.textContent = usd(item.src.usd); btn.addEventListener('click', () => env.h.onBuyPremium(item.id)); }
+      else { btn.textContent = env.h.price(item.id); btn.addEventListener('click', () => env.h.onBuyPremium(item.id)); }
       card.append(prev, info, btn);
       body.append(card);
     }
+    body.append(el('p', 'premium-note', 'Todo es solo visual: no da ninguna ventaja en el juego. Jugando gratis conseguís hasta la calidad Épica. Lo comprado queda en tu cuenta para siempre.'));
+  },
+
+  // Elegir cómo pagar: cada medio muestra el monto exacto que cobra
+  pay(body, env, data) {
+    const st = env.h.payState(data.item);
+    body.append(el('p', 'pay-what', st.title));
+    if (!st.methods.length) { body.append(el('p', 'soon-banner', 'Todavía no hay medios de pago disponibles para tu país.')); return; }
+    const NAMES = {
+      mp: ['Mercado Pago', 'Tarjeta, débito, efectivo o dinero en cuenta'],
+      dlocal: ['Pago local', st.local],
+      paypal: ['PayPal o tarjeta internacional', 'Con cuenta PayPal o con cualquier tarjeta, sin crear cuenta'],
+    };
+    const ul = el('div', 'pay-methods');
+    for (const m of st.methods) {
+      const b = el('button', 'pay-method');
+      b.type = 'button';
+      const t = el('span');
+      t.append(el('b', '', NAMES[m.id][0]), el('small', '', NAMES[m.id][1]));
+      b.append(t, el('strong', '', m.text));
+      b.addEventListener('click', () => { for (const x of ul.querySelectorAll('button')) x.disabled = true; b.classList.add('busy'); env.h.onPay(data.item, m.id); });
+      ul.append(b);
+    }
+    body.append(ul);
+    if (st.msg) body.append(el('p', 'redeem-msg', st.msg));
+    body.append(el('p', 'note', 'El pago se hace en la página segura de cada medio. No guardamos datos de tarjetas. Tenés 10 días para arrepentirte de la compra.'));
+  },
+
+  // País (moneda de los precios) e idioma
+  region(body, env) {
+    const st = env.h.regionState();
+    body.append(el('h3', '', 'Idioma'));
+    const langs = el('div', 'tabs three lang-tabs');
+    for (const l of st.langs) {
+      const b = el('button', '', l.name);
+      b.type = 'button';
+      b.setAttribute('aria-selected', String(st.lang === l.id));
+      b.setAttribute('lang', l.id);
+      b.setAttribute('data-noi18n', '');
+      b.addEventListener('click', () => env.h.onSetLang(l.id));
+      langs.append(b);
+    }
+    body.append(langs);
+    body.append(el('h3', '', 'País'), el('p', 'note', 'Define la moneda y los precios de la tienda.'));
+    const list = el('div', 'country-list');
+    for (const c of st.countries) {
+      const b = el('button', 'country' + (c.id === st.country ? ' on' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(c.id === st.country));
+      const n = el('span', 'c-name', c.name);
+      if (c.id !== 'XX') n.setAttribute('data-noi18n', '');
+      b.append(el('span', 'c-flag', c.flag), n, el('small', 'c-cur', c.cur));
+      b.addEventListener('click', () => env.h.onSetCountry(c.id));
+      list.append(b);
+    }
+    body.append(list);
   },
 
   // Ranking: desafío de hoy o semana; global o solo amigos
@@ -738,7 +846,7 @@ const BUILDERS = {
 
   // Amigos: tu código, agregar por código, ver quién está conectado e invitar a tu sala
   friends(body, env) {
-    const { save } = env, o = env.h.friendsState();
+    const { save } = env, o = env.h.friendsState(), so = o.social;
     const me = el('div', 'friend-me');
     me.append(el('small', '', 'Tu código de amigo'), el('strong', 'friend-code', save.friendId));
     const copy = el('button', 'btn btn-ghost btn-sm', 'Copiar');
@@ -752,49 +860,133 @@ const BUILDERS = {
     Object.assign(input, { type: 'text', maxLength: 6, placeholder: 'CÓDIGO DE AMIGO', autocomplete: 'off', spellcheck: false });
     input.setAttribute('aria-label', 'Código de amigo');
     input.addEventListener('input', () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
-    const add = el('button', 'btn btn-primary btn-sm', 'Agregar');
+    const add = el('button', 'btn btn-primary btn-sm', 'Enviar solicitud');
     add.type = 'button';
     const msg = el('p', 'redeem-msg', o.msg || '');
-    const doAdd = () => { const r = env.h.onAddFriend(input.value); if (r && r.error) msg.textContent = r.error; };
+    msg.setAttribute('role', 'status');
+    const doAdd = () => { const r = env.h.onAddFriend(input.value); if (r && r.error) msg.textContent = r.error; else if (r && r.ok) { msg.textContent = r.ok; input.value = ''; } };
     add.addEventListener('click', doAdd);
     onEnter(input, doAdd);
     row.append(input, add);
     body.append(row, msg);
-    if (o.status !== 'on') body.append(el('p', 'note', o.status === 'connecting' ? 'Conectando para ver quién está en línea…' : 'Sin conexión: no se puede ver quién está en línea.'));
-    if (!save.friends.length) { body.append(el('p', 'empty', 'Todavía no agregaste amigos. Pasales tu código y agregá el de ellos.')); return; }
-    const ul = el('ul', 'room-players friend-list');
-    const room = o.room;
-    for (const fr of save.friends) {
-      const st = o.presence[fr.id] || {};
-      const li = el('li', st.online ? 'on' : 'off');
-      const look = el('span', 'rp-look');
-      look.append(skinPreview(skinById(st.skin || 'ambar')));
-      const who = el('span', 'rp-who');
-      who.append(nameTag(st.name || fr.name || fr.id, nameStyleById(st.nameStyle || 'nm-blanco')));
-      who.append(el('small', '', st.online ? (st.room ? `En línea · ${st.room === 'GLOBAL' ? 'Partida global' : 'en una sala'}` : 'En línea') : 'Desconectado'));
-      const acts = el('span', 'friend-acts');
-      if (st.online && room && !room.pub) {
-        const inv = el('button', 'btn btn-primary btn-sm', 'Invitar');
-        inv.type = 'button';
-        inv.addEventListener('click', () => { env.h.onInviteFriend(fr.id); inv.textContent = 'Invitado'; inv.disabled = true; });
-        acts.append(inv);
-      } else if (st.online && st.room && st.room !== (room && room.code)) {
-        const join = el('button', 'btn btn-ghost btn-sm', 'Unirme');
-        join.type = 'button';
-        join.addEventListener('click', () => env.h.onJoinFriend(st.room));
-        acts.append(join);
-      }
-      const del = el('button', 'icon-btn friend-del');
-      del.type = 'button';
-      del.setAttribute('aria-label', 'Quitar amigo');
-      del.textContent = '×';
-      del.addEventListener('click', () => env.h.onRemoveFriend(fr.id));
-      acts.append(del);
-      li.append(look, who, acts);
-      ul.append(li);
+    if (o.status !== 'on' || !so) {
+      body.append(el('p', 'note', o.status === 'connecting' || (o.status === 'on' && !so) ? 'Conectando con tus amigos…' : 'Sin conexión con el servidor: los amigos necesitan internet.'));
+      if (!so) return;
     }
-    body.append(ul);
-    if (!room || room.pub) body.append(el('p', 'note', 'Para invitar, creá una sala privada desde Online con amigos.'));
+    if (so.in.length) {
+      body.append(el('h3', '', `Solicitudes recibidas (${so.in.length})`));
+      body.append(requestList(env, so.in));
+    }
+    const room = o.room;
+    body.append(el('h3', '', so.friends.length ? `Tus amigos (${so.friends.length})` : 'Tus amigos'));
+    if (!so.friends.length) body.append(el('p', 'empty', 'Todavía no tenés amigos. Pasales tu código o mandales una solicitud con el de ellos.'));
+    else {
+      const ul = el('ul', 'room-players friend-list');
+      const list = [...so.friends].sort((x, y) => (y.online - x.online) || x.name.localeCompare(y.name));
+      for (const fr of list) {
+        const li = el('li', fr.online ? 'on' : 'off');
+        const look = el('span', 'rp-look');
+        look.append(skinPreview(skinById(fr.skin || 'ambar')));
+        const who = el('span', 'rp-who');
+        who.append(nameTag(fr.name || fr.id, nameStyleById(fr.nameStyle || 'nm-blanco')));
+        who.append(el('small', '', fr.online ? (fr.room ? (fr.room === 'GLOBAL' ? 'En línea · Partida global' : 'En línea · En una sala') : 'En línea') : 'Desconectado'));
+        const acts = el('span', 'friend-acts');
+        if (fr.online && room && !room.pub) {
+          const inv = el('button', 'btn btn-primary btn-sm', 'Invitar');
+          inv.type = 'button';
+          inv.addEventListener('click', () => { env.h.onInviteFriend(fr.id); inv.textContent = 'Invitado'; inv.disabled = true; });
+          acts.append(inv);
+        } else if (fr.online && fr.room && fr.room !== (room && room.code)) {
+          const join = el('button', 'btn btn-ghost btn-sm', 'Unirme');
+          join.type = 'button';
+          join.addEventListener('click', () => env.h.onJoinFriend(fr.room));
+          acts.append(join);
+        }
+        const del = el('button', 'icon-btn friend-del');
+        del.type = 'button';
+        del.setAttribute('aria-label', 'Quitar amigo');
+        del.textContent = '×';
+        // Doble toque para quitar: evita borrar a alguien sin querer
+        del.addEventListener('click', () => {
+          if (del.classList.contains('sure')) { env.h.onRemoveFriend(fr.id); return; }
+          del.classList.add('sure'); del.textContent = 'Quitar';
+          setTimeout(() => { del.classList.remove('sure'); del.textContent = '×'; }, 2500);
+        });
+        acts.append(del);
+        li.append(look, who, acts);
+        ul.append(li);
+      }
+      body.append(ul);
+      if (!room || room.pub) body.append(el('p', 'note', 'Para invitar, creá una sala privada desde Online con amigos.'));
+    }
+    if (so.out.length) {
+      body.append(el('h3', '', 'Solicitudes enviadas'));
+      const ul = el('ul', 'notif-list');
+      for (const r of so.out) {
+        const li = el('li');
+        const who = el('span', 'n-text');
+        who.append(nameTag(r.name || r.id, nameStyleById(r.nameStyle || 'nm-blanco')), el('small', '', 'Esperando respuesta'));
+        const c = el('button', 'btn btn-ghost btn-sm', 'Cancelar');
+        c.type = 'button';
+        c.addEventListener('click', () => env.h.onCancelRequest(r.id));
+        li.append(who, c);
+        ul.append(li);
+      }
+      body.append(ul);
+    }
+  },
+
+  // Centro de notificaciones: solicitudes de amistad, invitaciones a salas y avisos
+  notifs(body, env) {
+    const n = env.h.notifState();
+    if (!n.requests.length && !n.invites.length && !n.info.length) {
+      const e = el('div', 'notif-empty');
+      e.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>';
+      e.append(el('p', '', 'No tenés notificaciones.'), el('small', '', 'Acá llegan las solicitudes de amistad y las invitaciones a salas.'));
+      body.append(e);
+    }
+    if (n.invites.length) {
+      body.append(el('h3', '', 'Invitaciones a salas'));
+      const ul = el('ul', 'notif-list');
+      for (const inv of n.invites) {
+        const li = el('li', 'invite');
+        const t = el('span', 'n-text');
+        t.append(nameTag(inv.from || 'Un amigo', nameStyleById(inv.nameStyle || 'nm-blanco')), el('small', '', `Te invitó a su sala ${inv.code}`));
+        const acts = el('span', 'n-acts');
+        const yes = el('button', 'btn btn-primary btn-sm', 'Unirme');
+        yes.type = 'button';
+        yes.addEventListener('click', () => env.h.onAcceptInvite(inv.code));
+        const no = el('button', 'btn btn-ghost btn-sm', 'Rechazar');
+        no.type = 'button';
+        no.addEventListener('click', () => env.h.onDeclineInvite(inv.code));
+        acts.append(yes, no);
+        li.append(t, acts);
+        ul.append(li);
+      }
+      body.append(ul);
+    }
+    if (n.requests.length) {
+      body.append(el('h3', '', 'Solicitudes de amistad'));
+      body.append(requestList(env, n.requests));
+    }
+    if (n.info.length) {
+      body.append(el('h3', '', 'Avisos'));
+      const ul = el('ul', 'notif-list');
+      for (const x of n.info) {
+        const li = el('li', x.seen ? '' : 'new');
+        const t = el('span', 'n-text');
+        t.append(nameTag(x.name || 'Jugador', nameStyleById(x.nameStyle || 'nm-blanco')), el('small', '', x.text));
+        const del = el('button', 'icon-btn friend-del');
+        del.type = 'button';
+        del.setAttribute('aria-label', 'Borrar aviso');
+        del.textContent = '×';
+        del.addEventListener('click', () => env.h.onDismissNotif(x.at));
+        li.append(t, del);
+        ul.append(li);
+      }
+      body.append(ul);
+    }
+    if (n.status !== 'on') body.append(el('p', 'note', 'Sin conexión con el servidor: las notificaciones llegan cuando vuelvas a estar en línea.'));
   },
 
   rank(body, env) {
@@ -907,9 +1099,37 @@ const BUILDERS = {
 
   settings(body, env) {
     const { save } = env;
+    // Volumen: interruptor para silenciar y barra para el nivel
+    for (const [key, name, desc] of [['sfx', 'Efectos de sonido', 'Golpes, chispas y colapsos'], ['music', 'Música', 'Se intensifica con la tensión de la ronda']]) {
+      const box = el('div', 'vol-row');
+      const head = el('button', 'switch-row');
+      head.type = 'button';
+      head.setAttribute('role', 'switch');
+      head.setAttribute('aria-checked', String(!!save[key]));
+      head.innerHTML = '<span><b></b><small></small></span><i class="switch" aria-hidden="true"></i>';
+      head.querySelector('b').textContent = name;
+      head.querySelector('small').textContent = desc;
+      const range = el('input', 'vol-range');
+      Object.assign(range, { type: 'range', min: 0, max: 100, step: 5, value: Math.round(save[key + 'Vol'] * 100) });
+      range.setAttribute('aria-label', `Volumen: ${name}`);
+      const pct = el('output', 'vol-pct', `${range.value}%`);
+      const paint = () => {
+        const s = env.getSave();
+        head.setAttribute('aria-checked', String(!!s[key]));
+        box.classList.toggle('muted', !s[key]);
+        range.style.setProperty('--p', `${range.value}%`);
+        pct.textContent = s[key] ? `${range.value}%` : 'Silencio';
+      };
+      head.addEventListener('click', () => { env.h.onToggle(key); paint(); });
+      range.addEventListener('input', () => { env.h.onVolume(key, range.value / 100, false); paint(); });
+      range.addEventListener('change', () => env.h.onVolume(key, range.value / 100, true));
+      const line = el('div', 'vol-line');
+      line.append(el('span', 'vol-ico', '−'), range, el('span', 'vol-ico', '+'), pct);
+      box.append(head, line);
+      body.append(box);
+      paint();
+    }
     const rows = [
-      ['sfx', 'Sonido', 'Efectos del juego'],
-      ['music', 'Música', 'Se intensifica con la tensión de la ronda'],
       ['vib', 'Vibración', 'En celulares compatibles'],
       ['notif', 'Avisos durante la partida', 'Logros, misiones y el feed de la ronda. Apagalo para jugar sin distracciones'],
       ['relTouch', 'Control por arrastre', 'Táctil: arrastrá desde cualquier parte de la pantalla (si lo apagás, la bola va adonde tocás)'],
@@ -934,6 +1154,16 @@ const BUILDERS = {
       inst.addEventListener('click', () => env.h.onInstall());
       body.append(inst, el('p', 'note', 'Queda en tu pantalla de inicio y funciona sin conexión.'));
     }
+    // País e idioma
+    const rg = env.h.regionState();
+    const rb = el('button', 'switch-row region-row');
+    rb.type = 'button';
+    rb.innerHTML = '<span><b></b><small></small></span><i class="chev" aria-hidden="true">›</i>';
+    rb.querySelector('b').textContent = 'País e idioma';
+    rb.querySelector('small').textContent = `${rg.flag} ${rg.countryName} · ${rg.langName}`;
+    rb.querySelector('small').setAttribute('data-noi18n', '');
+    rb.addEventListener('click', () => env.h.onOpen('region'));
+    body.append(rb);
     // Cuenta
     const cl = env.h.cloudState();
     const acc = el('div', 'account-box');

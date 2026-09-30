@@ -6,7 +6,7 @@
 //  - Legendaria y Mítica: pase Premium (niveles 21 a 100) y Tienda Premium.
 //  - Fundador: solo con código.
 //
-// src.type: default | level (nivel de cuenta) | pass (lvl) | shop (price en destellos) | premium (usd) | rank (tier) | ach (id) | daily | code
+// src.type: default | level (nivel de cuenta) | pass (lvl) | shop (price en destellos) | premium (usd) | offer (pack) | rank (tier) | ach (id) | daily | code
 // Cada cosmético se consigue de una sola forma: nunca aparece en dos lugares.
 export const RARITY = {
   comun: { name: 'Común', col: '#a69ecb' },
@@ -76,8 +76,10 @@ export const SKINS = [
   { id: 'galaxia', name: 'Galaxia', rarity: 'legendaria', col: '#b48cff', col2: '#8fd8ff', shape: 'star', src: { type: 'premium', usd: 1.99 } },
   { id: 'diamante_eterno', name: 'Diamante Eterno', rarity: 'legendaria', col: '#ffffff', col2: '#5ef2ff', shape: 'crystal', src: { type: 'premium', usd: 1.99 } },
   { id: 'nova_carmesi', name: 'Nova Carmesí', rarity: 'legendaria', col: '#ff3d6e', col2: '#ffd166', shape: 'crystal', src: { type: 'premium', usd: 1.99 } },
-  { id: 'dragon_estelar', name: 'Dragón Estelar', rarity: 'mitica', col: '#7bff6b', col2: '#ffd166', shape: 'plasma', src: { type: 'premium', usd: 3.49 } },
-  { id: 'quasar', name: 'Quásar', rarity: 'mitica', col: '#ffd166', col2: '#b48cff', shape: 'plasma', src: { type: 'premium', usd: 3.49 } },
+  { id: 'dragon_estelar', name: 'Dragón Estelar', rarity: 'mitica', col: '#7bff6b', col2: '#ffd166', shape: 'plasma', src: { type: 'premium', usd: 2.99 } },
+  { id: 'quasar', name: 'Quásar', rarity: 'mitica', col: '#ffd166', col2: '#b48cff', shape: 'plasma', src: { type: 'premium', usd: 2.99 } },
+  // Pack de Inicio (una sola compra por cuenta)
+  { id: 'pionera', name: 'Pionera', rarity: 'legendaria', col: '#5ef2c2', col2: '#ffd166', shape: 'star', src: { type: 'offer' } },
 
   // Recompensa diaria y logros (gratis)
   { id: 'aurora', name: 'Aurora', rarity: 'epica', col: '#5ef2c2', col2: '#b48cff', shape: 'orb', src: { type: 'daily' } },
@@ -128,7 +130,8 @@ export const TRAILS = [
 
   { id: 'cola_dragon', name: 'Cola de Dragón', rarity: 'legendaria', type: 'fire', col: '#7bff6b', col2: '#ffd166', src: { type: 'premium', usd: 1.49 } },
   { id: 'cometa_dorado', name: 'Cometa Dorado', rarity: 'legendaria', type: 'comet', col: '#ffd166', src: { type: 'premium', usd: 1.49 } },
-  { id: 'gusano', name: 'Agujero de Gusano', rarity: 'mitica', type: 'void', col: '#b48cff', col2: '#05030d', src: { type: 'premium', usd: 2.99 } },
+  { id: 'gusano', name: 'Agujero de Gusano', rarity: 'mitica', type: 'void', col: '#b48cff', col2: '#05030d', src: { type: 'premium', usd: 2.49 } },
+  { id: 'estela_pionera', name: 'Estela Pionera', rarity: 'legendaria', type: 'comet', col: '#5ef2c2', col2: '#ffd166', src: { type: 'offer' } },
 
   { id: 'plata', name: 'Estela plateada', rarity: 'rara', type: 'ribbon', col: '#e8ecf5', col2: '#9aa6c0', src: { type: 'rank', tier: 1 } },
   { id: 'rayo', name: 'Rayo', rarity: 'epica', type: 'bolt', col: '#8fd8ff', col2: '#ffffff', src: { type: 'rank', tier: 3 } },
@@ -165,7 +168,8 @@ export function unlockText(item) {
   if (s.type === 'ach') return ACH_TEXT[s.id] || 'Logro';
   if (s.type === 'daily') return 'Premio del día 7';
   if (s.type === 'code') return 'Exclusivo de los creadores';
-  if (s.type === 'premium') return `Tienda Premium · ${usd(s.usd)}`;
+  if (s.type === 'premium') return 'Tienda Premium';
+  if (s.type === 'offer') return 'Pack de Inicio';
   return `Tienda · ${s.price}`;
 }
 

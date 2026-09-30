@@ -39,5 +39,5 @@ export const Api = base => ({
   password: (id, secret, password) => call(base, 'POST', '/api/password', { id, secret, password }),
   resetRequest: email => call(base, 'POST', '/api/reset/request', { email }),
   resetConfirm: (token, password) => call(base, 'POST', '/api/reset/confirm', { token, password }),
-  checkout: (id, secret, item) => call(base, 'POST', '/api/pay/checkout', { id, secret, item }, 20000),
+  checkout: (id, secret, item, country, method) => call(base, 'POST', '/api/pay/checkout', { id, secret, item, country, method }, 20000),
 });

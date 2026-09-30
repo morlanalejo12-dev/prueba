@@ -51,6 +51,17 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 
 ## Novedades
 
+### v1.1 · Amigos, idiomas y precios locales
+- **Notificaciones:** campana en el menú con contador. Ahí llegan las solicitudes de amistad (Aceptar o Rechazar) y las invitaciones a salas (Unirme o Rechazar), aunque estés en otra pantalla.
+- **Amigos con solicitud:** agregar a alguien ahora le manda una solicitud que tiene que aceptar. Las solicitudes se guardan en el servidor y llegan aunque el otro esté desconectado. Las listas viejas se convierten solas en solicitudes.
+- **Idiomas:** español, portugués e inglés, en todo el juego.
+- **País y moneda:** los precios se muestran en la moneda de cada país (20 países), ajustados al poder de compra y redondeados a precios lindos. Se adivina solo y se cambia en *Ajustes → País e idioma* (también desde la pantalla de inicio).
+- **Tienda nueva:** Pack de Inicio (una vez, con cosméticos exclusivos), Pack Mítico, Pack Legendario y Colección Completa, siempre más baratos que por separado.
+- **Tres medios de pago:** Mercado Pago (Argentina), dLocal Go (12 países de Latinoamérica, en moneda local) y PayPal (todo el mundo). Al comprar, se ve el monto exacto de cada uno.
+- **Volumen** de música y de efectos, por separado.
+- Se quitó el botón *Clip* del resultado. Se revisaron todos los botones del juego.
+
+
 ### v1.0 · Lista para lanzar
 - **Pantalla de inicio:** se puede iniciar sesión, crear una cuenta gratis (con email o con Google) o *Jugar sin cuenta*, con el aviso de que ese progreso vive solo en el dispositivo y se puede perder. A los invitados se les recuerda crear una cuenta a las 3, 10 y 25 rondas.
 - **Cuentas completas:** progreso en la nube entre dispositivos, cerrar sesión, cambiar la contraseña, recuperarla por email y eliminar la cuenta. Al entrar con progreso en dos lugares, el juego pregunta con cuál seguir.
@@ -233,7 +244,9 @@ npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 | `src/game/pass.js` | Pase de temporada: niveles, premios y reclamos |
 | `server/friends.js` | Presencia de amigos e invitaciones |
 | `server/api.js`, `server/store.js` | API HTTP (cuentas en la nube, tablas, estadísticas) y almacenamiento (archivo o Supabase) |
-| `server/accounts.js`, `server/payments.js` | Cuentas (email, Google, invitado) y pagos con Mercado Pago |
+| `server/accounts.js`, `server/payments.js`, `server/social.js` | Cuentas (email, Google, invitado), pagos (Mercado Pago, dLocal Go, PayPal) y amigos con solicitudes |
+| `src/game/prices.js` | Países, monedas, precios locales, packs y medios de pago (lo usan el juego y el servidor) |
+| `src/i18n/` | Traducción al portugués y al inglés (`dict-*.js`); `scripts/i18n-extract.mjs` lista los textos del juego |
 | `scripts/legal.mjs`, `static/` | Genera los textos legales; páginas estáticas, panel `/admin` e imagen para compartir |
 | `src/game/events.js`, `src/game/unlocks.js` | Desafío del día, modo del finde, racha, regreso y menú progresivo |
 | `assets/music/` | Temas grabados (MP3); el build los embebe en el `index.html` |

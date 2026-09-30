@@ -69,10 +69,11 @@ export function createUI(h) {
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   }
 
-  function toast(kicker, title) {
+  function toast(kicker, title, onTap) {
     if (h.quiet && h.quiet()) return;
     const el = document.createElement('div');
-    el.className = 'toast';
+    el.className = 'toast' + (onTap ? ' tap' : '');
+    if (onTap) el.addEventListener('click', () => { el.remove(); onTap(); });
     el.innerHTML = `${ICON.trophy}<div><small></small><b></b></div>`;
     el.querySelector('small').textContent = kicker;
     el.querySelector('b').textContent = title;
@@ -211,7 +212,6 @@ export function createUI(h) {
     box.append(ol);
   }
 
-  function setClip(on) { $('clipBtn').hidden = !on; }
 
   function setAgain(label, count) {
     const b = $('again');
@@ -493,11 +493,10 @@ export function createUI(h) {
   $('dashL').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(-1); });
   $('dashR').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(1); });
   $('shareBtn').addEventListener('click', h.onShare);
-  const opens = { settingsBtn: 'settings', profileBtn: 'profile', coinsBtn: 'shop', rankBtn: 'rank' };
+  const opens = { settingsBtn: 'settings', notifBtn: 'notifs', profileBtn: 'profile', coinsBtn: 'shop', rankBtn: 'rank' };
   $('boardsBtn').addEventListener('click', () => { h.onUi(); openModal('boards'); h.onBoard(); });
   $('challengeBtn').addEventListener('click', () => { h.onUi(); h.onChallenge(); });
   $('weekendBtn').addEventListener('click', () => { h.onUi(); h.onWeekend(); });
-  $('clipBtn').addEventListener('click', () => { h.onUi(); h.onShareClip(); });
   for (const [id, kind] of Object.entries(opens)) $(id).addEventListener('click', () => { h.onUi(); openModal(kind); });
   document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { h.onUi(); openModal(b.dataset.open); }));
   $('modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
@@ -514,7 +513,7 @@ export function createUI(h) {
   });
 
   return {
-    setOnlineMode, renderStandings, setAgain, setClip,
+    setOnlineMode, renderStandings, setAgain,
     banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud, dashButtons, hideDash, predict,
     showSpectator, hideSpectator, renderMenu, showScreen, renderResults, setNext,
     openModal, refreshModal, closeModal,
