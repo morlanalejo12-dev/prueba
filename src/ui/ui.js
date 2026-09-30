@@ -395,7 +395,11 @@ export function createUI(h) {
       dl.href = data.image;
       dl.download = 'contracorriente-resultado.png';
       dl.textContent = 'Descargar';
-      row.append(copy, dl);
+      // Dentro de un visor embebido las descargas están bloqueadas: ahí solo queda copiar o mantener presionada la imagen
+      const embedded = window.self !== window.top;
+      if (embedded) row.style.gridTemplateColumns = '1fr';
+      row.append(copy);
+      if (!embedded) row.append(dl);
       const note = document.createElement('p');
       note.className = 'note';
       note.textContent = 'En el celular, mantené presionada la imagen para guardarla.';
