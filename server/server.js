@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Lobby, GLOBAL, PROTOCOL, cleanName } from './rooms.js';
 import { Friends } from './friends.js';
+import { makeStore } from './store.js';
+import { makeApi } from './api.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'site');
 const PORT = Number(process.env.PORT) || 8080;
@@ -15,8 +17,11 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg',
 };
 
-const server = http.createServer((req, res) => {
+const api = makeApi(makeStore());
+
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  if (await api(req, res, url)) return;
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true, rooms: lobby.rooms.size, players: clients.size }));

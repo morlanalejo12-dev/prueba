@@ -6,6 +6,8 @@ import { NAME_STYLES } from './names.js';
 import { rankOf, prDelta, applyPR, TIER_PERKS, LEGEND_PR } from './ranks.js';
 import { progressMissions, ensureMissions, MISSION_XP, missionReward } from './meta.js';
 import { passInfo, claimablePass, PASS_STEP, PASS_LEVELS } from './pass.js';
+import { FEATURES } from './unlocks.js';
+import { applyStreak, streakAlive } from './events.js';
 
 export const SAVE_KEY = 'cc-save-v3';
 const LEGACY_KEY = 'cc-stats';
@@ -23,6 +25,8 @@ const DEFAULTS = {
   friendId: '', friends: [],
   // v0.11
   titleSel: 0,
+  // v0.12
+  seenFeat: {}, shieldWeek: '', shieldUsed: false, lastSeen: '', challenge: { day: '', best: 0, tries: 0, log: '' }, cloud: null,
 };
 
 // Lo que cada jugador tenía con las reglas anteriores a la v0.9 (por nivel, liga o logro) se conserva
@@ -157,10 +161,7 @@ const pad = n => String(n).padStart(2, '0');
 export const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const yesterdayOf = d => { const y = new Date(d); y.setDate(y.getDate() - 1); return y; };
 
-export function streakNow(save, now = new Date()) {
-  const ok = save.lastDay === dayKey(now) || save.lastDay === dayKey(yesterdayOf(now));
-  return ok ? save.streak : 0;
-}
+export const streakNow = (save, now = new Date()) => streakAlive(save, now);
 
 // ---------- Guardado ----------
 export function localStore() {
@@ -191,7 +192,7 @@ export function loadSave(store) {
     if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = DEFAULTS[k];
   }
   for (const k of ['passXp']) if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = 0;
-  for (const k of ['ach', 'owned', 'codes', 'passClaimed', 'achClaimed']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
+  for (const k of ['ach', 'owned', 'codes', 'passClaimed', 'achClaimed', 'seenFeat']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
   if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
   if (typeof save.name !== 'string') save.name = '';
@@ -212,7 +213,10 @@ export function loadSave(store) {
   if (!TRAILS.some(k => k.id === save.trail)) save.trail = DEFAULTS.trail;
   if (!MUSIC.some(k => k.id === save.track)) save.track = DEFAULTS.track;
   if (!NAME_STYLES.some(k => k.id === save.nameStyle)) save.nameStyle = DEFAULTS.nameStyle;
-  save.v = 5;
+  // v0.12: quien ya jugaba no ve como "nuevas" las secciones que ya conocía
+  if (data && (data.v || 0) < 6) for (const f of FEATURES) if (save.rounds >= f.rounds) save.seenFeat[f.id] = true;
+  if (!save.challenge || typeof save.challenge !== 'object') save.challenge = { ...DEFAULTS.challenge };
+  save.v = 6;
   return save;
 }
 
@@ -279,10 +283,7 @@ export function applyRound(save, sum, now = new Date()) {
   if (sum.beatRival) save.rivalsBeaten++;
 
   const today = dayKey(now);
-  if (save.lastDay !== today) {
-    save.streak = save.lastDay === dayKey(yesterdayOf(now)) ? save.streak + 1 : 1;
-    save.lastDay = today;
-  }
+  const shield = applyStreak(save, now).shield;
 
   // Racha de caminos: cuenta bifurcaciones superadas seguidas, aunque sea entre rondas
   save.forksSeen += sum.forksSeen;
@@ -326,7 +327,7 @@ export function applyRound(save, sum, now = new Date()) {
 
   return {
     gain, coins, predCoins, levelCoins: lv.levelCoins, before: lv.before, after: lv.after, passBefore: lv.passBefore, passAfter: lv.passAfter,
-    passClaimable: claimablePass(save).length, achClaimable: claimableAch(save).length, newAch, newSkins, newTrails, newMusic, newNames, missionsDone,
+    passClaimable: claimablePass(save).length, shieldUsed: shield, achClaimable: claimableAch(save).length, newAch, newSkins, newTrails, newMusic, newNames, missionsDone,
     recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
     pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
     pathStreak: save.pathStreak,

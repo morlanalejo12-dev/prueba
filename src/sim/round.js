@@ -37,11 +37,13 @@ const TAIL = ['_ar', '_mx', '_co', '', '_07', '_99', '_uy', '_cl', 'x', 'z'];
 
 export class Round {
   // guided: cantidad de bifurcaciones en las que el jugador nuevo está protegido (primera partida)
-  constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0 } = {}) {
+  constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0, mode = 'normal' } = {}) {
     this.seed = seed >>> 0;
     this.r = mulberry32(this.seed);
     this.demo = demo;
-    this.lvl = buildLevel(this.r);
+    this.mode = mode;
+    this.speedMul = mode === 'turbo' ? 1.3 : 1;
+    this.lvl = buildLevel(this.r, mode);
     this.n = bots;
     this.crowd = createCrowd(bots, this.r);
     this.aliveBots = bots;
@@ -128,7 +130,7 @@ export class Round {
   step(dt) {
     this.t += dt;
     const f = this.fork;
-    this.speed = CFG.SPEED0 + CFG.SPEED_STEP * this.cf;
+    this.speed = (CFG.SPEED0 + CFG.SPEED_STEP * this.cf) * this.speedMul;
     this.pY += this.speed * dt;
 
     if (f && !this.ended && !f.announced && this.pY >= f.startY - 160) {
@@ -151,12 +153,14 @@ export class Round {
   }
 
   computeCounts(f) {
-    const c = this.crowd, intent = new Array(f.k).fill(0), counts = new Array(f.k).fill(0);
+    const c = this.crowd, intent = new Array(f.k).fill(0), counts = new Array(f.k).fill(0), proj = new Array(f.k).fill(0);
     for (let i = 0; i < this.n; i++) {
       if (!c.alive[i]) continue;
       const ln = c.lane[i] >= 0 ? c.lane[i] : laneAt(f, c.x[i]);
       intent[ln]++;
       if (c.lane[i] >= 0) counts[ln]++;
+      // Proyección: el camino al que cada bot está yendo (no donde está ahora)
+      proj[c.lane[i] >= 0 ? c.lane[i] : c.want[i] >= 0 && c.want[i] < f.k ? c.want[i] : ln]++;
     }
     if (this.pAlive) {
       const ln = this.pLane >= 0 ? this.pLane : laneAt(f, this.px);
@@ -166,6 +170,7 @@ export class Round {
     let tot = 0;
     for (const v of intent) tot += v;
     f.intent = intent.map(v => v / (tot || 1));
+    f.proj = proj.map(v => v / (tot || 1));
     f.counts = counts;
     // Tendencia: cuánto cambió la intención en el último ~0,6 s (para leer hacia dónde va la multitud)
     if (!f.hist) f.hist = [];
@@ -227,7 +232,7 @@ export class Round {
       if (Math.abs(this.pY - g.y) < GATE_HALF + P) {
         // En la partida guiada los primeros muros perdonan un poco más
         const m = clearance(g, this.px, this.guided > this.cf ? P * 0.45 : P, this.t);
-        if (m < 0) { this.killPlayer('wall', 0); return; }
+        if (m < 0) { this.deathInfo = { short: Math.max(1, Math.round(-m)) }; this.killPlayer('wall', 0); return; }
         this.gateMin = Math.min(this.gateMin, m);
       } else if (this.pY > g.y + GATE_HALF + P) {
         this.passGate(this.gateMin);
@@ -240,7 +245,7 @@ export class Round {
       const ng = f.ng;
       if (Math.abs(this.pY - ng.y) < GATE_HALF + P) {
         const m = clearance(ng, this.px, P, this.t);
-        if (m < 0) { this.killPlayer('wall', 0); return; }
+        if (m < 0) { this.deathInfo = { short: Math.max(1, Math.round(-m)) }; this.killPlayer('wall', 0); return; }
         this.ngMin = Math.min(this.ngMin, m);
       } else if (this.pY > ng.y + GATE_HALF + P) {
         this.ngDone = true;
@@ -368,6 +373,15 @@ export class Round {
       gold = f.lanes[this.pLane].gold;
       if (col.includes(this.pLane) || (lottery && lottery.has(-1))) {
         outcome = 'died';
+        // Para explicar la caída: cuánta gente eligió tu camino y si el impulso te salvaba
+        let tot = 0;
+        for (const v of f.counts) tot += v;
+        const safe = [this.pLane - 1, this.pLane + 1].filter(k => k >= 0 && k < f.k && !col.includes(k));
+        this.deathInfo = {
+          share: tot ? f.counts[this.pLane] / tot : 0, lane: this.pLane,
+          dashable: safe.length > 0 && this.dashFork !== f.i && this.charges + (this.dashFork === f.i ? 1 : 0) > 0,
+          usedDash: this.dashFork === f.i, safeLane: safe.length ? safe[0] : -1,
+        };
         this.forkLog.push('lost');
       } else {
         outcome = 'survived';
@@ -398,7 +412,7 @@ export class Round {
     const better = this.aliveBots;
     this.rank = better + 1;
     this.pct = Math.max(0, (this.n - better - sameEvent) / this.n * 100);
-    this.emit('playerDied', { why, rank: this.rank, pct: this.pct, sameEvent, x: this.px, y: this.pY });
+    this.emit('playerDied', { why, rank: this.rank, pct: this.pct, sameEvent, x: this.px, y: this.pY, info: this.deathInfo || null });
   }
 
   finish() {
@@ -439,6 +453,7 @@ export class Round {
       forksOk: this.forksOk, forks: Math.max(CFG.FORKS, this.forkLog.length), near: this.near, maxCombo: this.maxCombo, orbs: this.orbs,
       alive: this.pAlive, outlier: !!(this.outlier && this.outlier.you), why: this.why, feats: { ...this.feats },
       forksSeen: this.forkLog.length, beatRival: this.beatRival, rival: this.rivalName, dashes: this.dashes,
+      forkLog: [...this.forkLog], mode: this.mode,
     };
   }
 }

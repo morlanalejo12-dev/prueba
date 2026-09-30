@@ -10,7 +10,9 @@ export const GLOBAL = 'GLOBAL';
 const STEP = 1 / 60;
 const SNAP_EVERY = 4;          // 60 / 4 = 15 instantáneas por segundo
 const COUNTDOWN_MS = 3000;
-const RESULTS_MS = 8000;       // pausa mínima entre el final de una ronda y la siguiente (global)
+const RESULTS_MS = 8000;       // pausa entre el final de una ronda y la siguiente (global)
+const QUEUE_MS = 10000;        // la sala global arranca 10 s después de que entra alguien…
+const QUEUE_FULL = 8;          // …o apenas se juntan 8 jugadores
 const MAX_PLAYERS = 40;
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -33,7 +35,7 @@ export class Room {
     this.host = null;
     this.phase = 'lobby';
     this.round = null;
-    this.startAt = pub ? nextMinute(now, COUNTDOWN_MS + 1000) : 0;
+    this.startAt = 0;
     this.acc = 0;
     this.steps = 0;
     this.roundNo = 0;
@@ -126,10 +128,11 @@ export class Room {
   // Avanza la sala. dtMs: tiempo real transcurrido
   tick(now, dtMs) {
     if (this.pub && this.phase === 'lobby') {
-      if (now >= this.startAt - COUNTDOWN_MS) {
-        if (this.players.size) this.beginCountdown(this.startAt, now);
-        else this.startAt = nextMinute(now, COUNTDOWN_MS + 1000);
-      }
+      // Cola continua: sin esperar al minuto exacto
+      if (!this.players.size) { if (this.startAt) { this.startAt = 0; this.broadcastRoom(now); } return; }
+      if (!this.startAt) { this.startAt = now + QUEUE_MS; this.broadcastRoom(now); }
+      if (this.players.size >= QUEUE_FULL && this.startAt > now + COUNTDOWN_MS) { this.startAt = now + COUNTDOWN_MS; this.broadcastRoom(now); }
+      if (now >= this.startAt - COUNTDOWN_MS) this.beginCountdown(Math.max(this.startAt, now + 1500), now);
       return;
     }
     if (this.phase === 'countdown' && now >= this.startAt) {
@@ -173,7 +176,7 @@ export class Room {
       T: r3(R.t), y: r3(R.pY), sp: R.speed, cf: R.cf, ab: R.aliveBots, ah: R.aliveHumans,
       bx: b64(bx),
       hs: R.humans.map(h => [h.idx, Math.round(h.x * 10) / 10, h.alive ? 1 : 0, h.laneFork === R.cf ? h.lane : -1]),
-      f: f ? { i: f.i, in: (f.intent || []).map(r3), c: f.counts || [], tr: (f.trend || []).map(r3) } : null,
+      f: f ? { i: f.i, in: (f.intent || []).map(r3), c: f.counts || [], tr: (f.trend || []).map(r3), pj: (f.proj || []).map(r3) } : null,
     });
     const tail = shared.slice(1);
     for (const p of this.players.values()) {
@@ -197,7 +200,7 @@ export class Room {
     this.last = { standings, outlier };
     this.round = null;
     this.phase = 'lobby';
-    this.startAt = this.pub ? nextMinute(now, RESULTS_MS + COUNTDOWN_MS) : 0;
+    this.startAt = this.pub && this.players.size ? now + RESULTS_MS + COUNTDOWN_MS : 0;
     this.broadcastRoom(now);
   }
 }

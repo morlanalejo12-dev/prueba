@@ -42,18 +42,24 @@ test('sala privada: el anfitrión empieza, llegan instantáneas, eventos y resul
   assert.equal(lobby.get(room.code), undefined);
 });
 
-test('sala global: arranca sola al comenzar el minuto si hay jugadores', () => {
-  const t0 = 60000 * 1000 + 20000;
+test('sala global: cola continua, arranca a los 10 s o al juntarse 8', () => {
+  const t0 = 1_000_000;
   const room = new Room('GLOBAL', { pub: true, now: t0 });
-  assert.equal(room.startAt % 60000, 0);
   room.tick(t0 + 1000, 16);
   assert.equal(room.phase, 'lobby');
-  const p = fakePlayer('x');
-  room.add(p);
-  let now = t0;
-  while (room.phase === 'lobby' && now < t0 + 70000) { now += 100; room.tick(now, 100); }
+  assert.equal(room.startAt, 0, 'sin jugadores no hay cuenta regresiva');
+  room.add(fakePlayer('x'));
+  room.tick(t0 + 2000, 16);
+  assert.equal(room.startAt, t0 + 12000);
+  let now = t0 + 2000;
+  while (room.phase === 'lobby' && now < t0 + 20000) { now += 100; room.tick(now, 100); }
   assert.equal(room.phase, 'countdown');
-  assert.ok(room.startAt - now <= 3000);
+  assert.ok(now <= t0 + 9100, 'empieza la cuenta regresiva 3 s antes');
+  const full = new Room('GLOBAL', { pub: true, now: t0 });
+  for (let i = 0; i < 8; i++) full.add(fakePlayer('p' + i));
+  full.tick(t0, 16);
+  full.tick(t0 + 16, 16);
+  assert.equal(full.phase, 'countdown', 'con 8 jugadores arranca enseguida');
   assert.equal(nextMinute(59000, 0), 60000);
   assert.equal(cleanName('  <b>Ana</b>  '), 'bAna/b');
 });
@@ -87,4 +93,38 @@ test('amigos: presencia en línea e invitación a la sala privada', async () => 
   assert.equal(inv.from, 'Ana');
   fr.unregister(b);
   assert.equal(fr.presence(['BBBBBB'])[0].online, false);
+});
+
+test('API: cuenta en la nube, recuperación, tablas y estadísticas', async () => {
+  const { makeApi } = await import('../server/api.js');
+  const { MemoryStore } = await import('../server/store.js');
+  const { Readable } = await import('node:stream');
+  const api = makeApi(new MemoryStore());
+  const call = async (method, path, body) => {
+    const req = Readable.from(body ? [Buffer.from(JSON.stringify(body))] : []);
+    req.method = method;
+    let code = 0, out = '';
+    const res = { writeHead: c => { code = c; }, end: s => { out = s; } };
+    await api(req, res, new URL(path, 'http://x'));
+    return { code, json: JSON.parse(out || '{}') };
+  };
+  const acc = (await call('POST', '/api/account', {})).json;
+  assert.match(acc.id, /^[A-Z0-9]{8}$/);
+  assert.equal((await call('PUT', '/api/save', { id: acc.id, secret: acc.secret, save: { xp: 99 } })).json.ok, true);
+  assert.equal((await call('PUT', '/api/save', { id: acc.id, secret: 'MAL', save: {} })).code, 401);
+  const rest = (await call('POST', '/api/restore', { code: `${acc.id}-${acc.secret}` })).json;
+  assert.equal(rest.save.xp, 99);
+  assert.equal((await call('POST', '/api/restore', { code: 'AAAAAAAA-BBBB' })).code, 404);
+  await call('POST', '/api/score', { board: 'daily-2026-09-30', pid: 'AAAAAA', name: 'Ana', score: 500 });
+  await call('POST', '/api/score', { board: 'daily-2026-09-30', pid: 'BBBBBB', name: 'Beto', score: 800 });
+  await call('POST', '/api/score', { board: 'daily-2026-09-30', pid: 'AAAAAA', name: 'Ana', score: 300 });
+  const b = (await call('GET', '/api/board?b=daily-2026-09-30&ids=AAAAAA')).json;
+  assert.equal(b.top[0].name, 'Beto');
+  assert.equal(b.ranks.AAAAAA, 2);
+  assert.equal(b.top[1].score, 500, 'se guarda el mejor puntaje');
+  await call('POST', '/api/events', { device: 'dev1', events: [{ e: 'session' }, { e: 'round', alive: false, fork: 0, why: 'majority' }] });
+  const st = (await call('GET', '/api/stats')).json;
+  assert.equal(st.dias[0].rounds, 1);
+  assert.equal(st.dias[0].deathFork['0'], 1);
+  assert.equal(st.jugadores, 1);
 });

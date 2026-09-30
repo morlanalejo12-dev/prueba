@@ -41,7 +41,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', levelup: '¡Subiste de nivel!', boards: 'Ranking', comeback: '¡Volviste!', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -200,7 +200,7 @@ const BUILDERS = {
     const global = el('button', 'btn btn-primary online-global');
     global.type = 'button';
     global.innerHTML = '<span class="live-dot" aria-hidden="true"></span>';
-    global.append(el('span', '', 'Minuto global'), el('small', '', o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : 'Una ronda al comenzar cada minuto'));
+    global.append(el('span', '', 'Partida global'), el('small', '', o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : 'Entrás a la próxima ronda en segundos'));
     global.addEventListener('click', () => go('global'));
     onEnter(name, () => go('global'));
     const create = el('button', 'btn btn-ghost', 'Crear sala privada');
@@ -230,7 +230,7 @@ const BUILDERS = {
     if (!r) { body.append(el('p', '', 'Conectando con la sala…')); return; }
     const head = el('div', 'room-head');
     if (r.pub) {
-      head.append(el('strong', '', 'Minuto global'), el('small', '', 'Sala pública: juega todo el que esté conectado'));
+      head.append(el('strong', '', 'Partida global'), el('small', '', 'Sala pública: juega todo el que esté conectado'));
     } else {
       const codeEl = el('strong', 'room-code', r.code);
       head.append(el('small', '', 'Código de la sala'), codeEl);
@@ -565,6 +565,71 @@ const BUILDERS = {
     }
   },
 
+  // Ranking: desafío de hoy o semana; global o solo amigos
+  boards(body, env) {
+    const st = env.h.boardsState(), { save } = env;
+    const tabs = el('div', 'tabs two');
+    for (const [k, n] of [['daily', 'Desafío de hoy'], ['week', 'Esta semana']]) {
+      const b = el('button', '', n);
+      b.type = 'button';
+      b.setAttribute('aria-selected', String(st.tab === k));
+      b.addEventListener('click', () => env.h.onBoard(k, st.scope));
+      tabs.append(b);
+    }
+    const scope = el('div', 'tabs two scope');
+    for (const [k, n] of [['global', 'Global'], ['friends', 'Amigos']]) {
+      const b = el('button', '', n);
+      b.type = 'button';
+      b.setAttribute('aria-selected', String(st.scope === k));
+      b.addEventListener('click', () => env.h.onBoard(st.tab, k));
+      scope.append(b);
+    }
+    body.append(tabs, scope, el('p', 'note', st.tab === 'daily' ? 'Todos juegan la misma ronda del día. Cuenta tu mejor intento.' : 'Tu mejor puntaje de la semana en partidas solo.'));
+    if (st.tab === 'daily') {
+      const play = el('button', 'btn btn-primary', save.challenge && save.challenge.best && save.challenge.day === env.today ? 'Mejorar mi puntaje' : 'Jugar el desafío');
+      play.type = 'button';
+      play.addEventListener('click', () => env.h.onChallenge());
+      body.append(play);
+      if (save.challenge && save.challenge.best && save.challenge.day === env.today) {
+        const sh = el('button', 'btn btn-ghost btn-sm', 'Compartir mi resultado');
+        sh.type = 'button';
+        sh.addEventListener('click', async () => { const r = await env.h.onShareChallenge(); sh.textContent = r === 'copied' ? '¡Copiado!' : r === 'shared' ? '¡Listo!' : 'Compartir mi resultado'; });
+        body.append(el('p', 'challenge-log', save.challenge.log), sh);
+      }
+    }
+    if (st.loading) { body.append(el('p', 'empty', 'Cargando…')); return; }
+    if (st.error) { body.append(el('p', 'empty', st.error)); return; }
+    const d = st.data;
+    if (!d) return;
+    const rows = st.scope === 'friends' ? d.friends : d.top;
+    if (!rows.length) { body.append(el('p', 'empty', st.scope === 'friends' ? 'Ninguno de tus amigos jugó todavía. ¡Invitalos!' : 'Todavía no hay puntajes. ¡Sé el primero!')); return; }
+    const ol = el('ol', 'standings board-list');
+    for (const r of rows) {
+      const li = el('li', r.pid === save.friendId ? 'me' : '');
+      const nm = el('span');
+      const lv = el('span');
+      lv.innerHTML = levelEmblem(r.lvl || 1, levelBadgeOf(r.lvl || 1), 22);
+      nm.append(lv.firstChild, nameTag(r.name, nameStyleById(r.nameStyle || 'nm-blanco')));
+      li.append(el('b', '', '#' + fmt(r.rank)), nm, el('em', '', fmt(r.score) + ' pts'));
+      ol.append(li);
+    }
+    body.append(ol);
+    const mine = d.ranks[save.friendId];
+    body.append(el('p', 'note', mine ? `Tu puesto: #${fmt(mine)} de ${fmt(d.total)}` : `${fmt(d.total)} ${d.total === 1 ? 'jugador' : 'jugadores'} en la tabla`));
+  },
+
+  comeback(body, env, data) {
+    const hero = el('div', 'rank-hero');
+    const c = el('div', 'redeem-coins');
+    c.innerHTML = ICON.coin;
+    hero.append(c, el('small', '', `Hacía ${data.days} días que no jugabas`), el('strong', '', `+${fmt(data.coins)} destellos`));
+    body.append(hero, el('p', '', 'Te guardamos un regalo para volver. Hay misiones nuevas y la temporada sigue en marcha.'));
+    const ok = el('button', 'btn btn-primary', '¡A jugar!');
+    ok.type = 'button';
+    ok.setAttribute('data-close', '');
+    body.append(ok);
+  },
+
   prize(body, env, data) { BUILDERS.redeemed(body, env, data); },
 
   levelup(body, env, data) {
@@ -628,7 +693,7 @@ const BUILDERS = {
       look.append(skinPreview(skinById(st.skin || 'ambar')));
       const who = el('span', 'rp-who');
       who.append(nameTag(st.name || fr.name || fr.id, nameStyleById(st.nameStyle || 'nm-blanco')));
-      who.append(el('small', '', st.online ? (st.room ? `En línea · ${st.room === 'GLOBAL' ? 'Minuto global' : 'en una sala'}` : 'En línea') : 'Desconectado'));
+      who.append(el('small', '', st.online ? (st.room ? `En línea · ${st.room === 'GLOBAL' ? 'Partida global' : 'en una sala'}` : 'En línea') : 'Desconectado'));
       const acts = el('span', 'friend-acts');
       if (st.online && room && !room.pub) {
         const inv = el('button', 'btn btn-primary btn-sm', 'Invitar');
@@ -791,7 +856,43 @@ const BUILDERS = {
       inst.addEventListener('click', () => env.h.onInstall());
       body.append(inst, el('p', 'note', 'Queda en tu pantalla de inicio y funciona sin conexión.'));
     }
-    body.append(redeemBox(env));
+    // Cuenta en la nube: el progreso se guarda en el servidor y se recupera con un código
+    const cl = env.h.cloudState();
+    const cloud = el('div', 'redeem cloud-box');
+    cloud.append(el('span', 'redeem-label', 'Cuenta en la nube'));
+    if (!cl.base) cloud.append(el('p', 'note', 'Necesita el servidor online.'));
+    else if (cl.has) {
+      cloud.append(el('p', 'note', 'Tu progreso se guarda solo. Para pasarlo a otro dispositivo, usá este código de recuperación (no lo compartas):'));
+      const code = el('strong', 'cloud-code', cl.code);
+      const copy = el('button', 'btn btn-ghost btn-sm', 'Copiar código');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(cl.code); copy.textContent = '¡Copiado!'; } catch (e) { copy.textContent = cl.code; } });
+      cloud.append(code, copy);
+    } else {
+      const mk = el('button', 'btn btn-primary btn-sm', 'Activar guardado en la nube');
+      mk.type = 'button';
+      mk.addEventListener('click', () => env.h.onCloudCreate());
+      cloud.append(el('p', 'note', cl.status || 'Guardá tu progreso para no perderlo si cambiás de celular.'), mk);
+    }
+    if (cl.base) {
+      const row = el('div', 'redeem-row');
+      const inp = el('input', 'redeem-input');
+      Object.assign(inp, { type: 'text', placeholder: 'CÓDIGO DE RECUPERACIÓN', autocomplete: 'off', spellcheck: false });
+      inp.setAttribute('aria-label', 'Código de recuperación');
+      const go = el('button', 'btn btn-ghost btn-sm', 'Recuperar');
+      go.type = 'button';
+      const msg = el('p', 'redeem-msg');
+      const doIt = async () => { go.disabled = true; const r = await env.h.onRestore(inp.value); go.disabled = false; if (r && r.error) msg.textContent = r.error; };
+      go.addEventListener('click', doIt);
+      onEnter(inp, doIt);
+      row.append(inp, go);
+      cloud.append(el('small', 'note', '¿Tenés progreso en otro dispositivo? Pegá su código:'), row, msg);
+    }
+    body.append(cloud);
+    const rules = el('button', 'btn btn-ghost', 'Cómo se juega');
+    rules.type = 'button';
+    rules.addEventListener('click', () => env.h.onOpen('how'));
+    body.append(rules, redeemBox(env));
     const zone = el('div', 'danger-zone');
     const reset = el('button', 'btn btn-danger', 'Borrar mi progreso');
     reset.type = 'button';

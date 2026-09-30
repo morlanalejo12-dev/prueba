@@ -125,7 +125,7 @@ export class MultiRound extends Round {
     if (g) {
       if (Math.abs(y - g.y) < GATE_HALF + P) {
         const m = clearance(g, x, P, t);
-        if (m < 0) { this.killHuman(h, 'wall', 0); return; }
+        if (m < 0) { h.deathInfo = { short: Math.max(1, Math.round(-m)) }; this.killHuman(h, 'wall', 0); return; }
         h.gateMin = Math.min(h.gateMin, m);
       } else if (y > g.y + GATE_HALF + P) {
         this.passGateH(h, h.gateMin);
@@ -138,7 +138,7 @@ export class MultiRound extends Round {
       const ng = f.ng;
       if (Math.abs(y - ng.y) < GATE_HALF + P) {
         const m = clearance(ng, x, P, t);
-        if (m < 0) { this.killHuman(h, 'wall', 0); return; }
+        if (m < 0) { h.deathInfo = { short: Math.max(1, Math.round(-m)) }; this.killHuman(h, 'wall', 0); return; }
         h.ngMin = Math.min(h.ngMin, m);
       } else if (y > ng.y + GATE_HALF + P) {
         h.ngDone = f.i;
@@ -267,6 +267,10 @@ export class MultiRound extends Round {
       const gold = f.lanes[h.lane].gold;
       if (col.includes(h.lane) || (lottery && lottery.has(-1 - h.idx))) {
         dying.push(h);
+        let tot = 0;
+        for (const v of f.counts) tot += v;
+        const safe = [h.lane - 1, h.lane + 1].filter(k => k >= 0 && k < f.k && !col.includes(k));
+        h.deathInfo = { share: tot ? f.counts[h.lane] / tot : 0, lane: h.lane, dashable: safe.length > 0 && h.dashFork !== f.i && h.charges > 0, usedDash: h.dashFork === f.i, safeLane: safe.length ? safe[0] : -1 };
         h.forkLog.push('lost');
         fallen++;
         if (this._fx.length < FX_CAP * 2) this._fx.push(h.x, this.pY);
@@ -299,7 +303,7 @@ export class MultiRound extends Round {
     const better = this.aliveTotal;   // ya no cuenta a h
     h.rank = better + 1;
     h.pct = Math.max(0, (this.total - better - sameEvent) / this.total * 100);
-    this.hev(h, 'playerDied', { why, rank: h.rank, pct: h.pct, sameEvent, x: h.x, y: h.y });
+    this.hev(h, 'playerDied', { why, rank: h.rank, pct: h.pct, sameEvent, x: h.x, y: h.y, info: h.deathInfo || null });
     this.gEvents.push({ type: 'humanDown', id: h.id, name: h.name, why });
   }
 
@@ -368,7 +372,7 @@ export class MultiRound extends Round {
       score: Math.round(h.score), rank: h.rank, total: this.total, pct: h.pct,
       forksOk: h.forksOk, forks: Math.max(CFG.FORKS, h.forkLog.length), near: h.near, maxCombo: h.maxCombo, orbs: h.orbs,
       alive: h.alive, outlier: !!(this.outlier && this.outlier.id === h.id), why: h.why, feats: { ...h.feats },
-      forksSeen: h.forkLog.length, beatRival: false, rival: '', dashes: h.dashes, online: true,
+      forksSeen: h.forkLog.length, beatRival: false, rival: '', dashes: h.dashes, online: true, forkLog: [...h.forkLog],
     };
   }
 

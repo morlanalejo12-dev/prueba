@@ -50,15 +50,18 @@ test('una ronda suma XP, desbloquea logros y guarda el récord', () => {
   assert.ok(!rep2.newAch.some(a => a.id === 'fork3'));
 });
 
-test('la racha sube en días consecutivos y se corta si se saltea uno', () => {
+test('la racha sube día a día; el escudo salva un día perdido por semana; dos días la cortan', () => {
   const save = loadSave(memStore());
   applyRound(save, sum(), new Date(2026, 8, 1));
   applyRound(save, sum(), new Date(2026, 8, 2));
   applyRound(save, sum(), new Date(2026, 8, 3));
   assert.equal(save.streak, 3);
   assert.ok(save.ach.streak3);
-  applyRound(save, sum(), new Date(2026, 8, 5));
-  assert.equal(save.streak, 1);
+  const rep = applyRound(save, sum(), new Date(2026, 8, 5));
+  assert.equal(save.streak, 4, 'faltó un día: el escudo la salva');
+  assert.ok(rep.shieldUsed);
+  applyRound(save, sum(), new Date(2026, 8, 9));
+  assert.equal(save.streak, 1, 'faltaron varios días: se corta');
 });
 
 test('los récords guardan solo los 5 mejores', () => {

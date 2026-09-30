@@ -4,6 +4,8 @@ import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
 import { levelInfo, titleOf, displayTitle, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch, levelBadgeOf } from '../game/progress.js';
 import { claimablePass, passInfo } from '../game/pass.js';
+import { isUnlocked, nextFeature } from '../game/unlocks.js';
+import { challengeDay, weekendMode } from '../game/events.js';
 import { SKINS, TRAILS, skinById } from '../game/skins.js';
 import { MUSIC } from '../game/music.js';
 import { NAME_STYLES, nameStyleById } from '../game/names.js';
@@ -209,6 +211,8 @@ export function createUI(h) {
     box.append(ol);
   }
 
+  function setClip(on) { $('clipBtn').hidden = !on; }
+
   function setAgain(label, count) {
     const b = $('again');
     b.firstChild.textContent = label + ' ';
@@ -221,8 +225,9 @@ export function createUI(h) {
     hudKey = '';
     if (!on) clearFeed();
   }
-  function showSpectator(rank, total, pct) {
-    $('spectText').innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}. Mirá cómo sigue la ronda.`;
+  function showSpectator(rank, total, pct, tip) {
+    $('spectText').innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}.`;
+    if (tip) { const t = document.createElement('span'); t.className = 'spect-tip'; t.textContent = tip; $('spectText').append(t); }
     $('spect').hidden = false;
   }
   function hideSpectator() { $('spect').hidden = true; $('predict').hidden = true; predKey = ''; }
@@ -230,6 +235,30 @@ export function createUI(h) {
   // ---------- Menú ----------
   // Devuelve si hay recompensa diaria disponible
   function renderMenu(save, env) {
+    // Secciones habilitadas de a una; la próxima se muestra bloqueada como adelanto
+    const next = nextFeature(save);
+    const gate = (el, id) => {
+      if (!el) return;
+      const on = isUnlocked(save, id), teaser = !on && next && next.id === id;
+      el.hidden = !on && !teaser;
+      el.classList.toggle('locked-tile', teaser);
+      el.disabled = teaser;
+      el.dataset.soon = teaser ? `En ${next.rounds - save.rounds} ${next.rounds - save.rounds === 1 ? 'ronda' : 'rondas'}` : '';
+      el.classList.toggle('fresh', on && save.rounds >= 1 && !(save.seenFeat || {})[id] && !save.ownerAll);
+    };
+    document.querySelectorAll('.menu-grid .tile[data-open]').forEach(t => gate(t, t.dataset.open));
+    gate($('onlineBtn'), 'online');
+    gate($('challengeBtn'), 'challenge');
+    const grid = document.querySelector('.menu-grid');
+    const shown = [...grid.children].filter(t => !t.hidden).length;
+    grid.dataset.n = shown;
+    // Desafío del día y modo del finde
+    const c = save.challenge || {};
+    $('challengeSub').textContent = c.day === challengeDay() && c.best ? `Tu mejor hoy: ${fmt(c.best)} pts  ${c.log || ''}` : 'La misma ronda para todos · cambia cada día';
+    const wk = weekendMode();
+    $('weekendBtn').hidden = !wk || !isUnlocked(save, 'challenge');
+    if (wk) { $('weekendName').textContent = `Finde: ${wk.name}`; $('weekendSub').textContent = wk.desc; }
+    $('boardsBtn').hidden = !isUnlocked(save, 'challenge');
     const li = levelInfo(save.xp);
     $('pLevel').textContent = li.level;
     $('pXp').textContent = `${fmt(li.into)} / ${fmt(li.need)} XP`;
@@ -306,6 +335,21 @@ export function createUI(h) {
     requestAnimationFrame(tick);
   }
 
+  // "Casi": la meta más cercana que te quedó a mano (motiva a jugar otra)
+  function nextGoalText(sum) {
+    if (sum.outlier) return '';
+    for (const T of [1, 3, 10, 50, 100]) {
+      if (sum.rank > T && sum.rank <= Math.max(T * 2, T + 5)) {
+        const d = sum.rank - T;
+        return T === 1 ? `A ${fmt(d)} ${d === 1 ? 'puesto' : 'puestos'} de ser el Outlier` : `A ${fmt(d)} ${d === 1 ? 'puesto' : 'puestos'} del Top ${T}`;
+      }
+    }
+    if (!sum.alive && sum.forksOk === sum.forks - 1) return '¡Te faltó una sola bifurcación para llegar al final!';
+    const best = h.getSave().bestScore;
+    if (best && sum.score < best && sum.score >= best * 0.8) return `A ${fmt(best - sum.score)} puntos de tu récord`;
+    return '';
+  }
+
   function renderResults(sum, rep, outlier) {
     $('rEyebrow').textContent = sum.outlier ? 'Sos el Outlier del minuto'
       : rep.pr.promoted ? 'Ascenso'
@@ -317,7 +361,13 @@ export function createUI(h) {
     $('rPct').textContent = sum.outlier
       ? 'Nadie duró más que vos. Tu nombre sale en la pantalla de todos.'
       : `Sobreviviste más que el ${pctText(sum.pct)} de los jugadores.`;
+    if (sum.kind === 'challenge') $('rEyebrow').textContent = sum.challengeBest ? 'Desafío del día · ¡tu mejor intento!' : 'Desafío del día';
+    else if (sum.kind === 'weekend') $('rEyebrow').textContent = 'Modo del finde';
     $('rWhy').textContent = WHY_TEXT[sum.alive ? 'alive' : sum.why] || '';
+    $('rTip').textContent = !sum.alive && sum.tip ? sum.tip : '';
+    $('rTip').hidden = sum.alive || !sum.tip;
+    $('rGoal').textContent = nextGoalText(sum);
+    $('rGoal').hidden = !$('rGoal').textContent;
     $('rForks').textContent = `${sum.forksOk}/${sum.forks}`;
     $('rScore').textContent = fmt(sum.score);
     $('rNear').textContent = fmt(sum.near);
@@ -442,7 +492,11 @@ export function createUI(h) {
   $('dashL').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(-1); });
   $('dashR').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(1); });
   $('shareBtn').addEventListener('click', h.onShare);
-  const opens = { settingsBtn: 'settings', profileBtn: 'profile', helpBtn: 'how', coinsBtn: 'shop', rankBtn: 'rank' };
+  const opens = { settingsBtn: 'settings', profileBtn: 'profile', coinsBtn: 'shop', rankBtn: 'rank' };
+  $('boardsBtn').addEventListener('click', () => { h.onUi(); openModal('boards'); h.onBoard(); });
+  $('challengeBtn').addEventListener('click', () => { h.onUi(); h.onChallenge(); });
+  $('weekendBtn').addEventListener('click', () => { h.onUi(); h.onWeekend(); });
+  $('clipBtn').addEventListener('click', () => { h.onUi(); h.onShareClip(); });
   for (const [id, kind] of Object.entries(opens)) $(id).addEventListener('click', () => { h.onUi(); openModal(kind); });
   document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { h.onUi(); openModal(b.dataset.open); }));
   $('modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
@@ -459,7 +513,7 @@ export function createUI(h) {
   });
 
   return {
-    setOnlineMode, renderStandings, setAgain,
+    setOnlineMode, renderStandings, setAgain, setClip,
     banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud, dashButtons, hideDash, predict,
     showSpectator, hideSpectator, renderMenu, showScreen, renderResults, setNext,
     openModal, refreshModal, closeModal,

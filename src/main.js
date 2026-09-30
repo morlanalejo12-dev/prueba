@@ -18,6 +18,10 @@ import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
 import { redeemCode } from './game/codes.js';
+import { newlyUnlocked } from './game/unlocks.js';
+import { challengeDay, challengeSeed, recordChallenge, challengeShareText, weekendMode, weekKey, comebackReward } from './game/events.js';
+import { Api, apiBase } from './net/api.js';
+import { ClipRecorder } from './render/clip.js';
 import { claimPass, claimablePass, passInfo } from './game/pass.js';
 import { claimAchievement, claimableAch } from './game/progress.js';
 import { musicById } from './game/music.js';
@@ -28,7 +32,9 @@ import { cleanName } from './util/name.js';
 
 const store = localStore();
 let save = loadSave(store);
-const persist = () => writeSave(store, save);
+// Cada guardado local también se sube a la nube (agrupado), una vez que el juego terminó de arrancar
+let cloudReady = false;
+const persist = () => { writeSave(store, save); if (cloudReady) cloudSoon(); };
 
 const audio = new AudioEngine();
 audio.sfxOn = save.sfx;
@@ -95,8 +101,8 @@ function refreshMenu() {
 function updateOnlineChip() {
   const r = online.room, el = $('onlineSub');
   if (!el) return;
-  if (!r) el.textContent = 'Minuto global · salas privadas';
-  else if (r.pub) { const t = nextGlobalText(); el.textContent = t ? `En el minuto global · empieza en ${t}` : 'En el minuto global'; }
+  if (!r) el.textContent = 'Partida global · salas privadas';
+  else if (r.pub) { const t = nextGlobalText(); el.textContent = t ? `En la partida global · empieza en ${t}` : 'En la partida global'; }
   else el.textContent = `En la sala ${r.code} · ${r.players.length} ${r.players.length === 1 ? 'jugador' : 'jugadores'}`;
   $('onlineBtn').classList.toggle('in-room', !!r);
 }
@@ -108,10 +114,20 @@ const ui = createUI({
   onAgain: () => {
     audio.unlock();
     if (mode === 'online' && online.room) { audio.play('ui'); ui.openModal('room'); }
-    else { leaveOnline(); startRound(); }
+    else { leaveOnline(); startRound(lastSum && lastSum.kind === 'challenge' ? 'challenge' : lastSum && lastSum.kind === 'weekend' ? 'weekend' : 'normal'); }
   },
+  onChallenge: () => { audio.unlock(); leaveOnline(); startRound('challenge'); },
+  onWeekend: () => { audio.unlock(); leaveOnline(); startRound('weekend'); },
+  onShareChallenge: () => shareChallenge(),
+  onShareClip: () => shareClip(),
+  onOpen: kind => ui.openModal(kind),
+  boardsState: () => boardsState,
+  onBoard: (tab, scope) => loadBoard(tab, scope),
+  cloudState: () => ({ has: !!save.cloud, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : '', status: cloudStatus, base: !!apiBase(save.server) }),
+  onCloudCreate: () => ensureCloud(true),
+  onRestore: code => restoreCloud(code),
   onHome: () => { audio.play('ui'); leaveOnline(); toMenu(); },
-  onOnline: () => { audio.unlock(); ui.openModal(online.room ? 'room' : 'online'); },
+  onOnline: () => { if (!save.seenFeat.online) { save.seenFeat.online = true; persist(); refreshMenu(); } audio.unlock(); ui.openModal(online.room ? 'room' : 'online'); },
   onlineState: () => ({
     status: net ? net.status : 'off', msg: online.msg, room: online.room, myId: net && net.id,
     askUrl: !serverUrl(''), nextGlobal: nextGlobalText(),
@@ -149,6 +165,8 @@ const ui = createUI({
   onShare: openShare,
   onUi: () => { audio.unlock(); audio.play('ui'); },
   onModal: kind => {
+    track({ e: 'open', k: kind });
+    if (!save.seenFeat[kind]) { save.seenFeat[kind] = true; persist(); refreshMenu(); }
     if (kind === 'friends') { if (ensureConnected()) requestPresence(); }
     if (kind === 'shop' && save.shopSeen !== env().today) { save.shopSeen = env().today; persist(); refreshMenu(); }
     if (kind !== 'music' && previewTrack) { previewTrack = null; applyTrack(); }
@@ -244,6 +262,7 @@ const ui = createUI({
     ui.openModal('profile', { tab: 'ach' });
   },
   onBuyPremium: () => {
+    track({ e: 'open', k: 'buy-premium' });
     audio.play('ui');
     ui.toast('Próximamente', 'Las compras se habilitan en la versión 1.0');
   },
@@ -366,6 +385,7 @@ const ui = createUI({
 let orbTierSeen = 0;
 function resetView() {
   orbTierSeen = 0;
+  lastTip = '';
   fx.reset();
   trail.length = 0;
   acc = 0; slow = 1; slowT = 0; tickT = 0; riserFork = -1;
@@ -383,6 +403,89 @@ function updateRoomStatus() {
   const el = document.getElementById('roomStatus');
   const t = roomStatusText();
   if (el && el.textContent !== t) el.textContent = t;
+}
+
+// ---------- Nube, tablas y estadísticas ----------
+const api = () => Api(apiBase(save.server));
+let cloudStatus = '', cloudT = 0;
+async function ensureCloud(manual) {
+  if (save.cloud || !apiBase(save.server)) { if (manual) ui.refreshModal(); return; }
+  try {
+    cloudStatus = 'Creando tu cuenta…';
+    const r = await api().createAccount();
+    save.cloud = { id: r.id, secret: r.secret };
+    persist();
+    cloudStatus = '';
+    cloudSoon(true);
+  } catch (e) { cloudStatus = 'No se pudo conectar con el servidor.'; }
+  if (ui.modalKind === 'settings') ui.refreshModal();
+}
+// Subir el progreso a la nube (con una pequeña espera para agrupar cambios)
+function cloudSoon(now) {
+  clearTimeout(cloudT);
+  cloudT = setTimeout(async () => {
+    if (!save.cloud) return ensureCloud();
+    const { cloud, ...data } = save;
+    try { await api().uploadSave(cloud.id, cloud.secret, data); save.cloudAt = Date.now(); } catch (e) { /* sin conexión: se reintenta en el próximo cambio */ }
+  }, now ? 50 : 3000);
+}
+async function restoreCloud(code) {
+  try {
+    const r = await api().restore(code);
+    if (!r.save) return { error: 'Esa cuenta todavía no tiene progreso guardado.' };
+    const fresh = loadSave({ get: () => JSON.stringify(r.save), set: () => {} });
+    fresh.cloud = { id: r.id, secret: r.secret };
+    save = fresh;
+    persist();
+    applyTrack();
+    toMenu();
+    ui.toast('Progreso recuperado', `Nivel ${levelInfo(save.xp).level} · ${fmt(save.coins)} destellos`);
+    return {};
+  } catch (e) { return { error: e.status === 404 ? 'Código de recuperación inválido.' : 'No se pudo conectar con el servidor.' }; }
+}
+
+function submitScore(board, score, log) {
+  if (!apiBase(save.server) || !score) return;
+  api().submitScore({ board, pid: save.friendId, name: save.name || 'Jugador', nameStyle: playerNameStyle().id, lvl: levelInfo(save.xp).level, score, log }).catch(() => {});
+}
+
+const boardsState = { tab: 'daily', scope: 'global', loading: false, data: null, error: '' };
+async function loadBoard(tab = boardsState.tab, scope = boardsState.scope) {
+  Object.assign(boardsState, { tab, scope, loading: true, error: '' });
+  if (ui.modalKind === 'boards') ui.refreshModal();
+  const id = tab === 'daily' ? 'daily-' + challengeDay() : 'week-' + weekKey();
+  try {
+    boardsState.data = await api().board(id, [save.friendId, ...save.friends.map(f => f.id)]);
+  } catch (e) { boardsState.data = null; boardsState.error = apiBase(save.server) ? 'No se pudo cargar la tabla.' : 'Las tablas necesitan el servidor online.'; }
+  boardsState.loading = false;
+  if (ui.modalKind === 'boards') ui.refreshModal();
+}
+
+// Estadísticas anónimas de uso (para medir retención y dónde se frustra la gente)
+const evq = [];
+if (!save.deviceId) { save.deviceId = Math.random().toString(36).slice(2, 12); persist(); }
+function track(ev) { evq.push({ ...ev, at: Date.now() }); if (evq.length > 100) evq.shift(); }
+function flushEvents() {
+  if (!evq.length || !apiBase(save.server)) return;
+  const batch = evq.splice(0, evq.length);
+  api().events(save.deviceId, batch).catch(() => { evq.unshift(...batch.slice(-50)); });
+}
+setInterval(flushEvents, 30000);
+
+// Clip del colapso para compartir
+const clip = new ClipRecorder(() => $('game'));
+async function shareClip() {
+  const f = clip.file();
+  if (!f) return;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: '¡Mirá este colapso en Contracorriente!' }); return; }
+  } catch (e) { /* cancelado */ }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(f);
+  a.download = f.name;
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
 
 // ---------- Amigos ----------
@@ -553,7 +656,7 @@ function startOnline(m) {
   ui.showScreen('none');
   ui.showHud(true);
   const r = online.room, hn = m.humans.length;
-  ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Minuto global', `${hn} ${hn === 1 ? 'real' : 'reales'}`, 'Online');
+  ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Partida global', `${hn} ${hn === 1 ? 'real' : 'reales'}`, 'Online');
   ui.hideSpectator(); ui.hideBanner(); ui.hideHint();
   ui.banner(String(Math.max(1, Math.ceil(countT))), `${fmt(R.total)} jugadores · ${hn} ${hn === 1 ? 'real' : 'reales'}`, 'count', 900);
   audio.play('count');
@@ -569,17 +672,25 @@ function toMenu() {
   ensureMissions(save, env().today);
   const dailyReady = refreshMenu();
   ui.showScreen('menu');
-  if (dailyReady && !dailyOffered) {
+  if (dailyReady && !dailyOffered && save.rounds >= 1) {
     dailyOffered = true;
     setTimeout(() => { if (state === 'menu' && !ui.modalOpen) ui.openModal('daily'); }, 700);
   }
 }
 
-function startRound() {
+// kind: 'normal' | 'challenge' (desafío del día) | 'weekend' (modo del finde)
+let roundKind = 'normal';
+function startRound(kind = 'normal') {
   ui.closeModal();
+  if (typeof kind !== 'string') kind = 'normal';
+  const wk = weekendMode();
+  if (kind === 'weekend' && !wk) kind = 'normal';
+  roundKind = kind;
   // Partida guiada: la primera ronda protege 3 bifurcaciones y la segunda, una
-  const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
-  R = new Round({ seed: randSeed(), guided });
+  const guided = kind === 'normal' ? (save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0) : 0;
+  const seed = kind === 'challenge' ? challengeSeed(challengeDay()) : randSeed();
+  R = new Round({ seed, guided, mode: kind === 'weekend' ? wk.id : 'normal' });
+  clip.reset();
   ui.setOnlineMode(false);
   resetView();
   pred = null;
@@ -593,9 +704,10 @@ function startRound() {
   ui.showHud(true);
   ui.setRival(R.rivalName, botRankLabel(hash01(R.rival, R.seed), save.pr));
   ui.hideSpectator(); ui.hideBanner(); ui.hideHint();
-  ui.banner(String(countT), `${fmt(R.n + 1)} jugadores listos`, 'count', 900);
+  ui.banner(String(countT), kind === 'challenge' ? 'Desafío del día: la misma ronda para todos' : kind === 'weekend' ? `Modo del finde: ${wk.name}` : `${fmt(R.n + 1)} jugadores listos`, 'count', 900);
   audio.play('count');
   if (tutorial) ui.hint('Arrastrá el dedo o el mouse para moverte.', 3000);
+  else if (kind === 'weekend') ui.hint(wk.desc, 3200);
   else ui.hint(`Tu rival es ${R.rivalName}: durá más que él.`, 2600);
 }
 
@@ -607,9 +719,16 @@ function finishRound({ quick = false } = {}) {
     if (online.room) ui.openModal('room');
     return;
   }
-  lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
+  lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins, tip: lastTip, kind: R.online ? 'online' : roundKind };
+  track({ e: 'round', mode: lastSum.kind === 'weekend' ? R.mode : lastSum.kind, alive: lastSum.alive, fork: lastSum.forksSeen - 1, why: lastSum.why || '', rank: lastSum.rank });
+  if (lastSum.kind === 'challenge') {
+    lastSum.challengeBest = recordChallenge(save, lastSum, challengeDay());
+    submitScore('daily-' + challengeDay(), save.challenge.best, save.challenge.log);
+  } else if (!R.online) submitScore('week-' + weekKey(), lastSum.score, '');
   const rep = applyRound(save, lastSum);
   persist();
+  cloudSoon();
+  flushEvents();
   ui.hideDash();
   if (quick) {
     ui.toast(`Ronda anterior: #${fmt(lastSum.rank)}`, `+${fmt(rep.gain)} XP · +${fmt(rep.coins)} destellos · ${rep.pr.delta >= 0 ? '+' : ''}${fmt(rep.pr.delta)} PR`);
@@ -626,7 +745,10 @@ function finishRound({ quick = false } = {}) {
   if (R.online) {
     ui.renderStandings(R.standings, net && net.id);
     ui.setAgain('Volver a la sala', null);
-  } else ui.setAgain('Jugar otra', nextT);
+  } else if (lastSum.kind === 'challenge') { ui.setAgain('Reintentar desafío', null); nextT = Infinity; }
+  else ui.setAgain('Jugar otra', nextT);
+  ui.setClip(clip.available);
+  if (rep.shieldUsed) setTimeout(() => { ui.toast('Escudo de racha', `Faltaste un día y tu racha de ${save.streak} días sigue viva`); audio.play('claim'); }, 900);
 
   if (lastSum.outlier) { audio.play('outlier'); buzz([30, 50, 30, 50, 60]); }
   if (rep.after.level > rep.before.level) {
@@ -642,12 +764,14 @@ function finishRound({ quick = false } = {}) {
       }, 1300);
     }
   }
-  let delay = 1000;
-  const later = fn => { setTimeout(fn, delay); delay += 800; };
+  // Como mucho 4 avisos seguidos; el resto queda en el perfil y en los globos del menú
+  let delay = 1000, queued = 0;
+  const later = fn => { if (++queued > 4) return; setTimeout(fn, delay); delay += 800; };
   for (const a of rep.newAch) later(() => { ui.toast('Logro desbloqueado', `${a.name} · reclamá tu premio en el perfil`); audio.play('ach'); });
   if (rep.passAfter > rep.passBefore) later(() => { ui.toast('Pase de temporada', `Nivel ${rep.passAfter} · tenés premios para reclamar`); audio.play('levelup'); });
   for (const m of rep.missionsDone) later(() => { ui.toast('Misión lista para reclamar', missionText(m)); audio.play('claim'); });
   for (const k of rep.newSkins) later(() => { ui.toast('Skin desbloqueada', k.name); audio.play('buy'); });
+  for (const f of newlyUnlocked(save.rounds - 1, save.rounds)) later(() => { ui.toast('¡Nuevo!', `Desbloqueaste ${f.name}`); audio.play('claim'); });
   for (const k of rep.newTrails) later(() => { ui.toast('Estela desbloqueada', k.name); audio.play('buy'); });
   for (const k of rep.newMusic) later(() => { ui.toast('Música desbloqueada', k.name); audio.play('buy'); });
   for (const k of rep.newNames) later(() => { ui.toast('Estilo de nombre desbloqueado', k.name); audio.play('buy'); });
@@ -664,8 +788,21 @@ function finishRound({ quick = false } = {}) {
   }
 }
 
-function openShare() {
+async function shareChallenge() {
+  const text = challengeShareText(save);
+  try { if (navigator.share) { await navigator.share({ text }); return 'shared'; } } catch (e) { /* cancelado */ }
+  try { await navigator.clipboard.writeText(text); return 'copied'; } catch (e) { return text; }
+}
+
+async function openShare() {
   if (!lastSum) return;
+  if (lastSum.kind === 'challenge') {
+    audio.play('ui');
+    const r = await shareChallenge();
+    if (r === 'copied') ui.toast('Desafío del día', 'Resultado copiado: pegalo donde quieras');
+    else if (r !== 'shared') ui.toast('Desafío del día', r.split('\n')[1] || r);
+    return;
+  }
   audio.play('ui');
   const li = levelInfo(save.xp);
   const image = renderShareCard(lastSum, {
@@ -706,7 +843,7 @@ function handle(e) {
       break;
     }
     case 'gatePass': audio.play('pass'); break;
-    case 'forkAnnounce': announce(e.fork); break;
+    case 'forkAnnounce': announce(e.fork); if (state === 'playing') clip.start(); break;
     case 'forkResolved': onForkResolved(e); break;
     case 'playerDied': onPlayerDied(e); break;
     case 'milestone':
@@ -769,6 +906,7 @@ function announce(f) {
 }
 
 function onForkResolved(e) {
+  if (!R.demo) clip.stopAfter(1800, !!(e.collapsed.length || e.lottery));
   if (e.fx && e.fx.length) fx.fall(e.fx, C.danger);
   if (R.demo) return;
   // Resultado de la predicción del espectador
@@ -816,7 +954,22 @@ function onForkResolved(e) {
   }
 }
 
+// Qué pasó y qué podrías haber hecho distinto (una línea)
+let lastTip = '';
+function deathTip(e) {
+  const i = e.info || {};
+  if (e.why === 'wall') return i.short && i.short <= 30 ? `Te faltaron ${i.short} px para pasar por el hueco: ¡casi!` : 'El hueco estaba lejos: mirá el próximo muro con tiempo y movete antes.';
+  if (e.why === 'lottery') return 'En muerte súbita, si todos van al mismo camino cae la mitad al azar: separate a tiempo.';
+  const pct = Math.round((i.share || 0) * 100);
+  let t = e.why === 'inverted' ? `Era inversión: caía el camino más vacío y el ${LANE[i.lane] || ''} tenía solo el ${pct}%.` : `El ${pct}% de la multitud eligió tu camino (${LANE[i.lane] || '?'}).`;
+  if (i.dashable) t += ` Con un impulso al ${LANE[i.safeLane]} te salvabas.`;
+  else if (i.usedDash) t += ' Usaste el impulso, pero hacia un camino que también cayó.';
+  else t += ' Mirá la proyección (→): muestra hacia dónde va la gente.';
+  return t;
+}
+
 function onPlayerDied(e) {
+  lastTip = deathTip(e);
   fx.burst(e.x, e.y, 30, skinColor(playerSkin(), R.t), 260, 3.5);
   fx.addTrauma(0.7);
   ui.flash(C.danger);
@@ -827,7 +980,7 @@ function onPlayerDied(e) {
     : e.why === 'inverted' ? `Era una inversión: caía el más vacío (${fmt(e.sameEvent + 1)} cayeron con vos)`
     : `Elegiste el camino de la mayoría (${fmt(e.sameEvent + 1)} cayeron con vos)`;
   ui.banner(e.why === 'wall' ? 'Chocaste' : 'Caíste', sub, 'bad', 1800);
-  ui.showSpectator(e.rank, R.total, e.pct);
+  ui.showSpectator(e.rank, R.total, e.pct, lastTip);
 }
 
 // ---------- Ciclo por cuadro ----------
@@ -954,7 +1107,7 @@ function frame(now) {
       if (key !== humansKey) {
         humansKey = key;
         const r = online.room;
-        ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Minuto global', `${R.aliveH}/${R.humans.length} reales vivos`, 'Online');
+        ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Partida global', `${R.aliveH}/${R.humans.length} reales vivos`, 'Online');
       }
     }
     ui.hud(R);
@@ -1080,7 +1233,6 @@ function setupPWA() {
 }
 
 // ---------- Arranque ----------
-$('lobbyCount').textContent = fmt(CFG.BOTS + 1);
 $('appVersion').textContent = 'v' + CFG.VERSION;
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
 // Temas grabados: embebidos en la página (archivo suelto / artifact) o descargados del sitio
@@ -1098,6 +1250,15 @@ audio.loadSample = async name => {
 setupPWA();
 applyTrack();
 toMenu();
+track({ e: 'session' });
+cloudReady = true;
+setTimeout(flushEvents, 3000);
+if (save.rounds > 0) setTimeout(() => ensureCloud(), 1500);
+// Premio de regreso: si hacía 3 días o más que no jugabas
+{
+  const back = comebackReward(save);
+  if (back) { persist(); setTimeout(() => { audio.play('claim'); ui.openModal('comeback', back); }, 900); }
+}
 // Invitación: ?sala=ABCD abre el modo online con el código cargado
 try {
   const code = new URLSearchParams(location.search).get('sala');

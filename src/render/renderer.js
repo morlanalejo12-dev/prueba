@@ -799,11 +799,21 @@ export class Renderer {
           cx.font = `700 10px ${FM}`;
           cx.fillText((up ? '+' : '') + Math.round(tr * 100), xm, ay - 9);
         }
+        // Proyección: cómo va a quedar si cada uno sigue hacia donde va
+        let tagY = y + 16;
+        if (!fogOn && f.proj) {
+          let ph = 0;
+          for (let j = 1; j < f.k; j++) if (f.invert ? f.proj[j] < f.proj[ph] : f.proj[j] > f.proj[ph]) ph = j;
+          cx.fillStyle = k === ph ? C.danger : C.mint;
+          cx.font = `700 11px ${FM}`;
+          cx.fillText('→ ' + Math.round(f.proj[k] * 100) + '%', xm, y + 16);
+          tagY = y + 30;
+        }
         const tag = L.gold ? 'x2' : L.narrow ? 'ANGOSTO' : '';
         if (tag) {
           cx.fillStyle = L.gold ? C.gold : C.muted;
           cx.font = `700 11px ${FM}`;
-          cx.fillText(tag, xm, y + 16);
+          cx.fillText(tag, xm, tagY);
         }
       } else {
         const y = clamp(Y(f.endY) - 26, 90, this.viewH - 30);

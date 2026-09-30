@@ -62,7 +62,8 @@ function decide(R, i, f) {
   if (c.want[i] < 0) c.want[i] = weightedLane(R, f);
   if (f.variant === 'fog' || ty === BOT.STUB || ty === BOT.LATE) return;
   if (ty === BOT.HERD) {
-    if (r() < 0.85) {
+    // En la primera bifurcación la manada se deja llevar menos: la gente queda más repartida
+    if (r() < (f.i === 0 ? 0.35 : 0.85)) {
       let m = 0, best = -1;
       for (let k = 0; k < f.k; k++) {
         const v = f.intent[k] + (f.lanes[k].gold ? 0.08 : 0);

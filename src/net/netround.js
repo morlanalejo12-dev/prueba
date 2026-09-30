@@ -189,7 +189,7 @@ export class NetRound {
     if (m.f) {
       const f = this.lvl.forks[m.f.i];
       if (f) {
-        f.intent = m.f.in; f.counts = m.f.c; f.trend = m.f.tr;
+        f.intent = m.f.in; f.counts = m.f.c; f.trend = m.f.tr; if (m.f.pj && m.f.pj.length) f.proj = m.f.pj;
       }
     }
   }

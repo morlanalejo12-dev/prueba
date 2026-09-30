@@ -17,6 +17,10 @@ En el plan gratis el servidor se duerme tras 15 minutos sin uso; la primera visi
 
 Si alguien abre el `index.html` descargado, también puede jugar online: en **Online con amigos** pone la dirección del servidor (por ejemplo `contracorriente.onrender.com`) y queda guardada. Para no tener que escribirla, se puede fijar en `ONLINE_URL` dentro de `src/config.js` y volver a armar el juego.
 
+**Guardar datos de forma permanente (cuentas, tablas y estadísticas):** sin configuración, el servidor los guarda en un archivo, pero el plan gratis de Render borra ese disco en cada despliegue. Para que duren:
+1. Creá un proyecto gratis en [supabase.com](https://supabase.com) y, en *SQL Editor*, ejecutá: `create table kv (ns text, key text, value jsonb, updated timestamptz default now(), primary key (ns, key));`
+2. En Render → tu servicio → *Environment*, agregá `SUPABASE_URL` y `SUPABASE_KEY` (la *service_role key* de *Project Settings → API*).
+
 Para probar el servidor en tu computadora: `npm install`, `npm run build` y `npm start`, y abrí `http://localhost:8080` en dos pestañas.
 
 Solo la versión sin online (sin servidor) también se puede publicar en Netlify o Cloudflare Pages con el comando `npm run build` y la carpeta `dist/site`, o en GitHub Pages con el workflow `.github/workflows/pages.yml` (en repos privados requiere un plan pago). Una vez publicado, desde el celular se puede instalar como app.
@@ -46,6 +50,23 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 - **Pase de temporada** de 100 niveles (20 gratis), **Tienda Premium** (se habilita en la v1.0) y **amigos**.
 
 ## Novedades
+
+### v0.12 · Retención y justicia
+- **Morir se siente justo:**
+  - La primera bifurcación tiene 4 caminos y la multitud está más repartida: aunque elijas al azar, sobrevivís 3 de cada 4 veces (antes, 1 de cada 2).
+  - **Proyección (→ %)** debajo de cada camino: muestra cómo va a quedar si cada uno sigue hacia donde va. Es información para leer, no suerte.
+  - Cada muerte se explica en una línea: qué porcentaje eligió tu camino, si un impulso te salvaba o cuántos píxeles te faltaron contra el muro.
+- **Sin esperas:** la partida global arranca 10 segundos después de que entra alguien (o apenas se juntan 8), y entre rondas hay 8 segundos. Solo, la próxima ronda arranca a los 6 segundos.
+- **Menú que se habilita de a una sección:** un jugador nuevo ve solo *Jugar*. Cada pocas rondas se habilita algo nuevo (colección, misiones, tienda, pase, online, música, nombre, amigos, premium), con aviso y un brillo hasta que lo abrís. Quien ya jugaba lo ve todo como antes.
+- **Desafío del día:** la misma ronda para todos, cambia cada día. Cuenta tu mejor intento y se comparte con emojis (🟩🟥⬛), tipo Wordle.
+- **Ranking:** tablas del desafío de hoy y de la semana, global o solo amigos (botón con la copa).
+- **Clip del colapso:** el juego graba el último colapso y en los resultados aparece el botón *Clip* para compartirlo o descargarlo.
+- **Modo del finde:** sábados y domingos hay un modo especial que rota cada semana (Todo al revés, Niebla total o Turbo).
+- **Metas cercanas** en los resultados: "A 4 puestos del Top 10", "A 120 puntos de tu récord".
+- **Escudo de racha:** si faltás un día, una vez por semana, tu racha no se corta. **Premio de regreso** si volvés después de 3 días o más.
+- **Cuenta en la nube:** el progreso se guarda en el servidor y se pasa a otro dispositivo con un código de recuperación (Ajustes).
+- **Estadísticas anónimas de uso** en `/api/stats`: jugadores, sesiones, rondas, en qué bifurcación se muere cada uno, qué secciones se abren y retención al día 1 y 7.
+- Menos avisos seguidos (máximo 4 por ronda); las reglas pasaron a Ajustes y la copa del Ranking ocupa su lugar.
 
 ### v0.11
 - **Título a elección en el nivel 120** (como en Black Ops 4): al llegar al máximo, en Perfil → Niveles elegís el título de cualquier nivel para lucirlo en el menú, el perfil, los resultados y la sala online.
@@ -200,6 +221,8 @@ npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 | `src/game/music.js`, `src/game/names.js` | Catálogos de música y de estilos de nombre |
 | `src/game/pass.js` | Pase de temporada: niveles, premios y reclamos |
 | `server/friends.js` | Presencia de amigos e invitaciones |
+| `server/api.js`, `server/store.js` | API HTTP (cuentas en la nube, tablas, estadísticas) y almacenamiento (archivo o Supabase) |
+| `src/game/events.js`, `src/game/unlocks.js` | Desafío del día, modo del finde, racha, regreso y menú progresivo |
 | `assets/music/` | Temas grabados (MP3); el build los embebe en el `index.html` |
 | `src/ui/` | Menú, HUD, resultados, ventanas e íconos |
 | `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |

@@ -10,7 +10,7 @@ export const CFG = Object.freeze({
   BOTS: 1200,         // tamaño de la multitud simulada
   FORKS: 6,           // bifurcaciones por ronda
   COUNTDOWN_S: 3,
-  NEXT_S: 10,         // segundos hasta la próxima ronda (en el juego real: el próximo :00)
+  NEXT_S: 6,          // segundos hasta la próxima ronda solo
   SPEED0: 255,        // velocidad de caída inicial (unidades/s)
   SPEED_STEP: 12,     // aumento de velocidad por bifurcación superada
   APPROACH: 640,      // distancia de decisión antes de los carriles

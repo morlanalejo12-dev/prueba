@@ -1078,6 +1078,39 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .title-chip small { font: 600 10px/1 var(--f-mono); color: var(--muted); }
 .title-chip.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(255, 209, 102, 0.3); }
 .title-chip.on b { color: var(--gold); }
+
+/* ---------- v0.12 · Explicación y metas ---------- */
+.spect-tip { display: block; margin-top: 6px; font: 600 13px/1.35 var(--f-body); color: var(--gold); }
+.results .tip { margin: 2px 0 0; font: 600 13px/1.4 var(--f-body); color: var(--gold); }
+.results .goal { margin: 6px auto 0; padding: 6px 12px; width: fit-content; max-width: 100%; border-radius: var(--pill); background: rgba(94, 242, 194, 0.12); border: 1px solid rgba(94, 242, 194, 0.4); font: 700 13px/1.3 var(--f-body); color: var(--mint); }
+.tile.locked-tile, .btn-online.locked-tile { opacity: 0.45; cursor: default; position: relative; }
+.tile.locked-tile::after, .btn-online.locked-tile::after {
+  content: attr(data-soon); position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--pill); background: var(--ink-3, #1d1747); border: 1px solid var(--edge); font: 700 10px/1.4 var(--f-mono); color: var(--muted);
+}
+@keyframes freshPulse { 50% { box-shadow: 0 0 0 2px var(--mint), 0 0 18px rgba(94, 242, 194, 0.45); } }
+.tile.fresh, .btn-online.fresh, .btn-challenge.fresh { animation: freshPulse 1.6s ease-in-out infinite; border-color: var(--mint); }
+.menu-grid[data-n="1"], .menu-grid[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.menu-grid[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.event-row { width: min(100%, 320px); display: grid; grid-template-columns: 1fr; gap: 8px; }
+.event-row:has(#weekendBtn:not([hidden])) { grid-template-columns: 1fr 1fr; }
+.btn-challenge {
+  appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; text-align: left;
+  padding: 10px 14px; border-radius: var(--r2); color: var(--text);
+  background: linear-gradient(120deg, rgba(255, 209, 102, 0.14), rgba(94, 242, 194, 0.08)); border: 1px solid rgba(255, 209, 102, 0.4);
+}
+.btn-challenge b { font: 800 13px/1.1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.btn-challenge small { font: 600 11px/1.3 var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.btn-challenge.weekend { background: linear-gradient(120deg, rgba(255, 84, 112, 0.16), rgba(180, 140, 255, 0.12)); border-color: rgba(255, 84, 112, 0.45); }
+.btn-challenge.weekend b { color: var(--danger); }
+.btn-challenge.weekend small { white-space: normal; }
+.tabs.scope { margin-top: -6px; }
+.challenge-log { margin: 0; text-align: center; font-size: 22px; letter-spacing: 2px; }
+.board-list li span { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cloud-code { font: 800 18px/1.2 var(--f-mono); letter-spacing: 0.12em; color: var(--mint); word-break: break-all; }
+.cloud-box .note { margin: 0; }
+.locked-tile .badge { display: none; }
+ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 </style>
 </head>
 <body>
@@ -1130,8 +1163,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     </button>
     <div class="top-actions">
       <button id="coinsBtn" class="coin-pill" type="button" aria-label="Destellos: abrir la tienda"><span id="coinIcon"></span><b id="coins">0</b></button>
-      <button id="helpBtn" class="icon-btn" type="button" aria-label="Reglas">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/></svg>
+      <button id="boardsBtn" class="icon-btn" type="button" aria-label="Ranking">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
       </button>
       <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ajustes">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
@@ -1154,9 +1187,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     </button>
     <button id="play" class="btn-play" type="button">Jugar</button>
     <button id="onlineBtn" class="btn-online" type="button">
-      <span class="live-dot" aria-hidden="true"></span><span class="bo-main">Online con amigos</span><small id="onlineSub">Minuto global · salas privadas</small>
+      <span class="live-dot" aria-hidden="true"></span><span class="bo-main">Online con amigos</span><small id="onlineSub">Partida global · salas privadas</small>
     </button>
-    <p class="online"><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
+    <div class="event-row">
+      <button id="challengeBtn" class="btn-challenge" type="button"><b>Desafío del día</b><small id="challengeSub">La misma ronda para todos</small></button>
+      <button id="weekendBtn" class="btn-challenge weekend" type="button" hidden><b id="weekendName">Modo del finde</b><small id="weekendSub"></small></button>
+    </div>
     <nav class="menu-grid" aria-label="Secciones">
       <button class="tile" type="button" data-open="missions">
         <span id="icMissions"></span><span>Misiones</span><small id="tMissions">0/3</small><em id="bMissions" class="badge" hidden>!</em>
@@ -1206,6 +1242,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       <div class="rank-line"><span id="rRank" class="big">#1</span><span id="rOf" class="of">de 1.201</span></div>
       <p id="rPct" class="pct"></p>
       <p id="rWhy" class="why"></p>
+      <p id="rTip" class="tip" hidden></p>
+      <p id="rGoal" class="goal" hidden></p>
     </div>
     <dl class="kv">
       <div><dt>Caminos</dt><dd id="rForks">0/6</dd></div>
@@ -1237,6 +1275,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       <button id="again" class="btn btn-primary" type="button">Jugar otra <span id="rNext" class="count-pill">10</span></button>
       <div class="row">
         <button id="shareBtn" class="btn btn-ghost" type="button">Compartir</button>
+        <button id="clipBtn" class="btn btn-ghost" type="button" hidden>Clip</button>
         <button id="home" class="btn btn-ghost" type="button">Menú</button>
       </div>
     </div>
@@ -1274,8 +1313,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     FORKS: 6,
     // bifurcaciones por ronda
     COUNTDOWN_S: 3,
-    NEXT_S: 10,
-    // segundos hasta la próxima ronda (en el juego real: el próximo :00)
+    NEXT_S: 6,
+    // segundos hasta la próxima ronda solo
     SPEED0: 255,
     // velocidad de caída inicial (unidades/s)
     SPEED_STEP: 12,
@@ -1307,7 +1346,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     // Motor
     FIXED_DT: 1 / 120,
     // Servidor online por defecto cuando el juego se abre como archivo o dentro de un artifact
-    VERSION: true ? "0.11.0" : "dev",
+    VERSION: true ? "0.12.0" : "dev",
     ONLINE_URL: "wss://contracorriente.onrender.com/ws"
   });
   var BOT = Object.freeze({ HERD: 0, CONTRA: 1, STUB: 2, LATE: 3 });
@@ -1412,7 +1451,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
   // src/sim/level.js
   var NARROW_W = 56;
-  function buildLevel(r) {
+  function buildLevel(r, mode2 = "normal") {
     const { WALL, DIV, W } = CFG;
     const gates = [], forks = [], orbs = [];
     const invertAt = r() < CFG.INVERT_CHANCE ? 2 + Math.floor(r() * (CFG.FORKS - 2)) : -1;
@@ -1426,14 +1465,17 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         else gates.push(buildGate(r, f, y, type, orbs));
       }
       y += 280;
-      const k = f === 0 ? 2 : f >= 3 && r() < 0.22 ? 4 : r() < 0.5 ? 2 : 3;
+      let k = f === 0 ? 4 : f >= 3 && r() < 0.22 ? 4 : r() < 0.5 ? 2 : 3;
+      if (mode2 === "turbo") k = 2;
       let variant = "normal";
       if (f >= 1) {
         const v = r();
         variant = v < 0.24 ? "golden" : v < 0.44 ? "narrow" : v < 0.58 ? "fog" : "normal";
       }
       if (variant === "narrow" && k === 4) variant = "normal";
-      const invert = f === invertAt;
+      if (mode2 === "niebla" && f >= 1) variant = "fog";
+      if (mode2 === "turbo" && variant === "narrow") variant = "normal";
+      const invert = mode2 === "inversion" ? f >= 1 : mode2 === "niebla" ? false : f === invertAt;
       if (invert && variant === "fog") variant = "normal";
       const inner = W - 2 * WALL - DIV * (k - 1);
       const narrowIdx = variant === "narrow" ? Math.floor(r() * k) : -1;
@@ -1666,7 +1708,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (c.want[i] < 0) c.want[i] = weightedLane(R2, f);
     if (f.variant === "fog" || ty === BOT.STUB || ty === BOT.LATE) return;
     if (ty === BOT.HERD) {
-      if (r() < 0.85) {
+      if (r() < (f.i === 0 ? 0.35 : 0.85)) {
         let m = 0, best = -1;
         for (let k = 0; k < f.k; k++) {
           const v = f.intent[k] + (f.lanes[k].gold ? 0.08 : 0);
@@ -1809,11 +1851,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var TAIL = ["_ar", "_mx", "_co", "", "_07", "_99", "_uy", "_cl", "x", "z"];
   var Round = class {
     // guided: cantidad de bifurcaciones en las que el jugador nuevo está protegido (primera partida)
-    constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0 } = {}) {
+    constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0, mode: mode2 = "normal" } = {}) {
       this.seed = seed >>> 0;
       this.r = mulberry32(this.seed);
       this.demo = demo;
-      this.lvl = buildLevel(this.r);
+      this.mode = mode2;
+      this.speedMul = mode2 === "turbo" ? 1.3 : 1;
+      this.lvl = buildLevel(this.r, mode2);
       this.n = bots;
       this.crowd = createCrowd(bots, this.r);
       this.aliveBots = bots;
@@ -1894,7 +1938,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     step(dt) {
       this.t += dt;
       const f = this.fork;
-      this.speed = CFG.SPEED0 + CFG.SPEED_STEP * this.cf;
+      this.speed = (CFG.SPEED0 + CFG.SPEED_STEP * this.cf) * this.speedMul;
       this.pY += this.speed * dt;
       if (f && !this.ended && !f.announced && this.pY >= f.startY - 160) {
         f.announced = true;
@@ -1916,12 +1960,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       for (let i = 0; i < maxSteps && !this.ended; i++) this.step(1 / 60);
     }
     computeCounts(f) {
-      const c = this.crowd, intent = new Array(f.k).fill(0), counts = new Array(f.k).fill(0);
+      const c = this.crowd, intent = new Array(f.k).fill(0), counts = new Array(f.k).fill(0), proj = new Array(f.k).fill(0);
       for (let i = 0; i < this.n; i++) {
         if (!c.alive[i]) continue;
         const ln = c.lane[i] >= 0 ? c.lane[i] : laneAt(f, c.x[i]);
         intent[ln]++;
         if (c.lane[i] >= 0) counts[ln]++;
+        proj[c.lane[i] >= 0 ? c.lane[i] : c.want[i] >= 0 && c.want[i] < f.k ? c.want[i] : ln]++;
       }
       if (this.pAlive) {
         const ln = this.pLane >= 0 ? this.pLane : laneAt(f, this.px);
@@ -1931,6 +1976,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       let tot = 0;
       for (const v of intent) tot += v;
       f.intent = intent.map((v) => v / (tot || 1));
+      f.proj = proj.map((v) => v / (tot || 1));
       f.counts = counts;
       if (!f.hist) f.hist = [];
       f.hist.push(f.intent);
@@ -1985,6 +2031,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         if (Math.abs(this.pY - g.y) < GATE_HALF + P) {
           const m = clearance(g, this.px, this.guided > this.cf ? P * 0.45 : P, this.t);
           if (m < 0) {
+            this.deathInfo = { short: Math.max(1, Math.round(-m)) };
             this.killPlayer("wall", 0);
             return;
           }
@@ -2000,6 +2047,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         if (Math.abs(this.pY - ng.y) < GATE_HALF + P) {
           const m = clearance(ng, this.px, P, this.t);
           if (m < 0) {
+            this.deathInfo = { short: Math.max(1, Math.round(-m)) };
             this.killPlayer("wall", 0);
             return;
           }
@@ -2128,6 +2176,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         gold = f.lanes[this.pLane].gold;
         if (col.includes(this.pLane) || lottery && lottery.has(-1)) {
           outcome = "died";
+          let tot = 0;
+          for (const v of f.counts) tot += v;
+          const safe = [this.pLane - 1, this.pLane + 1].filter((k) => k >= 0 && k < f.k && !col.includes(k));
+          this.deathInfo = {
+            share: tot ? f.counts[this.pLane] / tot : 0,
+            lane: this.pLane,
+            dashable: safe.length > 0 && this.dashFork !== f.i && this.charges + (this.dashFork === f.i ? 1 : 0) > 0,
+            usedDash: this.dashFork === f.i,
+            safeLane: safe.length ? safe[0] : -1
+          };
           this.forkLog.push("lost");
         } else {
           outcome = "survived";
@@ -2156,7 +2214,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const better = this.aliveBots;
       this.rank = better + 1;
       this.pct = Math.max(0, (this.n - better - sameEvent) / this.n * 100);
-      this.emit("playerDied", { why, rank: this.rank, pct: this.pct, sameEvent, x: this.px, y: this.pY });
+      this.emit("playerDied", { why, rank: this.rank, pct: this.pct, sameEvent, x: this.px, y: this.pY, info: this.deathInfo || null });
     }
     finish() {
       const c = this.crowd;
@@ -2209,7 +2267,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         forksSeen: this.forkLog.length,
         beatRival: this.beatRival,
         rival: this.rivalName,
-        dashes: this.dashes
+        dashes: this.dashes,
+        forkLog: [...this.forkLog],
+        mode: this.mode
       };
     }
   };
@@ -4141,11 +4201,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
             cx.font = `700 10px ${FM}`;
             cx.fillText((up2 ? "+" : "") + Math.round(tr * 100), xm, ay - 9);
           }
+          let tagY = y + 16;
+          if (!fogOn && f.proj) {
+            let ph = 0;
+            for (let j = 1; j < f.k; j++) if (f.invert ? f.proj[j] < f.proj[ph] : f.proj[j] > f.proj[ph]) ph = j;
+            cx.fillStyle = k === ph ? C2.danger : C2.mint;
+            cx.font = `700 11px ${FM}`;
+            cx.fillText("→ " + Math.round(f.proj[k] * 100) + "%", xm, y + 16);
+            tagY = y + 30;
+          }
           const tag2 = L.gold ? "x2" : L.narrow ? "ANGOSTO" : "";
           if (tag2) {
             cx.fillStyle = L.gold ? C2.gold : C2.muted;
             cx.font = `700 11px ${FM}`;
-            cx.fillText(tag2, xm, y + 16);
+            cx.fillText(tag2, xm, tagY);
           }
         } else {
           const y = clamp(Y(f.endY) - 26, 90, this.viewH - 30);
@@ -4468,6 +4537,114 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return { kind: rw.kind, item: rw.item };
   }
 
+  // src/game/unlocks.js
+  var FEATURES = [
+    { id: "collection", name: "Colección", rounds: 1 },
+    { id: "missions", name: "Misiones", rounds: 2 },
+    { id: "shop", name: "Tienda", rounds: 3 },
+    { id: "season", name: "Pase de temporada", rounds: 4 },
+    { id: "online", name: "Online con amigos", rounds: 5 },
+    { id: "music", name: "Música", rounds: 6 },
+    { id: "names", name: "Tu nombre", rounds: 7 },
+    { id: "friends", name: "Amigos", rounds: 8 },
+    { id: "challenge", name: "Desafío del día", rounds: 3 },
+    { id: "premium", name: "Tienda Premium", rounds: 10 }
+  ];
+  var isUnlocked = (save2, id) => {
+    const f = FEATURES.find((x) => x.id === id);
+    return !f || save2.ownerAll || save2.rounds >= f.rounds;
+  };
+  var newlyUnlocked = (before, after) => FEATURES.filter((f) => before < f.rounds && after >= f.rounds);
+  var nextFeature = (save2) => FEATURES.filter((f) => !isUnlocked(save2, f.id)).sort((a, b) => a.rounds - b.rounds)[0] || null;
+
+  // src/game/events.js
+  var pad = (n) => String(n).padStart(2, "0");
+  var dk = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  var addDays = (d, n) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+  };
+  var challengeDay = (now = /* @__PURE__ */ new Date()) => dk(now);
+  function challengeSeed(day) {
+    let h = 2166136261;
+    for (let i = 0; i < day.length; i++) h = Math.imul(h ^ day.charCodeAt(i), 16777619);
+    return (h ^ 23063) >>> 0;
+  }
+  function recordChallenge(save2, sum, day) {
+    const c = save2.challenge.day === day ? save2.challenge : { day, best: 0, tries: 0, log: "", rank: 0, total: 0 };
+    c.tries++;
+    const better = sum.score > c.best;
+    if (better) {
+      c.best = sum.score;
+      c.log = forkEmojis(sum);
+      c.rank = sum.rank;
+      c.total = sum.total;
+    }
+    save2.challenge = c;
+    return better;
+  }
+  function forkEmojis(sum) {
+    const log = sum.forkLog || [];
+    let s = "";
+    for (let i = 0; i < Math.max(6, log.length); i++) s += log[i] === "ok" ? "🟩" : log[i] === "lost" ? "🟥" : "⬛";
+    return s;
+  }
+  function challengeShareText(save2) {
+    const c = save2.challenge, [y, m, d] = c.day.split("-");
+    return `Contracorriente · Desafío ${d}/${m} 🌊
+${c.log}
+#${c.rank} de ${c.total} · ${c.best} pts (${c.tries} ${c.tries === 1 ? "intento" : "intentos"})
+¿Me ganás?`;
+  }
+  var WEEKEND_MODES = [
+    { id: "inversion", name: "Todo al revés", desc: "Todas las bifurcaciones son inversión: cae el camino con MENOS gente." },
+    { id: "niebla", name: "Niebla total", desc: "No ves a la multitud en ninguna bifurcación: jugá con el instinto." },
+    { id: "turbo", name: "Turbo", desc: "Siempre 2 caminos y un 30% más de velocidad." }
+  ];
+  var weekKey = (now = /* @__PURE__ */ new Date()) => {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    const y0 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return `${d.getUTCFullYear()}-W${pad(Math.ceil(((d - y0) / 864e5 + 1) / 7))}`;
+  };
+  function weekendMode(now = /* @__PURE__ */ new Date()) {
+    const wd = now.getDay();
+    if (wd !== 0 && wd !== 6) return null;
+    const idx = Math.floor(hash01(Number(weekKey(now).replace(/\D/g, "")), 77) * WEEKEND_MODES.length);
+    return WEEKEND_MODES[idx];
+  }
+  function applyStreak(save2, now = /* @__PURE__ */ new Date()) {
+    const today = dk(now), y1 = dk(addDays(now, -1)), y2 = dk(addDays(now, -2));
+    if (save2.lastDay === today) return { shield: false };
+    let shield = false;
+    if (save2.lastDay === y1) save2.streak++;
+    else if (save2.lastDay === y2 && save2.shieldWeek !== weekKey(now) && save2.streak > 0) {
+      save2.streak++;
+      save2.shieldWeek = weekKey(now);
+      shield = true;
+    } else save2.streak = 1;
+    save2.lastDay = today;
+    return { shield };
+  }
+  function streakAlive(save2, now = /* @__PURE__ */ new Date()) {
+    const today = dk(now), y1 = dk(addDays(now, -1)), y2 = dk(addDays(now, -2));
+    if (save2.lastDay === today || save2.lastDay === y1) return save2.streak;
+    if (save2.lastDay === y2 && save2.shieldWeek !== weekKey(now)) return save2.streak;
+    return 0;
+  }
+  function comebackReward(save2, now = /* @__PURE__ */ new Date()) {
+    if (!save2.rounds || !save2.lastDay || save2.lastComeback === dk(now)) return null;
+    const [y, m, d] = save2.lastDay.split("-").map(Number);
+    const days = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(y, m - 1, d)) / 864e5);
+    if (days < 3) return null;
+    const coins = 150 + 25 * Math.min(days, 10);
+    save2.coins += coins;
+    save2.lastComeback = dk(now);
+    return { days, coins };
+  }
+
   // src/game/progress.js
   var SAVE_KEY = "cc-save-v3";
   var LEGACY_KEY = "cc-stats";
@@ -4517,7 +4694,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     friendId: "",
     friends: [],
     // v0.11
-    titleSel: 0
+    titleSel: 0,
+    // v0.12
+    seenFeat: {},
+    shieldWeek: "",
+    shieldUsed: false,
+    lastSeen: "",
+    challenge: { day: "", best: 0, tries: 0, log: "" },
+    cloud: null
   };
   var LEGACY = {
     level: {
@@ -4675,17 +4859,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return NAME_STYLES.filter((k) => isOwned(k, ctx));
   };
   var allOwned = (save2) => [...ownedSkins(save2), ...ownedTrails(save2), ...ownedMusic(save2), ...ownedNames(save2)];
-  var pad = (n) => String(n).padStart(2, "0");
-  var dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  var pad2 = (n) => String(n).padStart(2, "0");
+  var dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   var yesterdayOf = (d) => {
     const y = new Date(d);
     y.setDate(y.getDate() - 1);
     return y;
   };
-  function streakNow(save2, now = /* @__PURE__ */ new Date()) {
-    const ok = save2.lastDay === dayKey(now) || save2.lastDay === dayKey(yesterdayOf(now));
-    return ok ? save2.streak : 0;
-  }
+  var streakNow = (save2, now = /* @__PURE__ */ new Date()) => streakAlive(save2, now);
   function localStore() {
     return {
       get(k) {
@@ -4748,7 +4929,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (typeof save2[k] !== "number" || !isFinite(save2[k])) save2[k] = DEFAULTS[k];
     }
     for (const k of ["passXp"]) if (typeof save2[k] !== "number" || !isFinite(save2[k])) save2[k] = 0;
-    for (const k of ["ach", "owned", "codes", "passClaimed", "achClaimed"]) if (!save2[k] || typeof save2[k] !== "object") save2[k] = {};
+    for (const k of ["ach", "owned", "codes", "passClaimed", "achClaimed", "seenFeat"]) if (!save2[k] || typeof save2[k] !== "object") save2[k] = {};
     if (!save2.daily || typeof save2.daily !== "object") save2.daily = { last: "", next: 0 };
     if (!Array.isArray(save2.records)) save2.records = [];
     if (typeof save2.name !== "string") save2.name = "";
@@ -4768,7 +4949,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (!TRAILS.some((k) => k.id === save2.trail)) save2.trail = DEFAULTS.trail;
     if (!MUSIC.some((k) => k.id === save2.track)) save2.track = DEFAULTS.track;
     if (!NAME_STYLES.some((k) => k.id === save2.nameStyle)) save2.nameStyle = DEFAULTS.nameStyle;
-    save2.v = 5;
+    if (data && (data.v || 0) < 6) {
+      for (const f of FEATURES) if (save2.rounds >= f.rounds) save2.seenFeat[f.id] = true;
+    }
+    if (!save2.challenge || typeof save2.challenge !== "object") save2.challenge = { ...DEFAULTS.challenge };
+    save2.v = 6;
     return save2;
   }
   function writeSave(store2, save2) {
@@ -4829,10 +5014,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (sum.outlier) save2.outliers++;
     if (sum.beatRival) save2.rivalsBeaten++;
     const today = dayKey(now);
-    if (save2.lastDay !== today) {
-      save2.streak = save2.lastDay === dayKey(yesterdayOf(now)) ? save2.streak + 1 : 1;
-      save2.lastDay = today;
-    }
+    const shield = applyStreak(save2, now).shield;
     save2.forksSeen += sum.forksSeen;
     save2.forksWon += sum.forksOk;
     save2.pathStreak += sum.forksOk;
@@ -4874,6 +5056,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       passBefore: lv.passBefore,
       passAfter: lv.passAfter,
       passClaimable: claimablePass(save2).length,
+      shieldUsed: shield,
       achClaimable: claimableAch(save2).length,
       newAch,
       newSkins,
@@ -5014,6 +5197,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     prize: "¡Premio!",
     invite: "Invitación",
     levelup: "¡Subiste de nivel!",
+    boards: "Ranking",
+    comeback: "¡Volviste!",
     codes: "Canjear código",
     redeemed: "¡Código canjeado!"
   };
@@ -5185,7 +5370,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const global = el("button", "btn btn-primary online-global");
       global.type = "button";
       global.innerHTML = '<span class="live-dot" aria-hidden="true"></span>';
-      global.append(el("span", "", "Minuto global"), el("small", "", o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : "Una ronda al comenzar cada minuto"));
+      global.append(el("span", "", "Partida global"), el("small", "", o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : "Entrás a la próxima ronda en segundos"));
       global.addEventListener("click", () => go("global"));
       onEnter(name, () => go("global"));
       const create = el("button", "btn btn-ghost", "Crear sala privada");
@@ -5219,7 +5404,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
       const head = el("div", "room-head");
       if (r.pub) {
-        head.append(el("strong", "", "Minuto global"), el("small", "", "Sala pública: juega todo el que esté conectado"));
+        head.append(el("strong", "", "Partida global"), el("small", "", "Sala pública: juega todo el que esté conectado"));
       } else {
         const codeEl = el("strong", "room-code", r.code);
         head.append(el("small", "", "Código de la sala"), codeEl);
@@ -5605,6 +5790,81 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         body.append(card);
       }
     },
+    // Ranking: desafío de hoy o semana; global o solo amigos
+    boards(body, env2) {
+      const st = env2.h.boardsState(), { save: save2 } = env2;
+      const tabs = el("div", "tabs two");
+      for (const [k, n] of [["daily", "Desafío de hoy"], ["week", "Esta semana"]]) {
+        const b = el("button", "", n);
+        b.type = "button";
+        b.setAttribute("aria-selected", String(st.tab === k));
+        b.addEventListener("click", () => env2.h.onBoard(k, st.scope));
+        tabs.append(b);
+      }
+      const scope = el("div", "tabs two scope");
+      for (const [k, n] of [["global", "Global"], ["friends", "Amigos"]]) {
+        const b = el("button", "", n);
+        b.type = "button";
+        b.setAttribute("aria-selected", String(st.scope === k));
+        b.addEventListener("click", () => env2.h.onBoard(st.tab, k));
+        scope.append(b);
+      }
+      body.append(tabs, scope, el("p", "note", st.tab === "daily" ? "Todos juegan la misma ronda del día. Cuenta tu mejor intento." : "Tu mejor puntaje de la semana en partidas solo."));
+      if (st.tab === "daily") {
+        const play = el("button", "btn btn-primary", save2.challenge && save2.challenge.best && save2.challenge.day === env2.today ? "Mejorar mi puntaje" : "Jugar el desafío");
+        play.type = "button";
+        play.addEventListener("click", () => env2.h.onChallenge());
+        body.append(play);
+        if (save2.challenge && save2.challenge.best && save2.challenge.day === env2.today) {
+          const sh = el("button", "btn btn-ghost btn-sm", "Compartir mi resultado");
+          sh.type = "button";
+          sh.addEventListener("click", async () => {
+            const r = await env2.h.onShareChallenge();
+            sh.textContent = r === "copied" ? "¡Copiado!" : r === "shared" ? "¡Listo!" : "Compartir mi resultado";
+          });
+          body.append(el("p", "challenge-log", save2.challenge.log), sh);
+        }
+      }
+      if (st.loading) {
+        body.append(el("p", "empty", "Cargando…"));
+        return;
+      }
+      if (st.error) {
+        body.append(el("p", "empty", st.error));
+        return;
+      }
+      const d = st.data;
+      if (!d) return;
+      const rows = st.scope === "friends" ? d.friends : d.top;
+      if (!rows.length) {
+        body.append(el("p", "empty", st.scope === "friends" ? "Ninguno de tus amigos jugó todavía. ¡Invitalos!" : "Todavía no hay puntajes. ¡Sé el primero!"));
+        return;
+      }
+      const ol = el("ol", "standings board-list");
+      for (const r of rows) {
+        const li = el("li", r.pid === save2.friendId ? "me" : "");
+        const nm = el("span");
+        const lv = el("span");
+        lv.innerHTML = levelEmblem(r.lvl || 1, levelBadgeOf(r.lvl || 1), 22);
+        nm.append(lv.firstChild, nameTag(r.name, nameStyleById(r.nameStyle || "nm-blanco")));
+        li.append(el("b", "", "#" + fmt(r.rank)), nm, el("em", "", fmt(r.score) + " pts"));
+        ol.append(li);
+      }
+      body.append(ol);
+      const mine = d.ranks[save2.friendId];
+      body.append(el("p", "note", mine ? `Tu puesto: #${fmt(mine)} de ${fmt(d.total)}` : `${fmt(d.total)} ${d.total === 1 ? "jugador" : "jugadores"} en la tabla`));
+    },
+    comeback(body, env2, data) {
+      const hero = el("div", "rank-hero");
+      const c = el("div", "redeem-coins");
+      c.innerHTML = ICON.coin;
+      hero.append(c, el("small", "", `Hacía ${data.days} días que no jugabas`), el("strong", "", `+${fmt(data.coins)} destellos`));
+      body.append(hero, el("p", "", "Te guardamos un regalo para volver. Hay misiones nuevas y la temporada sigue en marcha."));
+      const ok = el("button", "btn btn-primary", "¡A jugar!");
+      ok.type = "button";
+      ok.setAttribute("data-close", "");
+      body.append(ok);
+    },
     prize(body, env2, data) {
       BUILDERS.redeemed(body, env2, data);
     },
@@ -5677,7 +5937,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         look.append(skinPreview(skinById(st.skin || "ambar")));
         const who = el("span", "rp-who");
         who.append(nameTag(st.name || fr.name || fr.id, nameStyleById(st.nameStyle || "nm-blanco")));
-        who.append(el("small", "", st.online ? st.room ? `En línea · ${st.room === "GLOBAL" ? "Minuto global" : "en una sala"}` : "En línea" : "Desconectado"));
+        who.append(el("small", "", st.online ? st.room ? `En línea · ${st.room === "GLOBAL" ? "Partida global" : "en una sala"}` : "En línea" : "Desconectado"));
         const acts = el("span", "friend-acts");
         if (st.online && room && !room.pub) {
           const inv = el("button", "btn btn-primary btn-sm", "Invitar");
@@ -5853,7 +6113,54 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         inst.addEventListener("click", () => env2.h.onInstall());
         body.append(inst, el("p", "note", "Queda en tu pantalla de inicio y funciona sin conexión."));
       }
-      body.append(redeemBox(env2));
+      const cl = env2.h.cloudState();
+      const cloud = el("div", "redeem cloud-box");
+      cloud.append(el("span", "redeem-label", "Cuenta en la nube"));
+      if (!cl.base) cloud.append(el("p", "note", "Necesita el servidor online."));
+      else if (cl.has) {
+        cloud.append(el("p", "note", "Tu progreso se guarda solo. Para pasarlo a otro dispositivo, usá este código de recuperación (no lo compartas):"));
+        const code = el("strong", "cloud-code", cl.code);
+        const copy = el("button", "btn btn-ghost btn-sm", "Copiar código");
+        copy.type = "button";
+        copy.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(cl.code);
+            copy.textContent = "¡Copiado!";
+          } catch (e) {
+            copy.textContent = cl.code;
+          }
+        });
+        cloud.append(code, copy);
+      } else {
+        const mk = el("button", "btn btn-primary btn-sm", "Activar guardado en la nube");
+        mk.type = "button";
+        mk.addEventListener("click", () => env2.h.onCloudCreate());
+        cloud.append(el("p", "note", cl.status || "Guardá tu progreso para no perderlo si cambiás de celular."), mk);
+      }
+      if (cl.base) {
+        const row = el("div", "redeem-row");
+        const inp = el("input", "redeem-input");
+        Object.assign(inp, { type: "text", placeholder: "CÓDIGO DE RECUPERACIÓN", autocomplete: "off", spellcheck: false });
+        inp.setAttribute("aria-label", "Código de recuperación");
+        const go = el("button", "btn btn-ghost btn-sm", "Recuperar");
+        go.type = "button";
+        const msg = el("p", "redeem-msg");
+        const doIt = async () => {
+          go.disabled = true;
+          const r = await env2.h.onRestore(inp.value);
+          go.disabled = false;
+          if (r && r.error) msg.textContent = r.error;
+        };
+        go.addEventListener("click", doIt);
+        onEnter(inp, doIt);
+        row.append(inp, go);
+        cloud.append(el("small", "note", "¿Tenés progreso en otro dispositivo? Pegá su código:"), row, msg);
+      }
+      body.append(cloud);
+      const rules = el("button", "btn btn-ghost", "Cómo se juega");
+      rules.type = "button";
+      rules.addEventListener("click", () => env2.h.onOpen("how"));
+      body.append(rules, redeemBox(env2));
       const zone = el("div", "danger-zone");
       const reset = el("button", "btn btn-danger", "Borrar mi progreso");
       reset.type = "button";
@@ -6243,6 +6550,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
       box.append(ol);
     }
+    function setClip(on) {
+      $("clipBtn").hidden = !on;
+    }
     function setAgain(label, count) {
       const b = $("again");
       b.firstChild.textContent = label + " ";
@@ -6254,8 +6564,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       hudKey = "";
       if (!on) clearFeed();
     }
-    function showSpectator(rank, total, pct) {
-      $("spectText").innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}. Mirá cómo sigue la ronda.`;
+    function showSpectator(rank, total, pct, tip) {
+      $("spectText").innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}.`;
+      if (tip) {
+        const t = document.createElement("span");
+        t.className = "spect-tip";
+        t.textContent = tip;
+        $("spectText").append(t);
+      }
       $("spect").hidden = false;
     }
     function hideSpectator() {
@@ -6264,6 +6580,31 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       predKey = "";
     }
     function renderMenu(save2, env3) {
+      const next = nextFeature(save2);
+      const gate = (el2, id) => {
+        if (!el2) return;
+        const on = isUnlocked(save2, id), teaser = !on && next && next.id === id;
+        el2.hidden = !on && !teaser;
+        el2.classList.toggle("locked-tile", teaser);
+        el2.disabled = teaser;
+        el2.dataset.soon = teaser ? `En ${next.rounds - save2.rounds} ${next.rounds - save2.rounds === 1 ? "ronda" : "rondas"}` : "";
+        el2.classList.toggle("fresh", on && save2.rounds >= 1 && !(save2.seenFeat || {})[id] && !save2.ownerAll);
+      };
+      document.querySelectorAll(".menu-grid .tile[data-open]").forEach((t) => gate(t, t.dataset.open));
+      gate($("onlineBtn"), "online");
+      gate($("challengeBtn"), "challenge");
+      const grid = document.querySelector(".menu-grid");
+      const shown = [...grid.children].filter((t) => !t.hidden).length;
+      grid.dataset.n = shown;
+      const c = save2.challenge || {};
+      $("challengeSub").textContent = c.day === challengeDay() && c.best ? `Tu mejor hoy: ${fmt(c.best)} pts  ${c.log || ""}` : "La misma ronda para todos · cambia cada día";
+      const wk = weekendMode();
+      $("weekendBtn").hidden = !wk || !isUnlocked(save2, "challenge");
+      if (wk) {
+        $("weekendName").textContent = `Finde: ${wk.name}`;
+        $("weekendSub").textContent = wk.desc;
+      }
+      $("boardsBtn").hidden = !isUnlocked(save2, "challenge");
       const li = levelInfo(save2.xp);
       $("pLevel").textContent = li.level;
       $("pXp").textContent = `${fmt(li.into)} / ${fmt(li.need)} XP`;
@@ -6332,12 +6673,31 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       };
       requestAnimationFrame(tick);
     }
+    function nextGoalText(sum) {
+      if (sum.outlier) return "";
+      for (const T of [1, 3, 10, 50, 100]) {
+        if (sum.rank > T && sum.rank <= Math.max(T * 2, T + 5)) {
+          const d = sum.rank - T;
+          return T === 1 ? `A ${fmt(d)} ${d === 1 ? "puesto" : "puestos"} de ser el Outlier` : `A ${fmt(d)} ${d === 1 ? "puesto" : "puestos"} del Top ${T}`;
+        }
+      }
+      if (!sum.alive && sum.forksOk === sum.forks - 1) return "¡Te faltó una sola bifurcación para llegar al final!";
+      const best = h.getSave().bestScore;
+      if (best && sum.score < best && sum.score >= best * 0.8) return `A ${fmt(best - sum.score)} puntos de tu récord`;
+      return "";
+    }
     function renderResults(sum, rep, outlier) {
       $("rEyebrow").textContent = sum.outlier ? "Sos el Outlier del minuto" : rep.pr.promoted ? "Ascenso" : rep.recordPos === 1 && rep.recordCount > 1 ? "Nuevo récord de puntos" : rep.newBestPct ? "Nuevo mejor puesto" : sum.alive ? "Llegaste al final" : "Fin de la ronda";
       tween($("rRank"), sum.total, sum.rank, (v) => "#" + fmt(v));
       $("rOf").textContent = "de " + fmt(sum.total);
       $("rPct").textContent = sum.outlier ? "Nadie duró más que vos. Tu nombre sale en la pantalla de todos." : `Sobreviviste más que el ${pctText(sum.pct)} de los jugadores.`;
+      if (sum.kind === "challenge") $("rEyebrow").textContent = sum.challengeBest ? "Desafío del día · ¡tu mejor intento!" : "Desafío del día";
+      else if (sum.kind === "weekend") $("rEyebrow").textContent = "Modo del finde";
       $("rWhy").textContent = WHY_TEXT[sum.alive ? "alive" : sum.why] || "";
+      $("rTip").textContent = !sum.alive && sum.tip ? sum.tip : "";
+      $("rTip").hidden = sum.alive || !sum.tip;
+      $("rGoal").textContent = nextGoalText(sum);
+      $("rGoal").hidden = !$("rGoal").textContent;
       $("rForks").textContent = `${sum.forksOk}/${sum.forks}`;
       $("rScore").textContent = fmt(sum.score);
       $("rNear").textContent = fmt(sum.near);
@@ -6453,7 +6813,24 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       h.onDash(1);
     });
     $("shareBtn").addEventListener("click", h.onShare);
-    const opens = { settingsBtn: "settings", profileBtn: "profile", helpBtn: "how", coinsBtn: "shop", rankBtn: "rank" };
+    const opens = { settingsBtn: "settings", profileBtn: "profile", coinsBtn: "shop", rankBtn: "rank" };
+    $("boardsBtn").addEventListener("click", () => {
+      h.onUi();
+      openModal("boards");
+      h.onBoard();
+    });
+    $("challengeBtn").addEventListener("click", () => {
+      h.onUi();
+      h.onChallenge();
+    });
+    $("weekendBtn").addEventListener("click", () => {
+      h.onUi();
+      h.onWeekend();
+    });
+    $("clipBtn").addEventListener("click", () => {
+      h.onUi();
+      h.onShareClip();
+    });
     for (const [id, kind] of Object.entries(opens)) $(id).addEventListener("click", () => {
       h.onUi();
       openModal(kind);
@@ -6484,6 +6861,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       setOnlineMode,
       renderStandings,
       setAgain,
+      setClip,
       banner,
       hideBanner,
       hint,
@@ -6674,6 +7052,110 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         }
       }
       this.status = "off";
+    }
+  };
+
+  // src/net/api.js
+  function apiBase(custom) {
+    const ws = serverUrl(custom);
+    return ws ? ws.replace(/^ws/, "http").replace(/\/ws\/?$/, "") : "";
+  }
+  async function call(base, method, path, body, ms = 8e3) {
+    if (!base) throw new Error("sin servidor");
+    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const t = ctl && setTimeout(() => ctl.abort(), ms);
+    try {
+      const res = await fetch(base + path, {
+        method,
+        headers: body ? { "content-type": "application/json" } : void 0,
+        body: body ? JSON.stringify(body) : void 0,
+        signal: ctl && ctl.signal
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(json.error || "error"), { status: res.status });
+      return json;
+    } finally {
+      if (t) clearTimeout(t);
+    }
+  }
+  var Api = (base) => ({
+    createAccount: () => call(base, "POST", "/api/account", {}),
+    uploadSave: (id, secret, save2) => call(base, "PUT", "/api/save", { id, secret, save: save2 }),
+    restore: (code) => call(base, "POST", "/api/restore", { code }),
+    submitScore: (data) => call(base, "POST", "/api/score", data),
+    board: (b, ids) => call(base, "GET", `/api/board?b=${encodeURIComponent(b)}&ids=${ids.join(",")}`),
+    events: (device, events) => call(base, "POST", "/api/events", { device, events }, 5e3)
+  });
+
+  // src/render/clip.js
+  var ClipRecorder = class {
+    constructor(getCanvas) {
+      this.getCanvas = getCanvas;
+      this.rec = null;
+      this.blob = null;
+      this.type = "";
+      this.supported = typeof window !== "undefined" && !!window.MediaRecorder && typeof HTMLCanvasElement !== "undefined" && !!HTMLCanvasElement.prototype.captureStream;
+    }
+    get available() {
+      return !!this.blob;
+    }
+    pickType() {
+      for (const t of ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"]) {
+        try {
+          if (MediaRecorder.isTypeSupported(t)) return t;
+        } catch (e) {
+        }
+      }
+      return "";
+    }
+    start() {
+      if (!this.supported || this.rec) return;
+      try {
+        const stream = this.getCanvas().captureStream(30);
+        this.type = this.pickType();
+        const rec = new MediaRecorder(stream, this.type ? { mimeType: this.type, videoBitsPerSecond: 25e5 } : void 0);
+        const chunks = [];
+        rec.ondataavailable = (e) => {
+          if (e.data && e.data.size) chunks.push(e.data);
+        };
+        rec.onstop = () => {
+          stream.getTracks().forEach((t) => t.stop());
+          if (rec.keep && chunks.length) this.blob = new Blob(chunks, { type: this.type || "video/webm" });
+        };
+        rec.start(250);
+        this.rec = rec;
+        this.safety = setTimeout(() => this.stop(false), 12e3);
+      } catch (e) {
+        this.rec = null;
+      }
+    }
+    stop(keep) {
+      const rec = this.rec;
+      if (!rec) return;
+      clearTimeout(this.safety);
+      rec.keep = keep;
+      this.rec = null;
+      try {
+        rec.stop();
+      } catch (e) {
+      }
+    }
+    // keep: guardar solo si hubo colapso (si no, no vale la pena)
+    stopAfter(ms, keep) {
+      if (!this.rec) return;
+      const rec = this.rec;
+      setTimeout(() => {
+        if (this.rec === rec) this.stop(keep);
+      }, ms);
+    }
+    reset() {
+      this.stop(false);
+      this.blob = null;
+    }
+    file() {
+      if (!this.blob) return null;
+      const ext = this.type.includes("mp4") ? "mp4" : "webm";
+      return new File([this.blob], `contracorriente-colapso.${ext}`, { type: this.blob.type });
     }
   };
 
@@ -6896,6 +7378,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
           f.intent = m.f.in;
           f.counts = m.f.c;
           f.trend = m.f.tr;
+          if (m.f.pj && m.f.pj.length) f.proj = m.f.pj;
         }
       }
     }
@@ -7004,7 +7487,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   // src/main.js
   var store = localStore();
   var save = loadSave(store);
-  var persist = () => writeSave(store, save);
+  var cloudReady = false;
+  var persist = () => {
+    writeSave(store, save);
+    if (cloudReady) cloudSoon();
+  };
   var audio = new AudioEngine();
   audio.sfxOn = save.sfx;
   audio.musicOn = save.music;
@@ -7071,10 +7558,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   function updateOnlineChip() {
     const r = online.room, el2 = $("onlineSub");
     if (!el2) return;
-    if (!r) el2.textContent = "Minuto global · salas privadas";
+    if (!r) el2.textContent = "Partida global · salas privadas";
     else if (r.pub) {
       const t = nextGlobalText();
-      el2.textContent = t ? `En el minuto global · empieza en ${t}` : "En el minuto global";
+      el2.textContent = t ? `En la partida global · empieza en ${t}` : "En la partida global";
     } else el2.textContent = `En la sala ${r.code} · ${r.players.length} ${r.players.length === 1 ? "jugador" : "jugadores"}`;
     $("onlineBtn").classList.toggle("in-room", !!r);
   }
@@ -7093,15 +7580,38 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         ui.openModal("room");
       } else {
         leaveOnline();
-        startRound();
+        startRound(lastSum && lastSum.kind === "challenge" ? "challenge" : lastSum && lastSum.kind === "weekend" ? "weekend" : "normal");
       }
     },
+    onChallenge: () => {
+      audio.unlock();
+      leaveOnline();
+      startRound("challenge");
+    },
+    onWeekend: () => {
+      audio.unlock();
+      leaveOnline();
+      startRound("weekend");
+    },
+    onShareChallenge: () => shareChallenge(),
+    onShareClip: () => shareClip(),
+    onOpen: (kind) => ui.openModal(kind),
+    boardsState: () => boardsState,
+    onBoard: (tab, scope) => loadBoard(tab, scope),
+    cloudState: () => ({ has: !!save.cloud, code: save.cloud ? `${save.cloud.id}-${save.cloud.secret}` : "", status: cloudStatus, base: !!apiBase(save.server) }),
+    onCloudCreate: () => ensureCloud(true),
+    onRestore: (code) => restoreCloud(code),
     onHome: () => {
       audio.play("ui");
       leaveOnline();
       toMenu();
     },
     onOnline: () => {
+      if (!save.seenFeat.online) {
+        save.seenFeat.online = true;
+        persist();
+        refreshMenu();
+      }
       audio.unlock();
       ui.openModal(online.room ? "room" : "online");
     },
@@ -7166,6 +7676,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       audio.play("ui");
     },
     onModal: (kind) => {
+      track({ e: "open", k: kind });
+      if (!save.seenFeat[kind]) {
+        save.seenFeat[kind] = true;
+        persist();
+        refreshMenu();
+      }
       if (kind === "friends") {
         if (ensureConnected()) requestPresence();
       }
@@ -7301,6 +7817,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       ui.openModal("profile", { tab: "ach" });
     },
     onBuyPremium: () => {
+      track({ e: "open", k: "buy-premium" });
       audio.play("ui");
       ui.toast("Próximamente", "Las compras se habilitan en la versión 1.0");
     },
@@ -7459,6 +7976,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var orbTierSeen = 0;
   function resetView() {
     orbTierSeen = 0;
+    lastTip = "";
     fx.reset();
     trail.length = 0;
     acc = 0;
@@ -7481,6 +7999,112 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     const el2 = document.getElementById("roomStatus");
     const t = roomStatusText();
     if (el2 && el2.textContent !== t) el2.textContent = t;
+  }
+  var api = () => Api(apiBase(save.server));
+  var cloudStatus = "";
+  var cloudT = 0;
+  async function ensureCloud(manual) {
+    if (save.cloud || !apiBase(save.server)) {
+      if (manual) ui.refreshModal();
+      return;
+    }
+    try {
+      cloudStatus = "Creando tu cuenta…";
+      const r = await api().createAccount();
+      save.cloud = { id: r.id, secret: r.secret };
+      persist();
+      cloudStatus = "";
+      cloudSoon(true);
+    } catch (e) {
+      cloudStatus = "No se pudo conectar con el servidor.";
+    }
+    if (ui.modalKind === "settings") ui.refreshModal();
+  }
+  function cloudSoon(now) {
+    clearTimeout(cloudT);
+    cloudT = setTimeout(async () => {
+      if (!save.cloud) return ensureCloud();
+      const { cloud, ...data } = save;
+      try {
+        await api().uploadSave(cloud.id, cloud.secret, data);
+        save.cloudAt = Date.now();
+      } catch (e) {
+      }
+    }, now ? 50 : 3e3);
+  }
+  async function restoreCloud(code) {
+    try {
+      const r = await api().restore(code);
+      if (!r.save) return { error: "Esa cuenta todavía no tiene progreso guardado." };
+      const fresh = loadSave({ get: () => JSON.stringify(r.save), set: () => {
+      } });
+      fresh.cloud = { id: r.id, secret: r.secret };
+      save = fresh;
+      persist();
+      applyTrack();
+      toMenu();
+      ui.toast("Progreso recuperado", `Nivel ${levelInfo(save.xp).level} · ${fmt(save.coins)} destellos`);
+      return {};
+    } catch (e) {
+      return { error: e.status === 404 ? "Código de recuperación inválido." : "No se pudo conectar con el servidor." };
+    }
+  }
+  function submitScore(board, score, log) {
+    if (!apiBase(save.server) || !score) return;
+    api().submitScore({ board, pid: save.friendId, name: save.name || "Jugador", nameStyle: playerNameStyle().id, lvl: levelInfo(save.xp).level, score, log }).catch(() => {
+    });
+  }
+  var boardsState = { tab: "daily", scope: "global", loading: false, data: null, error: "" };
+  async function loadBoard(tab = boardsState.tab, scope = boardsState.scope) {
+    Object.assign(boardsState, { tab, scope, loading: true, error: "" });
+    if (ui.modalKind === "boards") ui.refreshModal();
+    const id = tab === "daily" ? "daily-" + challengeDay() : "week-" + weekKey();
+    try {
+      boardsState.data = await api().board(id, [save.friendId, ...save.friends.map((f) => f.id)]);
+    } catch (e) {
+      boardsState.data = null;
+      boardsState.error = apiBase(save.server) ? "No se pudo cargar la tabla." : "Las tablas necesitan el servidor online.";
+    }
+    boardsState.loading = false;
+    if (ui.modalKind === "boards") ui.refreshModal();
+  }
+  var evq = [];
+  if (!save.deviceId) {
+    save.deviceId = Math.random().toString(36).slice(2, 12);
+    persist();
+  }
+  function track(ev) {
+    evq.push({ ...ev, at: Date.now() });
+    if (evq.length > 100) evq.shift();
+  }
+  function flushEvents() {
+    if (!evq.length || !apiBase(save.server)) return;
+    const batch = evq.splice(0, evq.length);
+    api().events(save.deviceId, batch).catch(() => {
+      evq.unshift(...batch.slice(-50));
+    });
+  }
+  setInterval(flushEvents, 3e4);
+  var clip = new ClipRecorder(() => $("game"));
+  async function shareClip() {
+    const f = clip.file();
+    if (!f) return;
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [f] })) {
+        await navigator.share({ files: [f], text: "¡Mirá este colapso en Contracorriente!" });
+        return;
+      }
+    } catch (e) {
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(f);
+    a.download = f.name;
+    document.body.append(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 2e3);
   }
   var presence = {};
   var friendsMsg = "";
@@ -7670,7 +8294,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ui.showScreen("none");
     ui.showHud(true);
     const r = online.room, hn = m.humans.length;
-    ui.setRival(r && !r.pub ? `Sala ${r.code}` : "Minuto global", `${hn} ${hn === 1 ? "real" : "reales"}`, "Online");
+    ui.setRival(r && !r.pub ? `Sala ${r.code}` : "Partida global", `${hn} ${hn === 1 ? "real" : "reales"}`, "Online");
     ui.hideSpectator();
     ui.hideBanner();
     ui.hideHint();
@@ -7689,17 +8313,24 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ensureMissions(save, env().today);
     const dailyReady = refreshMenu();
     ui.showScreen("menu");
-    if (dailyReady && !dailyOffered) {
+    if (dailyReady && !dailyOffered && save.rounds >= 1) {
       dailyOffered = true;
       setTimeout(() => {
         if (state === "menu" && !ui.modalOpen) ui.openModal("daily");
       }, 700);
     }
   }
-  function startRound() {
+  var roundKind = "normal";
+  function startRound(kind = "normal") {
     ui.closeModal();
-    const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
-    R = new Round({ seed: randSeed(), guided });
+    if (typeof kind !== "string") kind = "normal";
+    const wk = weekendMode();
+    if (kind === "weekend" && !wk) kind = "normal";
+    roundKind = kind;
+    const guided = kind === "normal" ? save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0 : 0;
+    const seed = kind === "challenge" ? challengeSeed(challengeDay()) : randSeed();
+    R = new Round({ seed, guided, mode: kind === "weekend" ? wk.id : "normal" });
+    clip.reset();
     ui.setOnlineMode(false);
     resetView();
     pred = null;
@@ -7716,9 +8347,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ui.hideSpectator();
     ui.hideBanner();
     ui.hideHint();
-    ui.banner(String(countT), `${fmt(R.n + 1)} jugadores listos`, "count", 900);
+    ui.banner(String(countT), kind === "challenge" ? "Desafío del día: la misma ronda para todos" : kind === "weekend" ? `Modo del finde: ${wk.name}` : `${fmt(R.n + 1)} jugadores listos`, "count", 900);
     audio.play("count");
     if (tutorial) ui.hint("Arrastrá el dedo o el mouse para moverte.", 3e3);
+    else if (kind === "weekend") ui.hint(wk.desc, 3200);
     else ui.hint(`Tu rival es ${R.rivalName}: durá más que él.`, 2600);
   }
   function finishRound({ quick = false } = {}) {
@@ -7727,9 +8359,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (online.room) ui.openModal("room");
       return;
     }
-    lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
+    lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins, tip: lastTip, kind: R.online ? "online" : roundKind };
+    track({ e: "round", mode: lastSum.kind === "weekend" ? R.mode : lastSum.kind, alive: lastSum.alive, fork: lastSum.forksSeen - 1, why: lastSum.why || "", rank: lastSum.rank });
+    if (lastSum.kind === "challenge") {
+      lastSum.challengeBest = recordChallenge(save, lastSum, challengeDay());
+      submitScore("daily-" + challengeDay(), save.challenge.best, save.challenge.log);
+    } else if (!R.online) submitScore("week-" + weekKey(), lastSum.score, "");
     const rep = applyRound(save, lastSum);
     persist();
+    cloudSoon();
+    flushEvents();
     ui.hideDash();
     if (quick) {
       ui.toast(`Ronda anterior: #${fmt(lastSum.rank)}`, `+${fmt(rep.gain)} XP · +${fmt(rep.coins)} destellos · ${rep.pr.delta >= 0 ? "+" : ""}${fmt(rep.pr.delta)} PR`);
@@ -7753,7 +8392,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (R.online) {
       ui.renderStandings(R.standings, net && net.id);
       ui.setAgain("Volver a la sala", null);
+    } else if (lastSum.kind === "challenge") {
+      ui.setAgain("Reintentar desafío", null);
+      nextT = Infinity;
     } else ui.setAgain("Jugar otra", nextT);
+    ui.setClip(clip.available);
+    if (rep.shieldUsed) setTimeout(() => {
+      ui.toast("Escudo de racha", `Faltaste un día y tu racha de ${save.streak} días sigue viva`);
+      audio.play("claim");
+    }, 900);
     if (lastSum.outlier) {
       audio.play("outlier");
       buzz([30, 50, 30, 50, 60]);
@@ -7776,8 +8423,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         }, 1300);
       }
     }
-    let delay = 1e3;
+    let delay = 1e3, queued = 0;
     const later = (fn) => {
+      if (++queued > 4) return;
       setTimeout(fn, delay);
       delay += 800;
     };
@@ -7796,6 +8444,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     for (const k of rep.newSkins) later(() => {
       ui.toast("Skin desbloqueada", k.name);
       audio.play("buy");
+    });
+    for (const f of newlyUnlocked(save.rounds - 1, save.rounds)) later(() => {
+      ui.toast("¡Nuevo!", `Desbloqueaste ${f.name}`);
+      audio.play("claim");
     });
     for (const k of rep.newTrails) later(() => {
       ui.toast("Estela desbloqueada", k.name);
@@ -7820,8 +8472,31 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }, 1500);
     }
   }
-  function openShare() {
+  async function shareChallenge() {
+    const text = challengeShareText(save);
+    try {
+      if (navigator.share) {
+        await navigator.share({ text });
+        return "shared";
+      }
+    } catch (e) {
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      return "copied";
+    } catch (e) {
+      return text;
+    }
+  }
+  async function openShare() {
     if (!lastSum) return;
+    if (lastSum.kind === "challenge") {
+      audio.play("ui");
+      const r = await shareChallenge();
+      if (r === "copied") ui.toast("Desafío del día", "Resultado copiado: pegalo donde quieras");
+      else if (r !== "shared") ui.toast("Desafío del día", r.split("\n")[1] || r);
+      return;
+    }
     audio.play("ui");
     const li = levelInfo(save.xp);
     const image = renderShareCard(lastSum, {
@@ -7866,6 +8541,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         break;
       case "forkAnnounce":
         announce(e.fork);
+        if (state === "playing") clip.start();
         break;
       case "forkResolved":
         onForkResolved(e);
@@ -7934,6 +8610,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (first) ui.hint("Mirá los porcentajes: el camino con MÁS gente se derrumba.", 4200);
   }
   function onForkResolved(e) {
+    if (!R.demo) clip.stopAfter(1800, !!(e.collapsed.length || e.lottery));
     if (e.fx && e.fx.length) fx.fall(e.fx, C.danger);
     if (R.demo) return;
     if (pred && pred.fork === e.fork.i) {
@@ -7979,7 +8656,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       fx.confetti(R.px, R.pY, 36, [col, C.gold, C.mint, "#ff7ad9", "#8fd8ff"], 360);
     }
   }
+  var lastTip = "";
+  function deathTip(e) {
+    const i = e.info || {};
+    if (e.why === "wall") return i.short && i.short <= 30 ? `Te faltaron ${i.short} px para pasar por el hueco: ¡casi!` : "El hueco estaba lejos: mirá el próximo muro con tiempo y movete antes.";
+    if (e.why === "lottery") return "En muerte súbita, si todos van al mismo camino cae la mitad al azar: separate a tiempo.";
+    const pct = Math.round((i.share || 0) * 100);
+    let t = e.why === "inverted" ? `Era inversión: caía el camino más vacío y el ${LANE[i.lane] || ""} tenía solo el ${pct}%.` : `El ${pct}% de la multitud eligió tu camino (${LANE[i.lane] || "?"}).`;
+    if (i.dashable) t += ` Con un impulso al ${LANE[i.safeLane]} te salvabas.`;
+    else if (i.usedDash) t += " Usaste el impulso, pero hacia un camino que también cayó.";
+    else t += " Mirá la proyección (→): muestra hacia dónde va la gente.";
+    return t;
+  }
   function onPlayerDied(e) {
+    lastTip = deathTip(e);
     fx.burst(e.x, e.y, 30, skinColor(playerSkin(), R.t), 260, 3.5);
     fx.addTrauma(0.7);
     ui.flash(C.danger);
@@ -7987,7 +8677,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     buzz(160);
     const sub = e.why === "wall" ? "Te llevaste puesto un muro" : e.why === "lottery" ? "Nadie se separó y la corriente te llevó" : e.why === "inverted" ? `Era una inversión: caía el más vacío (${fmt(e.sameEvent + 1)} cayeron con vos)` : `Elegiste el camino de la mayoría (${fmt(e.sameEvent + 1)} cayeron con vos)`;
     ui.banner(e.why === "wall" ? "Chocaste" : "Caíste", sub, "bad", 1800);
-    ui.showSpectator(e.rank, R.total, e.pct);
+    ui.showSpectator(e.rank, R.total, e.pct, lastTip);
   }
   function tensionTick(dt) {
     const f = R.fork;
@@ -8135,7 +8825,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         if (key !== humansKey) {
           humansKey = key;
           const r = online.room;
-          ui.setRival(r && !r.pub ? `Sala ${r.code}` : "Minuto global", `${R.aliveH}/${R.humans.length} reales vivos`, "Online");
+          ui.setRival(r && !r.pub ? `Sala ${r.code}` : "Partida global", `${R.aliveH}/${R.humans.length} reales vivos`, "Online");
         }
       }
       ui.hud(R);
@@ -8276,7 +8966,6 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       installPrompt = e;
     });
   }
-  $("lobbyCount").textContent = fmt(CFG.BOTS + 1);
   $("appVersion").textContent = "v" + CFG.VERSION;
   audio.onBeat = (strong) => renderer.beat(strong ? 1 : 0.55);
   audio.loadSample = async (name) => {
@@ -8293,6 +8982,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   setupPWA();
   applyTrack();
   toMenu();
+  track({ e: "session" });
+  cloudReady = true;
+  setTimeout(flushEvents, 3e3);
+  if (save.rounds > 0) setTimeout(() => ensureCloud(), 1500);
+  {
+    const back = comebackReward(save);
+    if (back) {
+      persist();
+      setTimeout(() => {
+        audio.play("claim");
+        ui.openModal("comeback", back);
+      }, 900);
+    }
+  }
   try {
     const code = new URLSearchParams(location.search).get("sala");
     if (code && /^[A-Za-z]{4}$/.test(code)) setTimeout(() => ui.openModal("online", { code: code.toUpperCase() }), 400);

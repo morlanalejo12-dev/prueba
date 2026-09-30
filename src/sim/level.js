@@ -6,7 +6,8 @@ import { makeGate } from './gates.js';
 
 const NARROW_W = 56;
 
-export function buildLevel(r) {
+// mode: normal | inversion (todas invierten) | niebla (todas con niebla) | turbo (2 caminos, más rápido)
+export function buildLevel(r, mode = 'normal') {
   const { WALL, DIV, W } = CFG;
   const gates = [], forks = [], orbs = [];
   const invertAt = r() < CFG.INVERT_CHANCE ? 2 + Math.floor(r() * (CFG.FORKS - 2)) : -1;
@@ -22,14 +23,18 @@ export function buildLevel(r) {
     }
 
     y += 280;
-    const k = f === 0 ? 2 : (f >= 3 && r() < 0.22) ? 4 : (r() < 0.5 ? 2 : 3);
+    // La primera bifurcación tiene 3 caminos: solo cae el más lleno, no la mitad de todos
+    let k = f === 0 ? 4 : (f >= 3 && r() < 0.22) ? 4 : (r() < 0.5 ? 2 : 3);
+    if (mode === 'turbo') k = 2;
     let variant = 'normal';
     if (f >= 1) {
       const v = r();
       variant = v < 0.24 ? 'golden' : v < 0.44 ? 'narrow' : v < 0.58 ? 'fog' : 'normal';
     }
     if (variant === 'narrow' && k === 4) variant = 'normal';
-    const invert = f === invertAt;
+    if (mode === 'niebla' && f >= 1) variant = 'fog';
+    if (mode === 'turbo' && variant === 'narrow') variant = 'normal';
+    const invert = mode === 'inversion' ? f >= 1 : mode === 'niebla' ? false : f === invertAt;
     if (invert && variant === 'fog') variant = 'normal';
 
     const inner = W - 2 * WALL - DIV * (k - 1);

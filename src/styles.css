@@ -1067,3 +1067,36 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .title-chip small { font: 600 10px/1 var(--f-mono); color: var(--muted); }
 .title-chip.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(255, 209, 102, 0.3); }
 .title-chip.on b { color: var(--gold); }
+
+/* ---------- v0.12 · Explicación y metas ---------- */
+.spect-tip { display: block; margin-top: 6px; font: 600 13px/1.35 var(--f-body); color: var(--gold); }
+.results .tip { margin: 2px 0 0; font: 600 13px/1.4 var(--f-body); color: var(--gold); }
+.results .goal { margin: 6px auto 0; padding: 6px 12px; width: fit-content; max-width: 100%; border-radius: var(--pill); background: rgba(94, 242, 194, 0.12); border: 1px solid rgba(94, 242, 194, 0.4); font: 700 13px/1.3 var(--f-body); color: var(--mint); }
+.tile.locked-tile, .btn-online.locked-tile { opacity: 0.45; cursor: default; position: relative; }
+.tile.locked-tile::after, .btn-online.locked-tile::after {
+  content: attr(data-soon); position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--pill); background: var(--ink-3, #1d1747); border: 1px solid var(--edge); font: 700 10px/1.4 var(--f-mono); color: var(--muted);
+}
+@keyframes freshPulse { 50% { box-shadow: 0 0 0 2px var(--mint), 0 0 18px rgba(94, 242, 194, 0.45); } }
+.tile.fresh, .btn-online.fresh, .btn-challenge.fresh { animation: freshPulse 1.6s ease-in-out infinite; border-color: var(--mint); }
+.menu-grid[data-n="1"], .menu-grid[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.menu-grid[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.event-row { width: min(100%, 320px); display: grid; grid-template-columns: 1fr; gap: 8px; }
+.event-row:has(#weekendBtn:not([hidden])) { grid-template-columns: 1fr 1fr; }
+.btn-challenge {
+  appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; text-align: left;
+  padding: 10px 14px; border-radius: var(--r2); color: var(--text);
+  background: linear-gradient(120deg, rgba(255, 209, 102, 0.14), rgba(94, 242, 194, 0.08)); border: 1px solid rgba(255, 209, 102, 0.4);
+}
+.btn-challenge b { font: 800 13px/1.1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.btn-challenge small { font: 600 11px/1.3 var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.btn-challenge.weekend { background: linear-gradient(120deg, rgba(255, 84, 112, 0.16), rgba(180, 140, 255, 0.12)); border-color: rgba(255, 84, 112, 0.45); }
+.btn-challenge.weekend b { color: var(--danger); }
+.btn-challenge.weekend small { white-space: normal; }
+.tabs.scope { margin-top: -6px; }
+.challenge-log { margin: 0; text-align: center; font-size: 22px; letter-spacing: 2px; }
+.board-list li span { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cloud-code { font: 800 18px/1.2 var(--f-mono); letter-spacing: 0.12em; color: var(--mint); word-break: break-all; }
+.cloud-box .note { margin: 0; }
+.locked-tile .badge { display: none; }
+ol.board-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
