@@ -192,6 +192,7 @@ export class AudioEngine {
         src.start(t); src.stop(t + arg + 0.1);
         break;
       }
+      case 'dash': this.sweep(o, 300, 3.2, 'triangle', 0.08, 0.16, t); this.noise(o, t, 0.08, 0.14, 'highpass', 2500); break;
       case 'drop': this.kick(o, t, 0.7); this.noise(o, t, 0.12, 0.6, 'highpass', 3000); break;
       case 'overtime': arp([220, 330, 440, 660, 880], 0.07, 'sawtooth', 0.06, 0.18); this.kick(o, t, 0.6); break;
       case 'rankup': arp([392, 523, 659, 784, 1047, 1319], 0.09, 'triangle', 0.09, 0.22); this.kick(o, t, 0.4); break;

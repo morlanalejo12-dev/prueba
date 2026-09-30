@@ -22,6 +22,12 @@ export const CFG = Object.freeze({
   MIX: [0.35, 0.25, 0.25, 0.15], // manada, contreras, tercos, de último momento
   NARROW_DEATH: 0.35,            // probabilidad de que un bot muera en el camino angosto
   INVERT_CHANCE: 0.4,            // probabilidad de que una ronda tenga una inversión
+  BOT_DASH: 0.05,                // fracción de bots que usa un impulso dentro de los carriles (en la primera mitad)
+
+  // Impulso del jugador
+  DASH_START: 1,                 // cargas al empezar la ronda
+  DASH_MAX: 2,                   // cargas máximas
+  ORBS_PER_DASH: 10,             // chispas para recargar un impulso
 
   // Motor
   FIXED_DT: 1 / 120,

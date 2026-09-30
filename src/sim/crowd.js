@@ -20,6 +20,7 @@ export function createCrowd(n, r) {
     death: new Float64Array(n).fill(Infinity), sc: new Float32Array(n), ng: new Uint16Array(n),
     lane: new Int8Array(n).fill(-1), want: new Int8Array(n).fill(-1), tick: new Float32Array(n),
     flips: new Uint8Array(n), jit: new Float32Array(n), late: new Float32Array(n), lateDone: new Uint8Array(n),
+    dashAt: new Float32Array(n),
   };
   const { W, WALL } = CFG;
   for (let i = 0; i < n; i++) {
@@ -31,6 +32,7 @@ export function createCrowd(n, r) {
     c.jit[i] = (r() - 0.5) * 0.7;
     c.late[i] = 0.3 + r() * 0.5;
     c.tick[i] = r();
+    c.dashAt[i] = r() < CFG.BOT_DASH ? 0.1 + r() * 0.45 : 0;
   }
   return c;
 }
@@ -75,6 +77,16 @@ function decide(R, i, f) {
   }
 }
 
+function botDashTarget(R, f, lane) {
+  const opts = [lane - 1, lane + 1].filter(k => k >= 0 && k < f.k);
+  if (!opts.length) return -1;
+  opts.sort((a, b) => (f.invert ? f.counts[b] - f.counts[a] : f.counts[a] - f.counts[b]));
+  const pick = R.r() < 0.7 ? opts[0] : opts[opts.length - 1];
+  // Solo se mueve si mejora (o por error, a veces)
+  const better = f.invert ? f.counts[pick] > f.counts[lane] : f.counts[pick] < f.counts[lane];
+  return better || R.r() < 0.25 ? pick : -1;
+}
+
 export function resetCrowdForFork(R) {
   const c = R.crowd;
   for (let i = 0; i < R.n; i++) {
@@ -82,6 +94,7 @@ export function resetCrowdForFork(R) {
     c.lane[i] = -1; c.want[i] = -1; c.flips[i] = 0; c.lateDone[i] = 0;
     c.tick[i] = R.r() * 0.5;
     c.ty[i] = botType(R.r()); // cada persona decide distinto en cada bifurcación
+    c.dashAt[i] = R.r() < CFG.BOT_DASH ? 0.1 + R.r() * 0.45 : 0;
   }
 }
 
@@ -105,6 +118,15 @@ export function updateCrowd(R, dt, f) {
     if (f && by >= f.startY - 100) {
       if (c.lane[i] < 0 && by >= f.entryY) c.lane[i] = laneAt(f, c.x[i]);
       if (c.lane[i] >= 0) {
+        // Algunos bots usan un impulso a mitad del carril para pasarse al vecino que conviene
+        if (c.dashAt[i] > 0 && f.variant !== 'fog' && by >= f.entryY + c.dashAt[i] * (f.endY - f.entryY)) {
+          c.dashAt[i] = 0;
+          const to = botDashTarget(R, f, c.lane[i]);
+          if (to >= 0) {
+            c.lane[i] = to;
+            c.x[i] = (f.lanes[to].x0 + f.lanes[to].x1) / 2;
+          }
+        }
         const L = f.lanes[c.lane[i]];
         lo = L.x0 + 2; hi = L.x1 - 2;
         target = (L.x0 + L.x1) / 2 + c.jit[i] * (L.x1 - L.x0) * 0.6;

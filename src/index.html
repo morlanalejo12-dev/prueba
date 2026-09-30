@@ -25,15 +25,28 @@
     <span class="lbl">Puntos</span>
     <span class="hud-score"><span id="hCombo" class="combo" hidden></span><span id="hScore" class="num">0</span></span>
   </div>
-  <div id="hRival" class="hud-rival"><span class="lbl">Rival</span><b id="hRivalName">@rival</b><em id="hRivalRank"></em></div>
+  <div class="hud-row2">
+    <div id="hRival" class="hud-rival"><span class="lbl">Rival</span><b id="hRivalName">@rival</b><em id="hRivalRank"></em></div>
+    <div id="hDash" class="hud-dash" title="Impulsos: se recargan juntando chispas"><span class="lbl">Impulso</span><span id="hDashPips" class="pips"></span></div>
+  </div>
 </div>
+<button id="dashL" class="dash-btn left" type="button" hidden aria-label="Impulso a la izquierda"><span aria-hidden="true">◀</span> Impulso</button>
+<button id="dashR" class="dash-btn right" type="button" hidden aria-label="Impulso a la derecha">Impulso <span aria-hidden="true">▶</span></button>
 <div id="feed" class="feed" aria-live="polite" hidden></div>
 <div id="banner" class="banner" hidden><div id="bTitle" class="b-title"></div><div id="bSub" class="b-sub"></div></div>
 <div id="hint" class="hint" hidden></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <div id="spect" class="spect" hidden>
   <p id="spectText"></p>
-  <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
+  <div id="predict" class="predict" hidden>
+    <span class="lbl" id="predictTitle">¿Qué camino cae?</span>
+    <div id="predictBtns" class="predict-btns"></div>
+    <small id="predictInfo"></small>
+  </div>
+  <div class="spect-actions">
+    <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
+    <button id="nextNow" class="btn btn-primary btn-sm" type="button">Otra ronda</button>
+  </div>
 </div>
 
 <section id="menu" class="screen menu" aria-labelledby="logo">

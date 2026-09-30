@@ -241,7 +241,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
 .hint {
   position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 100px);
   width: max-content; max-width: calc(100% - 32px);
   padding: 11px 18px; border-radius: var(--pill);
   background: var(--glass); border: 1px solid var(--spark);
@@ -692,6 +692,48 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .hud-forks.ot { border-color: var(--danger); box-shadow: 0 0 16px rgba(255, 84, 112, 0.4); }
 .ot-label { font: 800 10px/1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--danger); margin-left: 4px; }
 
+/* ---------- v0.6: impulso, predicciones ---------- */
+.hud-row2 { grid-column: 1 / -1; justify-self: center; display: flex; gap: 6px; align-items: center; }
+.hud-rival { grid-column: auto; }
+.hud-dash {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--pill);
+  background: var(--glass); border: 1px solid var(--edge); font-size: 12px;
+}
+.pips { display: inline-flex; gap: 4px; }
+.pips i { width: 9px; height: 9px; border-radius: 3px; transform: rotate(45deg); border: 1.5px solid var(--mint); }
+.pips i.on { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+.hud-dash.ready { border-color: var(--mint); }
+.dash-btn {
+  position: fixed; z-index: 4; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  appearance: none; cursor: pointer; border: 0;
+  min-height: 60px; padding: 0 22px; border-radius: var(--pill);
+  background: linear-gradient(180deg, #8ff8d6, var(--mint)); color: var(--ink);
+  font: 800 15px/1 var(--f-display); letter-spacing: 0.04em; text-transform: uppercase;
+  box-shadow: 0 0 0 3px rgba(94, 242, 194, 0.3), 0 8px 26px rgba(94, 242, 194, 0.45);
+  animation: dashIn 0.25s ease, dashPulse 0.9s ease-in-out infinite 0.25s;
+  touch-action: manipulation;
+}
+.dash-btn.left { left: max(16px, calc(50% - 230px)); }
+.dash-btn.right { right: max(16px, calc(50% - 230px)); }
+.dash-btn:active { transform: scale(0.95); }
+.dash-btn:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+@keyframes dashIn { from { opacity: 0; transform: translateY(12px); } }
+@keyframes dashPulse { 50% { box-shadow: 0 0 0 7px rgba(94, 242, 194, 0.15), 0 8px 30px rgba(94, 242, 194, 0.6); } }
+
+.spect { flex-direction: column; align-items: stretch; }
+.spect-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.predict { display: flex; flex-direction: column; gap: var(--s2); align-items: stretch; padding-top: var(--s1); }
+.predict .lbl { color: var(--gold); }
+.predict-btns { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.predict-btns button {
+  appearance: none; cursor: pointer; min-height: 44px; border-radius: var(--r1);
+  background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.45); color: var(--text);
+  font: 800 16px/1 var(--f-display);
+}
+.predict-btns button[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.predict-btns button:disabled { cursor: default; opacity: 0.55; }
+.predict small { font-size: 12px; color: var(--muted); }
+
 /* ---------- Pantallas bajas: compactar el menú ---------- */
 @media (max-height: 780px) {
   .tagline { display: none; }
@@ -723,15 +765,28 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     <span class="lbl">Puntos</span>
     <span class="hud-score"><span id="hCombo" class="combo" hidden></span><span id="hScore" class="num">0</span></span>
   </div>
-  <div id="hRival" class="hud-rival"><span class="lbl">Rival</span><b id="hRivalName">@rival</b><em id="hRivalRank"></em></div>
+  <div class="hud-row2">
+    <div id="hRival" class="hud-rival"><span class="lbl">Rival</span><b id="hRivalName">@rival</b><em id="hRivalRank"></em></div>
+    <div id="hDash" class="hud-dash" title="Impulsos: se recargan juntando chispas"><span class="lbl">Impulso</span><span id="hDashPips" class="pips"></span></div>
+  </div>
 </div>
+<button id="dashL" class="dash-btn left" type="button" hidden aria-label="Impulso a la izquierda"><span aria-hidden="true">◀</span> Impulso</button>
+<button id="dashR" class="dash-btn right" type="button" hidden aria-label="Impulso a la derecha">Impulso <span aria-hidden="true">▶</span></button>
 <div id="feed" class="feed" aria-live="polite" hidden></div>
 <div id="banner" class="banner" hidden><div id="bTitle" class="b-title"></div><div id="bSub" class="b-sub"></div></div>
 <div id="hint" class="hint" hidden></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <div id="spect" class="spect" hidden>
   <p id="spectText"></p>
-  <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
+  <div id="predict" class="predict" hidden>
+    <span class="lbl" id="predictTitle">¿Qué camino cae?</span>
+    <div id="predictBtns" class="predict-btns"></div>
+    <small id="predictInfo"></small>
+  </div>
+  <div class="spect-actions">
+    <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
+    <button id="nextNow" class="btn btn-primary btn-sm" type="button">Otra ronda</button>
+  </div>
 </div>
 
 <section id="menu" class="screen menu" aria-labelledby="logo">
@@ -889,6 +944,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     // probabilidad de que un bot muera en el camino angosto
     INVERT_CHANCE: 0.4,
     // probabilidad de que una ronda tenga una inversión
+    BOT_DASH: 0.05,
+    // fracción de bots que usa un impulso dentro de los carriles (en la primera mitad)
+    // Impulso del jugador
+    DASH_START: 1,
+    // cargas al empezar la ronda
+    DASH_MAX: 2,
+    // cargas máximas
+    ORBS_PER_DASH: 10,
+    // chispas para recargar un impulso
     // Motor
     FIXED_DT: 1 / 120
   });
@@ -1189,7 +1253,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       flips: new Uint8Array(n),
       jit: new Float32Array(n),
       late: new Float32Array(n),
-      lateDone: new Uint8Array(n)
+      lateDone: new Uint8Array(n),
+      dashAt: new Float32Array(n)
     };
     const { W, WALL } = CFG;
     for (let i = 0; i < n; i++) {
@@ -1201,6 +1266,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       c.jit[i] = (r() - 0.5) * 0.7;
       c.late[i] = 0.3 + r() * 0.5;
       c.tick[i] = r();
+      c.dashAt[i] = r() < CFG.BOT_DASH ? 0.1 + r() * 0.45 : 0;
     }
     return c;
   }
@@ -1252,6 +1318,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
     }
   }
+  function botDashTarget(R2, f, lane) {
+    const opts = [lane - 1, lane + 1].filter((k) => k >= 0 && k < f.k);
+    if (!opts.length) return -1;
+    opts.sort((a, b) => f.invert ? f.counts[b] - f.counts[a] : f.counts[a] - f.counts[b]);
+    const pick2 = R2.r() < 0.7 ? opts[0] : opts[opts.length - 1];
+    const better = f.invert ? f.counts[pick2] > f.counts[lane] : f.counts[pick2] < f.counts[lane];
+    return better || R2.r() < 0.25 ? pick2 : -1;
+  }
   function resetCrowdForFork(R2) {
     const c = R2.crowd;
     for (let i = 0; i < R2.n; i++) {
@@ -1262,6 +1336,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       c.lateDone[i] = 0;
       c.tick[i] = R2.r() * 0.5;
       c.ty[i] = botType(R2.r());
+      c.dashAt[i] = R2.r() < CFG.BOT_DASH ? 0.1 + R2.r() * 0.45 : 0;
     }
   }
   function updateCrowd(R2, dt, f) {
@@ -1284,6 +1359,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (f && by >= f.startY - 100) {
         if (c.lane[i] < 0 && by >= f.entryY) c.lane[i] = laneAt(f, c.x[i]);
         if (c.lane[i] >= 0) {
+          if (c.dashAt[i] > 0 && f.variant !== "fog" && by >= f.entryY + c.dashAt[i] * (f.endY - f.entryY)) {
+            c.dashAt[i] = 0;
+            const to = botDashTarget(R2, f, c.lane[i]);
+            if (to >= 0) {
+              c.lane[i] = to;
+              c.x[i] = (f.lanes[to].x0 + f.lanes[to].x1) / 2;
+            }
+          }
           const L = f.lanes[c.lane[i]];
           lo = L.x0 + 2;
           hi = L.x1 - 2;
@@ -1357,7 +1440,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var SYL = ["lu", "ka", "mi", "ro", "ne", "ta", "zu", "vi", "xo", "pa", "li", "mo", "ra", "ki", "so", "fe"];
   var TAIL = ["_ar", "_mx", "_co", "", "_07", "_99", "_uy", "_cl", "x", "z"];
   var Round = class {
-    constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS } = {}) {
+    // guided: cantidad de bifurcaciones en las que el jugador nuevo está protegido (primera partida)
+    constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0 } = {}) {
       this.seed = seed >>> 0;
       this.r = mulberry32(this.seed);
       this.demo = demo;
@@ -1393,7 +1477,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       this.lastOrbT = -9;
       this.forksOk = 0;
       this.forkLog = [];
-      this.feats = { gold: false, fog: false, invert: false };
+      this.feats = { gold: false, fog: false, invert: false, dashSave: false };
+      this.charges = demo ? 0 : CFG.DASH_START;
+      this.chargeOrbs = 0;
+      this.dashFork = -1;
+      this.dashes = 0;
+      this.guided = demo ? 0 : guided;
       this.rival = Math.floor(this.r() * bots);
       this.rivalName = this.botName(this.rival);
       this.rivalDeath = Infinity;
@@ -1472,6 +1561,29 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       for (const v of intent) tot += v;
       f.intent = intent.map((v) => v / (tot || 1));
       f.counts = counts;
+      if (!f.hist) f.hist = [];
+      f.hist.push(f.intent);
+      if (f.hist.length > 6) f.hist.shift();
+      const old = f.hist[0];
+      f.trend = f.intent.map((v, k) => v - old[k]);
+    }
+    // ---------- Impulso ----------
+    canDash() {
+      const f = this.fork;
+      return !!(this.pAlive && !this.ended && f && this.charges > 0 && this.pLane >= 0 && !f.resolved && this.pY < f.endY - 10 && this.dashFork !== f.i);
+    }
+    dash(dir) {
+      if (!this.canDash()) return false;
+      const f = this.fork, to = this.pLane + dir;
+      if (to < 0 || to >= f.k) return false;
+      const from = this.pLane, fromX = this.px;
+      this.pLane = to;
+      this.px = this.ptx = (f.lanes[to].x0 + f.lanes[to].x1) / 2;
+      this.charges--;
+      this.dashes++;
+      this.dashFork = f.i;
+      this.emit("dash", { from, to, x0: fromX, x1: this.px, y: this.pY });
+      return true;
     }
     // ---------- Jugador ----------
     movePlayer(dt, f) {
@@ -1500,7 +1612,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const g = this.lvl.gates[this.pNg];
       if (g) {
         if (Math.abs(this.pY - g.y) < GATE_HALF + P) {
-          const m = clearance(g, this.px, P, this.t);
+          const m = clearance(g, this.px, this.guided > this.cf ? P * 0.45 : P, this.t);
           if (m < 0) {
             this.killPlayer("wall", 0);
             return;
@@ -1535,6 +1647,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const pts = 10 * Math.min(this.orbChain, 5);
       this.score += pts;
       this.emit("orb", { x: o.x, y: o.y, chain: this.orbChain, pts });
+      if (++this.chargeOrbs >= CFG.ORBS_PER_DASH) {
+        this.chargeOrbs = 0;
+        if (this.charges < CFG.DASH_MAX) {
+          this.charges++;
+          this.emit("charge", { charges: this.charges, x: o.x, y: o.y });
+        }
+      }
     }
     passGate(margin) {
       if (margin < NEAR_MARGIN) {
@@ -1596,7 +1715,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       for (let i = 0; i < this.n; i++) if (c.alive[i] && c.lane[i] < 0) c.lane[i] = laneAt(f, c.x[i]);
       if (this.pAlive && this.pLane < 0) this.pLane = laneAt(f, this.px);
       this.computeCounts(f);
-      const col = pickCollapse(f.counts, f.invert, this.r);
+      let col = pickCollapse(f.counts, f.invert, this.r);
+      const protect = this.pAlive && this.guided > f.i;
+      if (protect && col.includes(this.pLane)) {
+        const others = [];
+        for (let k = 0; k < f.k; k++) if (k !== this.pLane && f.counts[k] > 0) others.push(k);
+        others.sort((a, b) => f.invert ? f.counts[a] - f.counts[b] : f.counts[b] - f.counts[a]);
+        col = others.length ? [others[0]] : [];
+      }
       f.collapsed = col;
       let lottery = null;
       if (!col.length && f.overtime) {
@@ -1610,6 +1736,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
             [ids[k], ids[j]] = [ids[j], ids[k]];
           }
           lottery = new Set(ids.slice(0, Math.max(1, Math.floor(ids.length / 2))));
+          if (protect) lottery.delete(-1);
           f.lottery = true;
         }
       }
@@ -1638,6 +1765,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
           if (gold) this.feats.gold = true;
           if (f.variant === "fog") this.feats.fog = true;
           if (f.invert) this.feats.invert = true;
+          if (this.dashFork === f.i) this.feats.dashSave = true;
         }
       }
       this.emit("forkResolved", { fork: f, collapsed: col, fallen, fx: fx2, outcome, gold, lottery: !!lottery });
@@ -1708,7 +1836,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         feats: { ...this.feats },
         forksSeen: this.forkLog.length,
         beatRival: this.beatRival,
-        rival: this.rivalName
+        rival: this.rivalName,
+        dashes: this.dashes
       };
     }
   };
@@ -1950,6 +2079,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
           src.stop(t + arg + 0.1);
           break;
         }
+        case "dash":
+          this.sweep(o, 300, 3.2, "triangle", 0.08, 0.16, t);
+          this.noise(o, t, 0.08, 0.14, "highpass", 2500);
+          break;
         case "drop":
           this.kick(o, t, 0.7);
           this.noise(o, t, 0.12, 0.6, "highpass", 3e3);
@@ -2583,6 +2716,14 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         }
         cx.globalAlpha = 1;
       }
+      if (!f.resolved && R2.pAlive && !R2.demo && R2.cf === f.i && R2.pLane >= 0) {
+        const L = f.lanes[R2.pLane];
+        cx.strokeStyle = this.C.mint;
+        cx.globalAlpha = 0.35 + this.pulse * 0.2;
+        cx.lineWidth = 2;
+        cx.strokeRect(L.x0 + 2, y0, L.x1 - L.x0 - 4, y1 - y0);
+        cx.globalAlpha = 1;
+      }
       cx.fillStyle = this.wallCol;
       for (let i = 0; i < f.k - 1; i++) {
         const xd = f.lanes[i].x1;
@@ -2626,6 +2767,24 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
           cx.fillStyle = isHot ? C2.danger : C2.text;
           cx.font = `800 ${L.narrow ? 14 : big}px ${FD}`;
           cx.fillText(fogOn ? "?" : Math.round(f.intent[k] * 100) + "%", xm, y);
+          const tr = f.trend ? f.trend[k] : 0;
+          if (!fogOn && Math.abs(tr) > 0.012) {
+            const up = tr > 0, ay = y - (L.narrow ? 24 : 30);
+            cx.fillStyle = up !== !!f.invert ? C2.danger : C2.mint;
+            cx.beginPath();
+            if (up) {
+              cx.moveTo(xm - 6, ay + 3);
+              cx.lineTo(xm + 6, ay + 3);
+              cx.lineTo(xm, ay - 5);
+            } else {
+              cx.moveTo(xm - 6, ay - 5);
+              cx.lineTo(xm + 6, ay - 5);
+              cx.lineTo(xm, ay + 3);
+            }
+            cx.fill();
+            cx.font = `700 10px ${FM}`;
+            cx.fillText((up ? "+" : "") + Math.round(tr * 100), xm, ay - 9);
+          }
           const tag2 = L.gold ? "x2" : L.narrow ? "ANGOSTO" : "";
           if (tag2) {
             cx.fillStyle = L.gold ? C2.gold : C2.muted;
@@ -3045,7 +3204,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     { id: "veteran", name: "Veterano", desc: "Jugá 25 rondas.", test: (s, save2) => save2.rounds >= 25 },
     { id: "path10", name: "Imparable", desc: "Sobreviví a 10 bifurcaciones seguidas, aunque sea entre rondas.", test: (s, save2) => save2.bestPathStreak >= 10 },
     { id: "rival5", name: "Némesis", desc: "Ganale a 5 rivales.", test: (s, save2) => save2.rivalsBeaten >= 5 },
-    { id: "gold_rank", name: "Liga de Oro", desc: "Llegá a la liga Oro.", test: (s, save2) => rankOf(save2.peakPR).tier >= 2 }
+    { id: "gold_rank", name: "Liga de Oro", desc: "Llegá a la liga Oro.", test: (s, save2) => rankOf(save2.peakPR).tier >= 2 },
+    { id: "dash_save", name: "Último segundo", desc: "Sobreviví a una bifurcación después de usar un impulso.", test: (s) => !!(s.feats && s.feats.dashSave) },
+    { id: "oracle", name: "Oráculo", desc: "Acertá 3 predicciones mientras mirás una ronda.", test: (s) => (s.predHits || 0) >= 3 }
   ];
   var levelNeed = (n) => 120 + (n - 1) * 60;
   function levelInfo(xp) {
@@ -3204,7 +3365,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     save2.peakPR = Math.max(save2.peakPR, save2.pr);
     const rankAfter = rankOf(save2.pr);
     const gain = xpForRound(sum);
-    const coins = coinsForRound(sum, rankBefore.tier);
+    const predCoins = sum.predCoins || 0;
+    const coins = coinsForRound(sum, rankBefore.tier) + predCoins;
     save2.coins += coins;
     const lv = addXP(save2, gain);
     const missionsDone = progressMissions(save2, sum, today);
@@ -3223,6 +3385,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return {
       gain,
       coins,
+      predCoins,
       before: lv.before,
       after: lv.after,
       newAch,
@@ -3627,6 +3790,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         });
         body.append(b);
       }
+      if (env2.h.canInstall()) {
+        const inst = el("button", "btn btn-primary", "Instalar como app");
+        inst.type = "button";
+        inst.addEventListener("click", () => env2.h.onInstall());
+        body.append(inst, el("p", "note", "Queda en tu pantalla de inicio y funciona sin conexión."));
+      }
       const zone = el("div", "danger-zone");
       const reset = el("button", "btn btn-danger", "Borrar mi progreso");
       reset.type = "button";
@@ -3853,6 +4022,55 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (ot) otLabel.textContent = `Súbita ${R2.cf - CFG.FORKS + 1}`;
       $("hForks").classList.toggle("ot", ot);
       $("hRival").classList.toggle("down", !R2.rivalAlive);
+      const pips = $("hDashPips");
+      if (pips.children.length !== CFG.DASH_MAX) {
+        pips.innerHTML = "";
+        for (let i = 0; i < CFG.DASH_MAX; i++) pips.append(document.createElement("i"));
+      }
+      [...pips.children].forEach((p, i) => p.classList.toggle("on", i < R2.charges));
+    }
+    let dashKey = "";
+    function dashButtons(R2) {
+      const f = R2.fork, can = !!(R2.canDash && R2.canDash());
+      const l = can && R2.pLane > 0, r = can && f && R2.pLane < f.k - 1;
+      const key = `${l}|${r}`;
+      $("hDash").classList.toggle("ready", can);
+      if (key === dashKey) return;
+      dashKey = key;
+      $("dashL").hidden = !l;
+      $("dashR").hidden = !r;
+    }
+    function hideDash() {
+      dashKey = "";
+      $("dashL").hidden = true;
+      $("dashR").hidden = true;
+    }
+    const LANES = ["A", "B", "C", "D"];
+    let predKey = "";
+    function predict(R2, pred2, stats) {
+      const f = R2.fork;
+      const open = !R2.pAlive && !R2.ended && f && !f.resolved && R2.pY >= f.startY - 150;
+      const mine = open && pred2 && pred2.fork === f.i ? pred2.lane : -1;
+      const locked = open && R2.pY >= f.endY - 60;
+      const key = `${open}|${f && f.i}|${mine}|${locked}|${stats.hits}`;
+      if (key === predKey) return;
+      predKey = key;
+      $("predict").hidden = !open;
+      if (!open) return;
+      $("predictTitle").textContent = f.invert ? "¿Qué camino cae? (inversión)" : "¿Qué camino cae?";
+      const box = $("predictBtns");
+      box.innerHTML = "";
+      for (let k = 0; k < f.k; k++) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = LANES[k];
+        b.setAttribute("aria-pressed", String(mine === k));
+        b.disabled = mine >= 0 || locked;
+        b.addEventListener("click", () => h.onPredict(k));
+        box.append(b);
+      }
+      const prize = 5 + f.k * 5;
+      $("predictInfo").textContent = mine >= 0 ? `Elegiste ${LANES[mine]}: si acertás, +${prize} destellos.` : locked ? "Ya se cerraron las predicciones." : `Acertá y ganás ${prize} destellos. Llevás ${stats.hits} ${stats.hits === 1 ? "acierto" : "aciertos"}.`;
     }
     function setRival(name, rankLabel) {
       $("hRivalName").textContent = name;
@@ -3869,6 +4087,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     }
     function hideSpectator() {
       $("spect").hidden = true;
+      $("predict").hidden = true;
+      predKey = "";
     }
     function renderMenu(save2, env3) {
       const li = levelInfo(save2.xp);
@@ -3961,6 +4181,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (up) lines.push(`¡Subiste a nivel ${rep.after.level}!`);
       if (rep.newSkins.length) lines.push(`Nueva skin: ${rep.newSkins.map((k) => k.name).join(" y ")}.`);
       if (rep.newTrails.length) lines.push(`Nueva estela: ${rep.newTrails.map((k) => k.name).join(" y ")}.`);
+      if (sum.predHits) lines.push(`Predicciones: ${sum.predHits} ${sum.predHits === 1 ? "acierto" : "aciertos"} (+${fmt(rep.predCoins)} destellos).`);
       $("rUnlock").hidden = !lines.length;
       $("rUnlock").textContent = lines.join(" ");
       const rv = $("rRival");
@@ -4028,6 +4249,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     $("again").addEventListener("click", h.onPlay);
     $("home").addEventListener("click", h.onHome);
     $("skip").addEventListener("click", h.onSkip);
+    $("nextNow").addEventListener("click", h.onNextNow);
+    $("dashL").addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      h.onDash(-1);
+    });
+    $("dashR").addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      h.onDash(1);
+    });
     $("shareBtn").addEventListener("click", h.onShare);
     const opens = { settingsBtn: "settings", profileBtn: "profile", helpBtn: "how", coinsBtn: "shop", rankBtn: "rank" };
     for (const [id, kind] of Object.entries(opens)) $(id).addEventListener("click", () => {
@@ -4068,6 +4298,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       hud,
       setRival,
       showHud,
+      dashButtons,
+      hideDash,
+      predict,
       showSpectator,
       hideSpectator,
       renderMenu,
@@ -4110,6 +4343,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var tutorial = null;
   var dailyOffered = false;
   var riserFork = -1;
+  var pred = null;
+  var predStats = { hits: 0, coins: 0 };
+  var dashHintShown = false;
   var trail = [];
   var TRAIL_LEN = 44;
   var LANE = ["A", "B", "C", "D"];
@@ -4146,6 +4382,22 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     onHome: () => {
       audio.play("ui");
       toMenu();
+    },
+    onDash: (dir) => doDash(dir),
+    onPredict: (lane) => {
+      const f = R.fork;
+      if (!f || f.resolved || R.pAlive) return;
+      pred = { fork: f.i, lane };
+      audio.play("ui");
+      buzz(10);
+    },
+    onNextNow: () => {
+      if (state !== "playing" || R.pAlive) return;
+      audio.play("ui");
+      R.runToEnd();
+      R.events.length = 0;
+      finishRound({ quick: true });
+      startRound();
     },
     onSkip: () => {
       if (state === "playing" && !R.pAlive) {
@@ -4222,6 +4474,17 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       refreshMenu();
       ui.openModal("daily", { claimed: r });
     },
+    canInstall: () => !!installPrompt,
+    onInstall: async () => {
+      if (!installPrompt) return;
+      installPrompt.prompt();
+      try {
+        await installPrompt.userChoice;
+      } catch (e) {
+      }
+      installPrompt = null;
+      ui.refreshModal();
+    },
     onToggle: (key) => {
       save[key] = !save[key];
       persist();
@@ -4268,8 +4531,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   }
   function startRound() {
     ui.closeModal();
-    R = new Round({ seed: randSeed() });
+    const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
+    R = new Round({ seed: randSeed(), guided });
     resetView();
+    pred = null;
+    predStats.hits = 0;
+    predStats.coins = 0;
+    ui.hideDash();
     state = "countdown";
     countT = CFG.COUNTDOWN_S;
     endAt = null;
@@ -4285,11 +4553,17 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (tutorial) ui.hint("Arrastrá el dedo o el mouse para moverte.", 3e3);
     else ui.hint(`Tu rival es ${R.rivalName}: durá más que él.`, 2600);
   }
-  function finishRound() {
-    state = "results";
-    lastSum = R.summary();
+  function finishRound({ quick = false } = {}) {
+    lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
     const rep = applyRound(save, lastSum);
     persist();
+    ui.hideDash();
+    if (quick) {
+      ui.toast(`Ronda anterior: #${fmt(lastSum.rank)}`, `+${fmt(rep.gain)} XP · +${fmt(rep.coins)} destellos · ${rep.pr.delta >= 0 ? "+" : ""}${fmt(rep.pr.delta)} PR`);
+      for (const a of rep.newAch) ui.toast("Logro desbloqueado", a.name);
+      return;
+    }
+    state = "results";
     ui.showHud(false);
     ui.hideSpectator();
     ui.hideBanner();
@@ -4397,6 +4671,27 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         }
         ui.feed("hot", "Muerte súbita ", `#${e.n}`, `: quedan ${fmt(e.alive)}`);
         break;
+      case "dash": {
+        const col = C.mint;
+        for (let k = 0; k <= 10; k++) {
+          const x = e.x0 + (e.x1 - e.x0) * (k / 10);
+          fx.spawn(x, e.y + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 40, R.speed * 0.7, 0.35, col, 4);
+        }
+        fx.ring(e.x1, e.y, col, 90, 0.4, 3);
+        fx.pop(e.x1, e.y, "¡Impulso!", col);
+        audio.play("dash");
+        buzz(25);
+        break;
+      }
+      case "charge":
+        fx.pop(e.x, e.y, "+1 impulso", C.mint);
+        fx.ring(R.px, R.pY, C.mint, 70, 0.4, 2);
+        audio.play("claim");
+        if (!dashHintShown && save.rounds < 4) {
+          dashHintShown = true;
+          ui.hint("Cada 10 chispas ganás un impulso para cambiarte de camino.", 3200);
+        }
+        break;
       case "rivalDown":
         ui.feed("good", "Tu rival ", e.name, " cayó");
         audio.play("rival");
@@ -4419,6 +4714,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   function onForkResolved(e) {
     if (e.fx && e.fx.length) fx.fall(e.fx, C.danger);
     if (R.demo) return;
+    if (pred && pred.fork === e.fork.i) {
+      const lane = ["A", "B", "C", "D"][pred.lane];
+      if (e.collapsed.includes(pred.lane)) {
+        const prize = 5 + e.fork.k * 5;
+        predStats.hits++;
+        predStats.coins += prize;
+        ui.feed("gold", "Acertaste: cayó el camino ", lane, ` · +${prize} destellos`);
+        audio.play("claim");
+        buzz([15, 30, 15]);
+      } else {
+        ui.feed("", "Tu predicción falló: ", `el ${lane} resistió`);
+      }
+      pred = null;
+    }
     if (e.collapsed.length) {
       slow = 0.22;
       slowT = 0.55;
@@ -4539,6 +4848,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       simulate(dt * slow);
       tensionTick(dt);
       emitTrail(dt, sk, tr);
+      if (tutorial && !tutorial.dash && R.canDash()) {
+        tutorial.dash = true;
+        ui.hint("¡Tocá IMPULSO para pasarte de camino a último momento!", 3200);
+      }
       if (tutorial && !tutorial.chips && R.t > 0.6) {
         tutorial.chips = true;
         ui.hint("Juntá las chispas doradas y pasá por el hueco de cada muro.", 3600);
@@ -4565,7 +4878,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       trail.push(R.px, R.pY);
       if (trail.length > TRAIL_LEN) trail.splice(0, 2);
     }
-    if (state === "countdown" || state === "playing") ui.hud(R);
+    if (state === "countdown" || state === "playing") {
+      ui.hud(R);
+      ui.dashButtons(R);
+      ui.predict(R, pred, predStats);
+    }
     fx.update(dt);
     audio.setIntensity(intensity());
     const stage = Math.min(R.cf, 6);
@@ -4603,6 +4920,30 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   });
   window.addEventListener("pointerdown", () => audio.unlock(), { once: true });
   var KEYMAP = { ArrowLeft: "l", a: "l", A: "l", ArrowRight: "r", d: "r", D: "r" };
+  function doDash(dir) {
+    if (!R || R.demo || state !== "playing" || !R.canDash()) return;
+    const f = R.fork;
+    if (!dir) {
+      const aim = R.keyDir || Math.sign(R.ptx - R.px);
+      if (aim) dir = aim;
+      else {
+        const l = R.pLane - 1, r = R.pLane + 1;
+        const cnt = (k) => k < 0 || k >= f.k ? Infinity : f.invert ? -f.counts[k] : f.counts[k];
+        dir = cnt(l) <= cnt(r) ? -1 : 1;
+      }
+    }
+    R.dash(dir);
+  }
+  window.addEventListener("keydown", (e) => {
+    if (ui.modalOpen) return;
+    if (e.key === " " || e.key === "Shift") {
+      if (state === "playing") {
+        doDash(0);
+        e.preventDefault();
+      }
+    } else if (e.key === "q" || e.key === "Q") doDash(-1);
+    else if (e.key === "e" || e.key === "E") doDash(1);
+  });
   function applyKeys() {
     if (canSteer()) R.setKeyDir((keys.has("r") ? 1 : 0) - (keys.has("l") ? 1 : 0));
   }
@@ -4623,8 +4964,29 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   document.addEventListener("visibilitychange", () => {
     last = performance.now();
   });
+  var installPrompt = null;
+  function setupPWA() {
+    const hosted = /^https?:$/.test(location.protocol) && window.self === window.top;
+    if (!hosted) return;
+    const link = (rel, href) => {
+      const l = document.createElement("link");
+      l.rel = rel;
+      l.href = href;
+      document.head.append(l);
+    };
+    link("manifest", "manifest.webmanifest");
+    link("apple-touch-icon", "apple-touch-icon.png");
+    link("icon", "icon.svg");
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {
+    });
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      installPrompt = e;
+    });
+  }
   $("lobbyCount").textContent = fmt(CFG.BOTS + 1);
   audio.onBeat = (strong) => renderer.beat(strong ? 1 : 0.55);
+  setupPWA();
   toMenu();
   requestAnimationFrame(frame);
   window.__contracorriente = {

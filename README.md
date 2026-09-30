@@ -4,6 +4,12 @@ Un juego online de un solo control: cada minuto, todos los jugadores caen juntos
 
 Este prototipo responde una sola pregunta: **¿la bifurcación genera tensión y dan ganas de jugar otra ronda?**
 
+## Publicarlo en una URL
+
+El workflow `.github/workflows/pages.yml` arma el juego y lo publica en GitHub Pages en cada cambio. Para activarlo, en GitHub entrá a **Settings → Pages → Source** y elegí **GitHub Actions**. GitHub Pages en repositorios privados requiere un plan pago; si el repo es privado y gratis, se puede publicar gratis en Netlify o Cloudflare Pages conectando el repo, con el comando `npm run build` y la carpeta `dist/site`.
+
+Una vez publicado, desde el celular se puede instalar como app (Ajustes → Instalar como app, o "Agregar a pantalla de inicio") y funciona sin conexión.
+
 ## Cómo probarlo
 
 Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita instalación ni servidor.
@@ -24,6 +30,16 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 - Tarjeta de resultado para compartir.
 
 ## Novedades
+
+### v0.6
+- **Impulso**: dentro de los carriles podés pasarte al camino vecino a último momento (botones en pantalla, o Q / E / Espacio en la compu). Empezás con 1 y cada 10 chispas ganás otro (máximo 2).
+- **Flechas de tendencia**: arriba de cada porcentaje se ve si ese camino está ganando o perdiendo gente.
+- **Más habilidad, menos suerte**: medido sobre 40 rondas por estrategia, elegir al azar sobrevive el 51% de las bifurcaciones y leer la tendencia más usar el Impulso, el 86%.
+- **Primera partida guiada**: en la primera ronda las 3 primeras bifurcaciones y los muros perdonan; en la segunda, la primera bifurcación. Tutorial del Impulso.
+- **Predicciones**: cuando caés, apostás qué camino cae y ganás destellos si acertás.
+- **Otra ronda al instante**: desde la vista de espectador se guarda el resultado y arranca la siguiente.
+- **Instalable como app** (con conexión o sin ella) cuando se publica en una URL. Workflow listo para GitHub Pages.
+- 2 logros nuevos: Último segundo y Oráculo.
 
 ### v0.5
 - **Recompensa diaria corregida**: al reclamar se muestra el premio en grande y el botón cierra la ventana. Antes el reclamo se guardaba, pero la ventana quedaba igual y el botón "Volvé mañana" no hacía nada.

@@ -68,7 +68,7 @@ test('migra el guardado de la v0.2 y tolera datos rotos', () => {
   assert.ok(store.get(SAVE_KEY));
   const broken = loadSave(memStore({ [SAVE_KEY]: '{no es json' }));
   assert.equal(broken.rounds, 0);
-  assert.equal(ACHIEVEMENTS.length, 17);
+  assert.equal(ACHIEVEMENTS.length, 19);
 });
 
 test('la racha de caminos sigue entre rondas y se corta al caer en una bifurcación', () => {

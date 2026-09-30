@@ -230,7 +230,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
 .hint {
   position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 100px);
   width: max-content; max-width: calc(100% - 32px);
   padding: 11px 18px; border-radius: var(--pill);
   background: var(--glass); border: 1px solid var(--spark);
@@ -680,6 +680,48 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .hud-forks { align-items: center; }
 .hud-forks.ot { border-color: var(--danger); box-shadow: 0 0 16px rgba(255, 84, 112, 0.4); }
 .ot-label { font: 800 10px/1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--danger); margin-left: 4px; }
+
+/* ---------- v0.6: impulso, predicciones ---------- */
+.hud-row2 { grid-column: 1 / -1; justify-self: center; display: flex; gap: 6px; align-items: center; }
+.hud-rival { grid-column: auto; }
+.hud-dash {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--pill);
+  background: var(--glass); border: 1px solid var(--edge); font-size: 12px;
+}
+.pips { display: inline-flex; gap: 4px; }
+.pips i { width: 9px; height: 9px; border-radius: 3px; transform: rotate(45deg); border: 1.5px solid var(--mint); }
+.pips i.on { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+.hud-dash.ready { border-color: var(--mint); }
+.dash-btn {
+  position: fixed; z-index: 4; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  appearance: none; cursor: pointer; border: 0;
+  min-height: 60px; padding: 0 22px; border-radius: var(--pill);
+  background: linear-gradient(180deg, #8ff8d6, var(--mint)); color: var(--ink);
+  font: 800 15px/1 var(--f-display); letter-spacing: 0.04em; text-transform: uppercase;
+  box-shadow: 0 0 0 3px rgba(94, 242, 194, 0.3), 0 8px 26px rgba(94, 242, 194, 0.45);
+  animation: dashIn 0.25s ease, dashPulse 0.9s ease-in-out infinite 0.25s;
+  touch-action: manipulation;
+}
+.dash-btn.left { left: max(16px, calc(50% - 230px)); }
+.dash-btn.right { right: max(16px, calc(50% - 230px)); }
+.dash-btn:active { transform: scale(0.95); }
+.dash-btn:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+@keyframes dashIn { from { opacity: 0; transform: translateY(12px); } }
+@keyframes dashPulse { 50% { box-shadow: 0 0 0 7px rgba(94, 242, 194, 0.15), 0 8px 30px rgba(94, 242, 194, 0.6); } }
+
+.spect { flex-direction: column; align-items: stretch; }
+.spect-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.predict { display: flex; flex-direction: column; gap: var(--s2); align-items: stretch; padding-top: var(--s1); }
+.predict .lbl { color: var(--gold); }
+.predict-btns { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.predict-btns button {
+  appearance: none; cursor: pointer; min-height: 44px; border-radius: var(--r1);
+  background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.45); color: var(--text);
+  font: 800 16px/1 var(--f-display);
+}
+.predict-btns button[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.predict-btns button:disabled { cursor: default; opacity: 0.55; }
+.predict small { font-size: 12px; color: var(--muted); }
 
 /* ---------- Pantallas bajas: compactar el menú ---------- */
 @media (max-height: 780px) {

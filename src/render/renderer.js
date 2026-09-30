@@ -493,6 +493,15 @@ export class Renderer {
       }
       cx.globalAlpha = 1;
     }
+    // Tu camino, remarcado mientras estás en los carriles
+    if (!f.resolved && R.pAlive && !R.demo && R.cf === f.i && R.pLane >= 0) {
+      const L = f.lanes[R.pLane];
+      cx.strokeStyle = this.C.mint;
+      cx.globalAlpha = 0.35 + this.pulse * 0.2;
+      cx.lineWidth = 2;
+      cx.strokeRect(L.x0 + 2, y0, L.x1 - L.x0 - 4, y1 - y0);
+      cx.globalAlpha = 1;
+    }
     cx.fillStyle = this.wallCol;
     for (let i = 0; i < f.k - 1; i++) {
       const xd = f.lanes[i].x1;
@@ -531,6 +540,19 @@ export class Renderer {
         cx.fillStyle = isHot ? C.danger : C.text;
         cx.font = `800 ${L.narrow ? 14 : big}px ${FD}`;
         cx.fillText(fogOn ? '?' : Math.round(f.intent[k] * 100) + '%', xm, y);
+        // Flecha de tendencia: hacia dónde se está moviendo la multitud
+        const tr = f.trend ? f.trend[k] : 0;
+        if (!fogOn && Math.abs(tr) > 0.012) {
+          const up = tr > 0, ay = y - (L.narrow ? 24 : 30);
+          // Que crezca un camino es malo si cae el más lleno, y bueno en una inversión
+          cx.fillStyle = up !== !!f.invert ? C.danger : C.mint;
+          cx.beginPath();
+          if (up) { cx.moveTo(xm - 6, ay + 3); cx.lineTo(xm + 6, ay + 3); cx.lineTo(xm, ay - 5); }
+          else { cx.moveTo(xm - 6, ay - 5); cx.lineTo(xm + 6, ay - 5); cx.lineTo(xm, ay + 3); }
+          cx.fill();
+          cx.font = `700 10px ${FM}`;
+          cx.fillText((up ? '+' : '') + Math.round(tr * 100), xm, ay - 9);
+        }
         const tag = L.gold ? 'x2' : L.narrow ? 'ANGOSTO' : '';
         if (tag) {
           cx.fillStyle = L.gold ? C.gold : C.muted;

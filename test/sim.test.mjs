@@ -91,3 +91,51 @@ test('un jugador que no se mueve choca con algún muro', () => {
   assert.equal(R.pAlive, false);
   assert.ok(R.rank >= 1 && R.rank <= CFG.BOTS + 1);
 });
+
+// Avanza hasta estar dentro de los carriles de la bifurcación actual, sin chocar muros
+function toLanes(R) {
+  const kp = R.killPlayer.bind(R);
+  R.killPlayer = (why, s) => { if (why !== 'wall') kp(why, s); };
+  const f = R.fork;
+  R.setTarget((f.lanes[0].x0 + f.lanes[0].x1) / 2);
+  while (R.pY < f.entryY + 20) R.step(1 / 120);
+  return f;
+}
+
+test('impulso: cambia de carril, gasta una carga y solo una vez por bifurcación', () => {
+  const R = new Round({ seed: 99 });
+  const f = toLanes(R);
+  assert.equal(R.pLane, 0);
+  assert.equal(R.charges, CFG.DASH_START);
+  assert.equal(R.dash(-1), false); // no hay carril a la izquierda
+  assert.equal(R.dash(1), true);
+  assert.equal(R.pLane, 1);
+  assert.ok(R.px > f.lanes[1].x0 && R.px < f.lanes[1].x1);
+  assert.equal(R.charges, CFG.DASH_START - 1);
+  assert.equal(R.dash(-1), false); // ya se usó en esta bifurcación
+});
+
+test('impulso: juntar chispas recarga cargas hasta el máximo', () => {
+  const R = new Round({ seed: 5 });
+  for (let i = 0; i < CFG.ORBS_PER_DASH * 4; i++) R.takeOrb({ x: 0, y: 0 });
+  assert.equal(R.charges, CFG.DASH_MAX);
+});
+
+test('partida guiada: el jugador nuevo no cae en las bifurcaciones protegidas', () => {
+  for (let s = 1; s <= 6; s++) {
+    const R = new Round({ seed: s * 101, guided: 3 });
+    const kp = R.killPlayer.bind(R);
+    R.killPlayer = (why, x) => { if (why !== 'wall') kp(why, x); };
+    // Se queda siempre en el camino con más gente: sin protección caería
+    while (R.cf < 3 && R.pAlive && !R.ended) {
+      const f = R.fork;
+      if (f && R.pY >= f.startY - 120 && R.pLane < 0) {
+        let m = 0;
+        for (let k = 1; k < f.k; k++) if (f.intent[k] > f.intent[m]) m = k;
+        R.setTarget((f.lanes[m].x0 + f.lanes[m].x1) / 2);
+      }
+      R.step(1 / 120);
+    }
+    assert.ok(R.pAlive, `semilla ${s}: cayó en la bifurcación ${R.cf}`);
+  }
+});

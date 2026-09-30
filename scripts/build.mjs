@@ -2,7 +2,8 @@
 // para que se pueda abrir con doble clic sin servidor. También genera dist/artifact.html,
 // la misma página sin el esqueleto del documento, para publicarla como Artifact.
 import { build } from 'esbuild';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -34,6 +35,16 @@ const artifact = html
   .replace(/<\/body>\s*<\/html>\s*$/, '');
 mkdirSync(join(root, 'dist'), { recursive: true });
 writeFileSync(join(root, 'dist/artifact.html'), artifact);
+
+// Sitio publicable (GitHub Pages, Netlify, etc.): el juego + archivos para instalarlo como app
+const site = join(root, 'dist/site');
+mkdirSync(site, { recursive: true });
+writeFileSync(join(site, 'index.html'), html);
+const version = createHash('sha1').update(html).digest('hex').slice(0, 10);
+for (const f of readdirSync(join(root, 'static'))) {
+  if (f === 'sw.js') writeFileSync(join(site, f), readFileSync(join(root, 'static', f), 'utf8').replace('__VERSION__', version));
+  else copyFileSync(join(root, 'static', f), join(site, f));
+}
 
 const kb = n => (n / 1024).toFixed(1) + ' KB';
 console.log(`index.html ${kb(html.length)} · js ${kb(js.length)} · css ${kb(css.length)}`);

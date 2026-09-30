@@ -36,7 +36,8 @@ const SYL = ['lu', 'ka', 'mi', 'ro', 'ne', 'ta', 'zu', 'vi', 'xo', 'pa', 'li', '
 const TAIL = ['_ar', '_mx', '_co', '', '_07', '_99', '_uy', '_cl', 'x', 'z'];
 
 export class Round {
-  constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS } = {}) {
+  // guided: cantidad de bifurcaciones en las que el jugador nuevo está protegido (primera partida)
+  constructor({ seed = Date.now(), demo = false, bots = CFG.BOTS, guided = 0 } = {}) {
     this.seed = seed >>> 0;
     this.r = mulberry32(this.seed);
     this.demo = demo;
@@ -77,7 +78,14 @@ export class Round {
     this.lastOrbT = -9;
     this.forksOk = 0;
     this.forkLog = [];
-    this.feats = { gold: false, fog: false, invert: false };
+    this.feats = { gold: false, fog: false, invert: false, dashSave: false };
+
+    // Impulso: cambiarse al carril vecino una vez por bifurcación, gastando una carga
+    this.charges = demo ? 0 : CFG.DASH_START;
+    this.chargeOrbs = 0;
+    this.dashFork = -1;
+    this.dashes = 0;
+    this.guided = demo ? 0 : guided;
 
     // Rival: un bot al azar al que tenés que sobrevivir
     this.rival = Math.floor(this.r() * bots);
@@ -158,6 +166,33 @@ export class Round {
     for (const v of intent) tot += v;
     f.intent = intent.map(v => v / (tot || 1));
     f.counts = counts;
+    // Tendencia: cuánto cambió la intención en el último ~0,6 s (para leer hacia dónde va la multitud)
+    if (!f.hist) f.hist = [];
+    f.hist.push(f.intent);
+    if (f.hist.length > 6) f.hist.shift();
+    const old = f.hist[0];
+    f.trend = f.intent.map((v, k) => v - old[k]);
+  }
+
+  // ---------- Impulso ----------
+  canDash() {
+    const f = this.fork;
+    return !!(this.pAlive && !this.ended && f && this.charges > 0 && this.pLane >= 0 && !f.resolved
+      && this.pY < f.endY - 10 && this.dashFork !== f.i);
+  }
+
+  dash(dir) {
+    if (!this.canDash()) return false;
+    const f = this.fork, to = this.pLane + dir;
+    if (to < 0 || to >= f.k) return false;
+    const from = this.pLane, fromX = this.px;
+    this.pLane = to;
+    this.px = this.ptx = (f.lanes[to].x0 + f.lanes[to].x1) / 2;
+    this.charges--;
+    this.dashes++;
+    this.dashFork = f.i;
+    this.emit('dash', { from, to, x0: fromX, x1: this.px, y: this.pY });
+    return true;
   }
 
   // ---------- Jugador ----------
@@ -189,7 +224,8 @@ export class Round {
     const g = this.lvl.gates[this.pNg];
     if (g) {
       if (Math.abs(this.pY - g.y) < GATE_HALF + P) {
-        const m = clearance(g, this.px, P, this.t);
+        // En la partida guiada los primeros muros perdonan un poco más
+        const m = clearance(g, this.px, this.guided > this.cf ? P * 0.45 : P, this.t);
         if (m < 0) { this.killPlayer('wall', 0); return; }
         this.gateMin = Math.min(this.gateMin, m);
       } else if (this.pY > g.y + GATE_HALF + P) {
@@ -220,6 +256,13 @@ export class Round {
     const pts = 10 * Math.min(this.orbChain, 5);
     this.score += pts;
     this.emit('orb', { x: o.x, y: o.y, chain: this.orbChain, pts });
+    if (++this.chargeOrbs >= CFG.ORBS_PER_DASH) {
+      this.chargeOrbs = 0;
+      if (this.charges < CFG.DASH_MAX) {
+        this.charges++;
+        this.emit('charge', { charges: this.charges, x: o.x, y: o.y });
+      }
+    }
   }
 
   passGate(margin) {
@@ -284,7 +327,15 @@ export class Round {
     if (this.pAlive && this.pLane < 0) this.pLane = laneAt(f, this.px);
     this.computeCounts(f);
 
-    const col = pickCollapse(f.counts, f.invert, this.r);
+    let col = pickCollapse(f.counts, f.invert, this.r);
+    // Partida guiada: si iba a caer el camino del jugador nuevo, cae el siguiente peor
+    const protect = this.pAlive && this.guided > f.i;
+    if (protect && col.includes(this.pLane)) {
+      const others = [];
+      for (let k = 0; k < f.k; k++) if (k !== this.pLane && f.counts[k] > 0) others.push(k);
+      others.sort((a, b) => (f.invert ? f.counts[a] - f.counts[b] : f.counts[b] - f.counts[a]));
+      col = others.length ? [others[0]] : [];
+    }
     f.collapsed = col;
     // En muerte súbita, si nadie se separa, la corriente se lleva a la mitad del camino
     let lottery = null;
@@ -296,6 +347,7 @@ export class Round {
         if (this.pAlive && this.pLane === lane) ids.push(-1);
         for (let k = ids.length - 1; k > 0; k--) { const j = Math.floor(this.r() * (k + 1)); [ids[k], ids[j]] = [ids[j], ids[k]]; }
         lottery = new Set(ids.slice(0, Math.max(1, Math.floor(ids.length / 2))));
+        if (protect) lottery.delete(-1);
         f.lottery = true;
       }
     }
@@ -323,6 +375,7 @@ export class Round {
         if (gold) this.feats.gold = true;
         if (f.variant === 'fog') this.feats.fog = true;
         if (f.invert) this.feats.invert = true;
+        if (this.dashFork === f.i) this.feats.dashSave = true;
       }
     }
     this.emit('forkResolved', { fork: f, collapsed: col, fallen, fx, outcome, gold, lottery: !!lottery });
@@ -383,7 +436,7 @@ export class Round {
       score: Math.round(this.score), rank: this.rank, total: this.n + 1, pct: this.pct,
       forksOk: this.forksOk, forks: Math.max(CFG.FORKS, this.forkLog.length), near: this.near, maxCombo: this.maxCombo, orbs: this.orbs,
       alive: this.pAlive, outlier: !!(this.outlier && this.outlier.you), why: this.why, feats: { ...this.feats },
-      forksSeen: this.forkLog.length, beatRival: this.beatRival, rival: this.rivalName,
+      forksSeen: this.forkLog.length, beatRival: this.beatRival, rival: this.rivalName, dashes: this.dashes,
     };
   }
 }

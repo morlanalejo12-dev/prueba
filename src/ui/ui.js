@@ -113,6 +113,57 @@ export function createUI(h) {
     if (ot) otLabel.textContent = `Súbita ${R.cf - CFG.FORKS + 1}`;
     $('hForks').classList.toggle('ot', ot);
     $('hRival').classList.toggle('down', !R.rivalAlive);
+    const pips = $('hDashPips');
+    if (pips.children.length !== CFG.DASH_MAX) {
+      pips.innerHTML = '';
+      for (let i = 0; i < CFG.DASH_MAX; i++) pips.append(document.createElement('i'));
+    }
+    [...pips.children].forEach((p, i) => p.classList.toggle('on', i < R.charges));
+  }
+
+  // Botones de impulso: solo aparecen dentro de los carriles, si hay carga y carril vecino
+  let dashKey = '';
+  function dashButtons(R) {
+    const f = R.fork, can = !!(R.canDash && R.canDash());
+    const l = can && R.pLane > 0, r = can && f && R.pLane < f.k - 1;
+    const key = `${l}|${r}`;
+    $('hDash').classList.toggle('ready', can);
+    if (key === dashKey) return;
+    dashKey = key;
+    $('dashL').hidden = !l;
+    $('dashR').hidden = !r;
+  }
+  function hideDash() { dashKey = ''; $('dashL').hidden = true; $('dashR').hidden = true; }
+
+  // Predicciones mientras mirás: elegir qué camino cae en la próxima bifurcación
+  const LANES = ['A', 'B', 'C', 'D'];
+  let predKey = '';
+  function predict(R, pred, stats) {
+    const f = R.fork;
+    const open = !R.pAlive && !R.ended && f && !f.resolved && R.pY >= f.startY - 150;
+    const mine = open && pred && pred.fork === f.i ? pred.lane : -1;
+    const locked = open && R.pY >= f.endY - 60;
+    const key = `${open}|${f && f.i}|${mine}|${locked}|${stats.hits}`;
+    if (key === predKey) return;
+    predKey = key;
+    $('predict').hidden = !open;
+    if (!open) return;
+    $('predictTitle').textContent = f.invert ? '¿Qué camino cae? (inversión)' : '¿Qué camino cae?';
+    const box = $('predictBtns');
+    box.innerHTML = '';
+    for (let k = 0; k < f.k; k++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = LANES[k];
+      b.setAttribute('aria-pressed', String(mine === k));
+      b.disabled = mine >= 0 || locked;
+      b.addEventListener('click', () => h.onPredict(k));
+      box.append(b);
+    }
+    const prize = 5 + f.k * 5;
+    $('predictInfo').textContent = mine >= 0 ? `Elegiste ${LANES[mine]}: si acertás, +${prize} destellos.`
+      : locked ? 'Ya se cerraron las predicciones.'
+      : `Acertá y ganás ${prize} destellos. Llevás ${stats.hits} ${stats.hits === 1 ? 'acierto' : 'aciertos'}.`;
   }
   function setRival(name, rankLabel) {
     $('hRivalName').textContent = name;
@@ -128,7 +179,7 @@ export function createUI(h) {
     $('spectText').innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}. Mirá cómo sigue la ronda.`;
     $('spect').hidden = false;
   }
-  function hideSpectator() { $('spect').hidden = true; }
+  function hideSpectator() { $('spect').hidden = true; $('predict').hidden = true; predKey = ''; }
 
   // ---------- Menú ----------
   // Devuelve si hay recompensa diaria disponible
@@ -240,6 +291,7 @@ export function createUI(h) {
     if (up) lines.push(`¡Subiste a nivel ${rep.after.level}!`);
     if (rep.newSkins.length) lines.push(`Nueva skin: ${rep.newSkins.map(k => k.name).join(' y ')}.`);
     if (rep.newTrails.length) lines.push(`Nueva estela: ${rep.newTrails.map(k => k.name).join(' y ')}.`);
+    if (sum.predHits) lines.push(`Predicciones: ${sum.predHits} ${sum.predHits === 1 ? 'acierto' : 'aciertos'} (+${fmt(rep.predCoins)} destellos).`);
     $('rUnlock').hidden = !lines.length;
     $('rUnlock').textContent = lines.join(' ');
 
@@ -319,6 +371,10 @@ export function createUI(h) {
   $('again').addEventListener('click', h.onPlay);
   $('home').addEventListener('click', h.onHome);
   $('skip').addEventListener('click', h.onSkip);
+  $('nextNow').addEventListener('click', h.onNextNow);
+  // pointerdown para que el impulso responda al instante
+  $('dashL').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(-1); });
+  $('dashR').addEventListener('pointerdown', e => { e.preventDefault(); h.onDash(1); });
   $('shareBtn').addEventListener('click', h.onShare);
   const opens = { settingsBtn: 'settings', profileBtn: 'profile', helpBtn: 'how', coinsBtn: 'shop', rankBtn: 'rank' };
   for (const [id, kind] of Object.entries(opens)) $(id).addEventListener('click', () => { h.onUi(); openModal(kind); });
@@ -337,7 +393,7 @@ export function createUI(h) {
   });
 
   return {
-    banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud,
+    banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud, dashButtons, hideDash, predict,
     showSpectator, hideSpectator, renderMenu, showScreen, renderResults, setNext,
     openModal, refreshModal, closeModal,
     get modalOpen() { return !$('modal').hidden; },

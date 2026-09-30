@@ -36,6 +36,10 @@ let lastSum = null;
 let tutorial = null;
 let dailyOffered = false;
 let riserFork = -1;
+// Predicciones del espectador en la ronda actual
+let pred = null;
+const predStats = { hits: 0, coins: 0 };
+let dashHintShown = false;
 const trail = [];
 const TRAIL_LEN = 44;
 const LANE = ['A', 'B', 'C', 'D'];
@@ -68,6 +72,22 @@ const ui = createUI({
   getSave: () => save,
   onPlay: () => { audio.unlock(); startRound(); },
   onHome: () => { audio.play('ui'); toMenu(); },
+  onDash: dir => doDash(dir),
+  onPredict: lane => {
+    const f = R.fork;
+    if (!f || f.resolved || R.pAlive) return;
+    pred = { fork: f.i, lane };
+    audio.play('ui');
+    buzz(10);
+  },
+  onNextNow: () => {
+    if (state !== 'playing' || R.pAlive) return;
+    audio.play('ui');
+    R.runToEnd();
+    R.events.length = 0;
+    finishRound({ quick: true });
+    startRound();
+  },
   onSkip: () => {
     if (state === 'playing' && !R.pAlive) { R.runToEnd(); drainEvents(); endAt = 0.05; }
   },
@@ -112,6 +132,14 @@ const ui = createUI({
     refreshMenu();
     ui.openModal('daily', { claimed: r });
   },
+  canInstall: () => !!installPrompt,
+  onInstall: async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch (e) { /* cancelado */ }
+    installPrompt = null;
+    ui.refreshModal();
+  },
   onToggle: key => {
     save[key] = !save[key];
     persist();
@@ -154,8 +182,13 @@ function toMenu() {
 
 function startRound() {
   ui.closeModal();
-  R = new Round({ seed: randSeed() });
+  // Partida guiada: la primera ronda protege 3 bifurcaciones y la segunda, una
+  const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
+  R = new Round({ seed: randSeed(), guided });
   resetView();
+  pred = null;
+  predStats.hits = 0; predStats.coins = 0;
+  ui.hideDash();
   state = 'countdown';
   countT = CFG.COUNTDOWN_S;
   endAt = null;
@@ -170,11 +203,18 @@ function startRound() {
   else ui.hint(`Tu rival es ${R.rivalName}: durá más que él.`, 2600);
 }
 
-function finishRound() {
-  state = 'results';
-  lastSum = R.summary();
+// quick: se aplica el resultado sin mostrar la pantalla (botón "Otra ronda")
+function finishRound({ quick = false } = {}) {
+  lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
   const rep = applyRound(save, lastSum);
   persist();
+  ui.hideDash();
+  if (quick) {
+    ui.toast(`Ronda anterior: #${fmt(lastSum.rank)}`, `+${fmt(rep.gain)} XP · +${fmt(rep.coins)} destellos · ${rep.pr.delta >= 0 ? '+' : ''}${fmt(rep.pr.delta)} PR`);
+    for (const a of rep.newAch) ui.toast('Logro desbloqueado', a.name);
+    return;
+  }
+  state = 'results';
   ui.showHud(false); ui.hideSpectator(); ui.hideBanner(); ui.hideHint();
   ui.renderResults(lastSum, rep, R.outlier);
   ui.showScreen('results');
@@ -255,6 +295,24 @@ function handle(e) {
       }
       ui.feed('hot', 'Muerte súbita ', `#${e.n}`, `: quedan ${fmt(e.alive)}`);
       break;
+    case 'dash': {
+      const col = C.mint;
+      for (let k = 0; k <= 10; k++) {
+        const x = e.x0 + (e.x1 - e.x0) * (k / 10);
+        fx.spawn(x, e.y + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 40, R.speed * 0.7, 0.35, col, 4);
+      }
+      fx.ring(e.x1, e.y, col, 90, 0.4, 3);
+      fx.pop(e.x1, e.y, '¡Impulso!', col);
+      audio.play('dash');
+      buzz(25);
+      break;
+    }
+    case 'charge':
+      fx.pop(e.x, e.y, '+1 impulso', C.mint);
+      fx.ring(R.px, R.pY, C.mint, 70, 0.4, 2);
+      audio.play('claim');
+      if (!dashHintShown && save.rounds < 4) { dashHintShown = true; ui.hint('Cada 10 chispas ganás un impulso para cambiarte de camino.', 3200); }
+      break;
     case 'rivalDown':
       ui.feed('good', 'Tu rival ', e.name, ' cayó');
       audio.play('rival');
@@ -279,6 +337,20 @@ function announce(f) {
 function onForkResolved(e) {
   if (e.fx && e.fx.length) fx.fall(e.fx, C.danger);
   if (R.demo) return;
+  // Resultado de la predicción del espectador
+  if (pred && pred.fork === e.fork.i) {
+    const lane = ['A', 'B', 'C', 'D'][pred.lane];
+    if (e.collapsed.includes(pred.lane)) {
+      const prize = 5 + e.fork.k * 5;
+      predStats.hits++; predStats.coins += prize;
+      ui.feed('gold', 'Acertaste: cayó el camino ', lane, ` · +${prize} destellos`);
+      audio.play('claim');
+      buzz([15, 30, 15]);
+    } else {
+      ui.feed('', 'Tu predicción falló: ', `el ${lane} resistió`);
+    }
+    pred = null;
+  }
   if (e.collapsed.length) {
     slow = 0.22; slowT = 0.55;
     fx.addTrauma(0.45);
@@ -395,6 +467,11 @@ function frame(now) {
     simulate(dt * slow);
     tensionTick(dt);
     emitTrail(dt, sk, tr);
+    // Enseñar el impulso la primera vez que se puede usar
+    if (tutorial && !tutorial.dash && R.canDash()) {
+      tutorial.dash = true;
+      ui.hint('¡Tocá IMPULSO para pasarte de camino a último momento!', 3200);
+    }
     if (tutorial && !tutorial.chips && R.t > 0.6) {
       tutorial.chips = true;
       ui.hint('Juntá las chispas doradas y pasá por el hueco de cada muro.', 3600);
@@ -422,7 +499,11 @@ function frame(now) {
     trail.push(R.px, R.pY);
     if (trail.length > TRAIL_LEN) trail.splice(0, 2);
   }
-  if (state === 'countdown' || state === 'playing') ui.hud(R);
+  if (state === 'countdown' || state === 'playing') {
+    ui.hud(R);
+    ui.dashButtons(R);
+    ui.predict(R, pred, predStats);
+  }
   fx.update(dt);
   audio.setIntensity(intensity());
   // Etapa de la ronda: cambia la paleta del fondo y suma capas a la música
@@ -456,6 +537,28 @@ for (const t of ['pointerup', 'pointercancel']) cv.addEventListener(t, () => { p
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
 const KEYMAP = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r' };
+
+// Impulso: con botones, Q / E, o Espacio hacia el lado al que apuntás (si no, al carril más vacío)
+function doDash(dir) {
+  if (!R || R.demo || state !== 'playing' || !R.canDash()) return;
+  const f = R.fork;
+  if (!dir) {
+    const aim = R.keyDir || Math.sign(R.ptx - R.px);
+    if (aim) dir = aim;
+    else {
+      const l = R.pLane - 1, r = R.pLane + 1;
+      const cnt = k => (k < 0 || k >= f.k ? Infinity : (f.invert ? -f.counts[k] : f.counts[k]));
+      dir = cnt(l) <= cnt(r) ? -1 : 1;
+    }
+  }
+  R.dash(dir);
+}
+window.addEventListener('keydown', e => {
+  if (ui.modalOpen) return;
+  if (e.key === ' ' || e.key === 'Shift') { if (state === 'playing') { doDash(0); e.preventDefault(); } }
+  else if (e.key === 'q' || e.key === 'Q') doDash(-1);
+  else if (e.key === 'e' || e.key === 'E') doDash(1);
+});
 function applyKeys() {
   if (canSteer()) R.setKeyDir((keys.has('r') ? 1 : 0) - (keys.has('l') ? 1 : 0));
 }
@@ -476,9 +579,23 @@ window.addEventListener('keyup', e => {
 window.addEventListener('resize', () => renderer.resize());
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 
+// ---------- App instalable (solo cuando se sirve por http/https, no al abrir el archivo) ----------
+let installPrompt = null;
+function setupPWA() {
+  const hosted = /^https?:$/.test(location.protocol) && window.self === window.top;
+  if (!hosted) return;
+  const link = (rel, href) => { const l = document.createElement('link'); l.rel = rel; l.href = href; document.head.append(l); };
+  link('manifest', 'manifest.webmanifest');
+  link('apple-touch-icon', 'apple-touch-icon.png');
+  link('icon', 'icon.svg');
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+}
+
 // ---------- Arranque ----------
 $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
+setupPWA();
 toMenu();
 requestAnimationFrame(frame);
 

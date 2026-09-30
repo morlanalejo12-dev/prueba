@@ -43,6 +43,8 @@ export const ACHIEVEMENTS = [
   { id: 'path10', name: 'Imparable', desc: 'Sobreviví a 10 bifurcaciones seguidas, aunque sea entre rondas.', test: (s, save) => save.bestPathStreak >= 10 },
   { id: 'rival5', name: 'Némesis', desc: 'Ganale a 5 rivales.', test: (s, save) => save.rivalsBeaten >= 5 },
   { id: 'gold_rank', name: 'Liga de Oro', desc: 'Llegá a la liga Oro.', test: (s, save) => rankOf(save.peakPR).tier >= 2 },
+  { id: 'dash_save', name: 'Último segundo', desc: 'Sobreviví a una bifurcación después de usar un impulso.', test: s => !!(s.feats && s.feats.dashSave) },
+  { id: 'oracle', name: 'Oráculo', desc: 'Acertá 3 predicciones mientras mirás una ronda.', test: s => (s.predHits || 0) >= 3 },
 ];
 
 // ---------- Niveles ----------
@@ -182,7 +184,8 @@ export function applyRound(save, sum, now = new Date()) {
 
   // XP, destellos y misiones
   const gain = xpForRound(sum);
-  const coins = coinsForRound(sum, rankBefore.tier);
+  const predCoins = sum.predCoins || 0;
+  const coins = coinsForRound(sum, rankBefore.tier) + predCoins;
   save.coins += coins;
   const lv = addXP(save, gain);
   const missionsDone = progressMissions(save, sum, today);
@@ -203,7 +206,7 @@ export function applyRound(save, sum, now = new Date()) {
   const promoted = rankAfter.tier > rankBefore.tier || (rankAfter.tier === rankBefore.tier && rankAfter.div < rankBefore.div);
 
   return {
-    gain, coins, before: lv.before, after: lv.after, newAch, newSkins, newTrails, missionsDone,
+    gain, coins, predCoins, before: lv.before, after: lv.after, newAch, newSkins, newTrails, missionsDone,
     recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
     pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
     pathStreak: save.pathStreak,

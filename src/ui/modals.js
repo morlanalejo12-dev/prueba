@@ -326,6 +326,12 @@ const BUILDERS = {
       });
       body.append(b);
     }
+    if (env.h.canInstall()) {
+      const inst = el('button', 'btn btn-primary', 'Instalar como app');
+      inst.type = 'button';
+      inst.addEventListener('click', () => env.h.onInstall());
+      body.append(inst, el('p', 'note', 'Queda en tu pantalla de inicio y funciona sin conexión.'));
+    }
     const zone = el('div', 'danger-zone');
     const reset = el('button', 'btn btn-danger', 'Borrar mi progreso');
     reset.type = 'button';
