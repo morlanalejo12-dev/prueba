@@ -5,7 +5,9 @@ import { clamp, fmt, TAU } from '../util/math.js';
 import { hash01 } from '../util/rng.js';
 import { gapsAt, altOpen, altPhase } from '../sim/gates.js';
 import { SHAPE } from './fx.js';
-import { skinById } from '../game/skins.js';
+import { skinById, trailById } from '../game/skins.js';
+import { nameStyleById } from '../game/names.js';
+import { drawName } from './names.js';
 
 const G = new Float64Array(4);
 
@@ -120,10 +122,11 @@ export class Renderer {
     const f = R.fork;
     const fogOn = !!(f && f.variant === 'fog' && R.pY >= f.startY - 100 && !f.resolved);
     this.drawCrowd(R, Y, fogOn ? 0.1 : 0.8);
-    if (R.others && R.others.length) this.drawOthers(R, Y);
+    if (R.others && R.others.length) this.drawOthers(R, Y, opts.dt);
     this.drawRings(fx, Y);
     this.drawParticles(fx, Y);
     if (R.pAlive) this.drawPlayer(R, Y, opts);
+    if (R.others) this.drawNames(R, Y, opts);
     if (fogOn) this.drawFog(R, Y);
     if (f && !R.demo) this.drawLabels(R, f, Y, fogOn);
     this.drawPops(fx, Y);
@@ -258,24 +261,22 @@ export class Renderer {
     }
   }
 
-  // Online: los demás jugadores reales, con su skin y su nombre
-  drawOthers(R, Y) {
-    const { cx } = this, y = Y(R.pY), P = CFG.PR * 0.85;
-    cx.font = `700 10px ${this.FB}`;
-    cx.textAlign = 'center';
+  // Online: los demás jugadores reales, con su skin, su estela y su nombre con estilo
+  drawOthers(R, Y, dt) {
+    const y = Y(R.pY), P = CFG.PR;
     for (const o of R.others) {
       if (!o.alive) continue;
-      const sk = skinById(o.skin);
-      const col = skinColor(sk, R.t);
-      this.drawShape(sk.shape, o.x, y, P, col, sk.col2 || col, R.t);
-      cx.globalAlpha = 0.9;
-      cx.fillStyle = 'rgba(13,10,32,0.7)';
-      const w = cx.measureText(o.name).width + 10;
-      cx.fillRect(o.x - w / 2, y - P - 22, w, 14);
-      cx.fillStyle = col;
-      cx.fillText(o.name, o.x, y - P - 11);
-      cx.globalAlpha = 1;
+      const sk = skinById(o.skin), tr = trailById(o.trail);
+      this.cx.globalAlpha = 1;
+      this.drawPlayer({ px: o.x, pY: R.pY, t: R.t }, Y, { skin: sk, trail: tr, trailPts: o.pts || [], dt, aura: 'none' });
     }
+  }
+
+  // Nombres encima de todo (los demás y el tuyo)
+  drawNames(R, Y, opts) {
+    const y = Y(R.pY), P = CFG.PR;
+    for (const o of R.others) if (o.alive) drawName(this.cx, o.name, o.x, y - P - 15, nameStyleById(o.nameStyle), R.t, 11, this.FB);
+    if (R.pAlive && opts.myName) drawName(this.cx, opts.myName, R.px, y - P - 15, opts.myNameStyle, R.t, 11, this.FB);
   }
 
   drawCrowd(R, Y, alpha) {

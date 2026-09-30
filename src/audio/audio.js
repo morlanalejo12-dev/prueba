@@ -2,11 +2,11 @@
 // que se intensifica con la tensión de la ronda. Programa las notas con anticipación
 // (lookahead scheduler) para que el ritmo no dependa de los cuadros del juego.
 
+import { TRACKS } from './tracks.js';
+
 // La música crece por etapas (una por bifurcación superada): más rápida, más aguda y con más capas.
-const BPM0 = 108, BPM_STEP = 4, MAX_STAGE = 7;
+const MAX_STAGE = 7;
 const LOOKAHEAD = 0.12;            // segundos que se programan por adelantado
-const ROOTS = [110, 87.31, 130.81, 98];                              // La, Fa, Do, Sol
-const CHORDS = [[1, 1.2, 1.5, 2], [1, 1.26, 1.5, 2], [1, 1.26, 1.5, 2], [1, 1.26, 1.5, 2]];
 
 export class AudioEngine {
   constructor() {
@@ -20,6 +20,17 @@ export class AudioEngine {
     this.timer = 0;
     this.stage = 0;
     this.onBeat = null;  // se llama en cada negra, sincronizado con lo que suena
+    this.track = TRACKS.corriente;
+    this.trackId = 'corriente';
+  }
+
+  // Cambiar de tema: arranca desde el primer compás
+  setTrack(id) {
+    const tr = TRACKS[id] || TRACKS.corriente;
+    if (tr === this.track) return;
+    this.track = tr;
+    this.trackId = TRACKS[id] ? id : 'corriente';
+    this.step = 0;
   }
 
   setStage(n) { this.stage = Math.max(0, Math.min(MAX_STAGE, n)); }
@@ -43,7 +54,9 @@ export class AudioEngine {
       this.lp = c.createBiquadFilter();
       this.lp.type = 'lowpass';
       this.lp.frequency.value = 700;
-      this.music.connect(this.lp).connect(this.master);
+      // Sidechain: el bombo de algunos temas "agacha" la música un instante
+      this.duckG = c.createGain();
+      this.music.connect(this.duckG).connect(this.lp).connect(this.master);
       const len = c.sampleRate;
       this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
@@ -72,45 +85,16 @@ export class AudioEngine {
     if (!c || c.state !== 'running') return;
     this.level += (this.target - this.level) * 0.06;
     this.lp.frequency.setTargetAtTime(450 + this.level * this.level * 4800, c.currentTime, 0.15);
-    const stepDur = 60 / (BPM0 + this.stage * BPM_STEP) / 4;
+    const tr = this.track, loop = tr.bars * 16;
+    const stepDur = 60 / (tr.bpm + this.stage * tr.bpmStep) / 4;
     while (this.nextTime < c.currentTime + LOOKAHEAD) {
-      if (this.musicOn) this.playStep(this.step, this.nextTime, stepDur);
+      if (this.musicOn) tr.step(this, this.step % loop, this.nextTime, stepDur, this.level, this.stage);
       if ((this.step & 3) === 0 && this.onBeat) {
         const strong = (this.step & 15) === 0;
         setTimeout(() => this.onBeat && this.onBeat(strong), Math.max(0, (this.nextTime - c.currentTime) * 1000));
       }
       this.nextTime += stepDur;
-      this.step = (this.step + 1) % 64;
-    }
-  }
-
-  playStep(s, t, STEP) {
-    const L = this.level, S = this.stage, bar = s >> 4, k = s & 15, chord = CHORDS[bar], out = this.music;
-    // Cada dos etapas la tonalidad sube un semitono
-    const root = ROOTS[bar] * Math.pow(2, Math.floor(S / 2) / 12);
-    if (k === 0) {
-      this.voice(out, root * 2, 'sawtooth', 0.035, STEP * 15, t, 0.4);
-      this.voice(out, root * 2 * chord[2], 'sawtooth', 0.025, STEP * 15, t, 0.4);
-    }
-    if (k % 4 === 0) this.voice(out, root, 'triangle', 0.24, STEP * 3, t);
-    if ((L > 0.5 || S >= 5) && k % 4 === 2) this.voice(out, root * 2, 'triangle', 0.1, STEP * 1.5, t);
-    // Bombo: a partir de la etapa 4 es un "four on the floor"
-    if (L > 0.28 && (k === 0 || k === 8 || (S >= 4 && (k === 4 || k === 12)))) this.kick(out, t, 0.25 + 0.35 * L);
-    if ((L > 0.7 || S >= 3) && (k === 4 || k === 12)) this.snare(out, t, 0.08);
-    if ((L > 0.34 || S >= 1) && k % 4 === 2) this.hat(out, t, 0.05);
-    if ((L > 0.78 || S >= 5) && k % 2 === 1) this.hat(out, t, 0.03);
-    if ((L > 0.55 || S >= 2) && k % 2 === 0) {
-      const n = chord[(k / 2 + bar) % chord.length];
-      this.voice(out, root * 4 * n, 'square', 0.03 * Math.max(L, 0.5), STEP * 0.9, t);
-    }
-    // Melodía principal desde la etapa 4; en muerte súbita, a doble velocidad
-    if (S >= 4 && L > 0.3) {
-      const every = S >= 6 ? 1 : 2;
-      if (k % every === 0) {
-        const mel = [0, 2, 1, 3, 2, 1, 0, 3];
-        const n = chord[mel[(k / every + bar * 3) % mel.length]];
-        this.voice(out, root * 8 * n, S >= 6 ? 'sawtooth' : 'triangle', 0.028, STEP * every * 0.8, t);
-      }
+      this.step = (this.step + 1) % loop;
     }
   }
 
@@ -152,6 +136,76 @@ export class AudioEngine {
   }
 
   kick(dest, t, vol) { this.sweep(dest, 150, 0.3, 'sine', vol, 0.16, t); }
+  openHat(dest, t, vol) { this.noise(dest, t, vol, 0.16, 'highpass', 6500); }
+  clap(dest, t, vol) {
+    for (let i = 0; i < 3; i++) this.noise(dest, t + i * 0.011, vol * (i === 2 ? 1 : 0.6), i === 2 ? 0.14 : 0.02, 'bandpass', 1300);
+  }
+
+  // Varias sierras desafinadas: el sonido "ancho" de la electrónica
+  supersaw(dest, freq, vol, dur, t, spread = 0.01, n = 3, attack = 0.01) {
+    const c = this.ctx, g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + dur);
+    g.connect(dest);
+    for (let i = 0; i < n; i++) {
+      const o = c.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(freq * (1 + (i - (n - 1) / 2) * spread), t);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + attack + dur + 0.02);
+    }
+  }
+
+  // Cuerda pulsada: sierra con un filtro que se cierra rápido
+  pluck(dest, freq, vol, dur, t) {
+    const c = this.ctx, o = c.createOscillator(), o2 = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth'; o2.type = 'square';
+    o.frequency.setValueAtTime(freq, t);
+    o2.frequency.setValueAtTime(freq * 1.004, t);
+    f.type = 'lowpass'; f.Q.value = 4;
+    f.frequency.setValueAtTime(5200, t);
+    f.frequency.exponentialRampToValueAtTime(500, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); o2.connect(f); f.connect(g).connect(dest);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.02); o2.stop(t + dur + 0.02);
+  }
+
+  // Línea ácida: sierra con filtro resonante
+  acid(dest, freq, vol, dur, t, cutoff) {
+    const c = this.ctx, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(freq, t);
+    f.type = 'lowpass'; f.Q.value = 14;
+    f.frequency.setValueAtTime(cutoff, t);
+    f.frequency.exponentialRampToValueAtTime(Math.max(200, cutoff * 0.25), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f).connect(g).connect(dest);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  // Subida de ruido para los redobles
+  riser(dest, t, dur, vol) {
+    const c = this.ctx, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = this.noiseBuf; src.loop = true;
+    f.type = 'bandpass'; f.Q.value = 3;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(7000, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.95); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.05);
+    src.connect(f).connect(g).connect(dest);
+    src.start(t); src.stop(t + dur + 0.1);
+  }
+
+  // Sidechain: baja el volumen de la música y lo recupera
+  duck(t, depth, rel) {
+    const g = this.duckG.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(1 - depth, t);
+    g.linearRampToValueAtTime(1, t + rel);
+  }
   hat(dest, t, vol) { this.noise(dest, t, vol, 0.04, 'highpass', 7000); }
   snare(dest, t, vol) { this.noise(dest, t, vol, 0.12, 'bandpass', 1800); }
 

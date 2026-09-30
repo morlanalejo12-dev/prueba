@@ -57,3 +57,15 @@ test('sala global: arranca sola al comenzar el minuto si hay jugadores', () => {
   assert.equal(nextMinute(59000, 0), 60000);
   assert.equal(cleanName('  <b>Ana</b>  '), 'bAna/b');
 });
+
+test('sala: los cambios de perfil llegan a todos en vivo', () => {
+  const lobby = new Lobby();
+  const room = lobby.create();
+  const a = fakePlayer('a'), b = fakePlayer('b');
+  room.add(a); room.add(b);
+  b.skin = 'singularidad'; b.trail = 'supernova'; b.nameStyle = 'nm-fundador';
+  room.profileChanged(b);
+  const last = a.inbox.filter(m => m.t === 'room').at(-1);
+  const pb = last.players.find(p => p.id === 'b');
+  assert.deepEqual([pb.skin, pb.trail, pb.nameStyle], ['singularidad', 'supernova', 'nm-fundador']);
+});

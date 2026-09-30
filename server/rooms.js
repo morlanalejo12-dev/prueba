@@ -60,7 +60,7 @@ export class Room {
     return {
       t: 'room', code: this.code, pub: this.pub, host: this.host, phase: this.phase,
       startAt: this.startAt, now, round: this.roundNo,
-      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, inRound: !!(this.round && this.round.byId.has(p.id)) })),
+      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle, inRound: !!(this.round && this.round.byId.has(p.id)) })),
     };
   }
 
@@ -71,6 +71,15 @@ export class Room {
 
   broadcastRoom(now = Date.now()) { this.broadcast(this.info(now)); }
 
+  // Alguien cambió su nombre o su aspecto: avisar a toda la sala (también durante la ronda)
+  profileChanged(p) {
+    if (this.round) {
+      const h = this.round.byId.get(p.id);
+      if (h) Object.assign(h, { name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle });
+    }
+    this.broadcastRoom();
+  }
+
   // El anfitrión de una sala privada pide empezar
   requestStart(id, now = Date.now()) {
     if (this.pub || id !== this.host || this.phase !== 'lobby' || !this.players.size) return false;
@@ -79,7 +88,7 @@ export class Room {
   }
 
   beginCountdown(at, now) {
-    const humans = [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail }));
+    const humans = [...this.players.values()].map(p => ({ id: p.id, name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle }));
     const seed = (Math.random() * 4294967296) >>> 0;
     const R = new MultiRound({ seed, humans, bots: Math.max(200, CFG.BOTS - humans.length) });
     this.round = R;
@@ -94,7 +103,7 @@ export class Room {
       t: 'start', seed, n: R.n, at, now, round: this.roundNo,
       yo: b64(new Uint8Array(yo.buffer)),
       level: { gates: R.lvl.gates, forks: R.lvl.forks, orbs: R.lvl.orbs, endY: R.lvl.endY },
-      humans: R.humans.map(h => ({ id: h.id, name: h.name, skin: h.skin, trail: h.trail, idx: h.idx })),
+      humans: R.humans.map(h => ({ id: h.id, name: h.name, skin: h.skin, trail: h.trail, nameStyle: h.nameStyle, idx: h.idx })),
     };
     const s = JSON.stringify(base);
     for (const p of this.players.values()) p.send(s);

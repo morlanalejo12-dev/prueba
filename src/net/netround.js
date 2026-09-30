@@ -35,7 +35,7 @@ export class NetRound {
     this.humans = start.humans;
     const me = start.humans.find(h => h.id === myId);
     this.meIdx = me ? me.idx : -1;
-    this.others = start.humans.filter(h => h.id !== myId).map(h => ({ ...h, x: CFG.W / 2, x0: CFG.W / 2, x1: CFG.W / 2, alive: true }));
+    this.others = start.humans.filter(h => h.id !== myId).map(h => ({ ...h, x: CFG.W / 2, x0: CFG.W / 2, x1: CFG.W / 2, alive: true, pts: [] }));
     this.aliveBots = this.n;
     this.aliveH = start.humans.length;
 
@@ -145,7 +145,18 @@ export class NetRound {
     // Multitud: interpolar entre las dos últimas instantáneas
     const a = clamp((performance.now() - this.snapAt) / 1000 / SNAP_DT, 0, 1), cr = this.crowd;
     for (let i = 0; i < this.n; i++) if (cr.alive[i]) cr.x[i] = cr.x0[i] + (cr.x1[i] - cr.x0[i]) * a;
-    for (const o of this.others) o.x = o.x0 + (o.x1 - o.x0) * a;
+    for (const o of this.others) {
+      o.x = o.x0 + (o.x1 - o.x0) * a;
+      if (o.alive) { o.pts.push(o.x, this.pY); if (o.pts.length > 44) o.pts.splice(0, 2); }
+    }
+  }
+
+  // La sala avisó que alguien cambió de nombre, skin, estela o estilo
+  updateProfiles(players) {
+    for (const p of players) {
+      const o = this.others.find(q => q.id === p.id);
+      if (o) Object.assign(o, { name: p.name, skin: p.skin, trail: p.trail, nameStyle: p.nameStyle });
+    }
   }
 
   // ---------- Mensajes del servidor ----------

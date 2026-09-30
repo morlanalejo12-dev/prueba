@@ -43,7 +43,10 @@ body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
 }
+html { overscroll-behavior: none; }
 button { font: inherit; color: inherit; }
 svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -161,7 +164,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 0 rgba(94, 242, 194, 0.6); animation: live 1.6s ease-out infinite; }
 @keyframes live { to { box-shadow: 0 0 0 6px rgba(94, 242, 194, 0); } }
 
-.menu-grid { width: 100%; margin-top: var(--s2); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); }
+.menu-grid { width: 100%; margin-top: var(--s2); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
 .tile {
   appearance: none; cursor: pointer; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -845,9 +848,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .room-code { font: 800 44px/1 var(--f-mono) !important; letter-spacing: 0.25em; color: var(--mint); text-shadow: 0 0 22px rgba(94, 242, 194, 0.35); padding-left: 0.25em; }
 .room-status { margin: 0; text-align: center; font: 700 14px/1.35 var(--f-body); color: var(--gold); }
 .room-players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 38vh; overflow: auto; }
-.room-players li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: var(--s2); padding: 6px 10px; border-radius: var(--r1); background: var(--glass); border: 1px solid var(--edge); }
-.room-players li .sk { width: 28px; height: 28px; transform: scale(0.8); }
-.room-players li span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-players li { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; gap: var(--s2); padding: 8px 10px; border-radius: var(--r2); background: var(--glass); border: 1px solid var(--edge); animation: rpIn 0.35s ease-out; }
+@keyframes rpIn { from { opacity: 0; transform: translateY(6px); } }
+.rp-look { display: flex; align-items: center; }
+.rp-look .tr { width: 40px; height: 16px; margin-right: -10px; }
+.rp-look .sk { width: 34px; height: 34px; }
+.rp-who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rp-who .nm { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
+.rp-who small { font: 600 11px/1.2 var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-players li em.live { color: var(--mint); }
+.room-look { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
 .room-players li em { font: 700 10px/1 var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); font-style: normal; }
 .room-players li.me { border-color: var(--mint); }
 
@@ -859,3 +869,86 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .standings li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .standings li em { font: 600 12px/1 var(--f-mono); color: var(--muted); font-style: normal; }
 .standings li.me { outline: 1px solid var(--mint); }
+
+/* ---------- v0.8 · Estilos de nombre ---------- */
+@keyframes nmFlow { to { background-position: -300% 0; } }
+@keyframes nmSweep { from { background-position: 160% 0, 0 0; } to { background-position: -60% 0, 0 0; } }
+@keyframes nmFlicker { 0%, 18%, 22%, 62%, 64%, 100% { opacity: 1; } 20%, 63% { opacity: 0.45; } }
+@keyframes nmPulse { 50% { text-shadow: 0 0 12px var(--c2), 0 0 2px var(--c2); } }
+@keyframes nmGlitch { 0%, 86%, 100% { transform: translate(0); } 88% { transform: translate(-2px, 1px); } 92% { transform: translate(2px, -1px); } }
+@keyframes nmFire { 50% { text-shadow: 0 -2px 10px var(--c3), 0 0 4px var(--c2); } }
+@keyframes nmTwinkle { 0%, 100% { opacity: 0.2; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(45deg); } }
+@keyframes nmGlow { 50% { filter: drop-shadow(0 0 7px var(--c1)) drop-shadow(0 0 2px var(--c2)); } }
+
+.nm { position: relative; display: inline-block; max-width: 100%; font-weight: 800; white-space: nowrap; overflow: visible; text-overflow: ellipsis; color: var(--c1); }
+.nm-solid { color: var(--c1); }
+.nm-grad, .nm-galaxy {
+  background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3, var(--c1)), var(--c4, var(--c1)), var(--c1)) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: nmFlow 6s linear infinite;
+}
+.nm-galaxy { animation-duration: 4s; filter: drop-shadow(0 0 5px var(--c1)); }
+.nm-galaxy::after, .nm-founder::after {
+  content: "✦"; position: absolute; right: -0.7em; top: -0.45em; font-size: 0.6em; color: #fff;
+  -webkit-text-fill-color: #fff; animation: nmTwinkle 1.6s ease-in-out infinite; pointer-events: none;
+}
+.nm-toxic { color: var(--c1); text-shadow: 0 0 4px var(--c2); animation: nmPulse 1.4s ease-in-out infinite; }
+.nm-neon { color: var(--c2); text-shadow: 0 0 4px var(--c1), 0 0 10px var(--c1), 0 0 18px var(--c1); animation: nmFlicker 3.2s linear infinite; }
+.nm-glitch { color: var(--c1); animation: nmGlitch 2.2s steps(1) infinite; }
+.nm-glitch::before, .nm-glitch::after { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0.8; pointer-events: none; }
+.nm-glitch::before { color: var(--c2); transform: translate(-1.5px, 0); clip-path: inset(0 0 55% 0); mix-blend-mode: screen; }
+.nm-glitch::after { color: var(--c3); transform: translate(1.5px, 0); clip-path: inset(50% 0 0 0); mix-blend-mode: screen; }
+.nm-frost, .nm-shine {
+  background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.95) 50%, transparent 60%) 0 0 / 250% 100%,
+    linear-gradient(90deg, var(--c1), var(--c3), var(--c1));
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: nmSweep 2.6s linear infinite;
+  filter: drop-shadow(0 0 4px var(--c2));
+}
+.nm-shine { filter: drop-shadow(0 0 4px rgba(255, 209, 102, 0.6)); }
+.nm-fire {
+  background: linear-gradient(0deg, var(--c3), var(--c2) 55%, var(--c1));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 -1px 6px rgba(255, 93, 61, 0.55); animation: nmFire 0.9s ease-in-out infinite;
+}
+.nm-founder {
+  padding-left: 1.15em;
+  background: linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, 0.95) 50%, transparent 58%) 0 0 / 250% 100%,
+    linear-gradient(90deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c1)) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: nmSweep 2.2s linear infinite, nmGlow 1.8s ease-in-out infinite;
+}
+.nm-founder::before {
+  content: "♛"; position: absolute; left: 0; top: 50%; transform: translateY(-52%); font-size: 1em;
+  color: #ffd166; -webkit-text-fill-color: #ffd166; text-shadow: 0 0 8px #ffd166;
+}
+
+/* ---------- v0.8 · Música y nombres ---------- */
+.track-card { grid-template-columns: 48px 1fr auto; }
+.track-card.playing { box-shadow: 0 0 0 1px var(--rc), 0 0 18px color-mix(in srgb, var(--rc) 35%, transparent); }
+.track-card.founder { border-left: 3px solid transparent; border-image: linear-gradient(180deg, #ffd166, #ff5ed1, #8fd8ff) 1; }
+.track-play {
+  appearance: none; cursor: pointer; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--rc) 18%, transparent); border: 1px solid var(--rc); color: var(--text);
+}
+.track-play .tri { font-size: 15px; margin-left: 3px; }
+.track-meta { font: 600 11px/1.2 var(--f-mono); color: var(--muted); }
+.track-card .btn svg { width: 16px; height: 16px; vertical-align: -3px; }
+@keyframes eqBar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+.eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 18px; }
+.eq i { width: 3px; height: 100%; background: var(--rc, var(--spark)); border-radius: 2px; transform-origin: bottom; animation: eqBar 0.7s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -0.25s; } .eq i:nth-child(3) { animation-delay: -0.5s; } .eq i:nth-child(4) { animation-delay: -0.1s; } .eq i:nth-child(5) { animation-delay: -0.4s; }
+.big-eq { height: 64px; gap: 6px; --rc: #ffd166; }
+.big-eq i { width: 10px; background: linear-gradient(0deg, #ff5ed1, #ffd166, #8fd8ff); }
+.redeem-music, .redeem-name { display: grid; place-items: center; min-height: 90px; margin: 10px 0; }
+.redeem-name .nm { font-size: 34px; }
+
+.name-hero { display: grid; place-items: center; min-height: 64px; padding: var(--s3); border-radius: var(--r2); background: rgba(0, 0, 0, 0.25); }
+.name-hero .nm { font-size: 30px; }
+.name-grid .nm { font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.name-card { min-height: 116px; justify-content: center; }
+.name-card.buyable small { color: var(--gold); }
+.name-card.locked .nm { opacity: 0.55; }
+.rw-extra { display: block; font: 600 11px/1.3 var(--f-mono); color: var(--mint); }
+.chip-text .nm { font-size: 15px; max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+.standings li .nm { overflow: hidden; text-overflow: ellipsis; }
+.standings li span { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.standings li span .sk { width: 22px; height: 22px; flex: none; transform: scale(0.7); }

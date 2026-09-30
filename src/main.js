@@ -17,6 +17,8 @@ import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
 import { redeemCode } from './game/codes.js';
+import { musicById } from './game/music.js';
+import { nameStyleById } from './game/names.js';
 import { NetClient, serverUrl } from './net/client.js';
 import { NetRound } from './net/netround.js';
 import { cleanName } from './util/name.js';
@@ -48,11 +50,20 @@ const trail = [];
 const TRAIL_LEN = 44;
 const LANE = ['A', 'B', 'C', 'D'];
 
+// Música: el tema elegido, o el que se está escuchando en el catálogo
+let previewTrack = null;
+function playerTrack() {
+  const m = musicById(save.track);
+  return isOwned(m, ownedCtx(save)) ? m : musicById('mus-corriente');
+}
+function applyTrack() { audio.setTrack((previewTrack ? musicById(previewTrack) : playerTrack()).track); }
+
 // Modo online
 let mode = 'solo';
 let net = null;
 const online = { room: null, msg: '', pending: null, url: '', startAt: 0 };
 let roomRefreshT = 0;
+let humansKey = '';
 
 const randSeed = () => (Math.random() * 4294967296) >>> 0;
 const env = () => { const now = new Date(); return { today: dayKey(now), yesterday: dayKey(yesterdayOf(now)) }; };
@@ -136,10 +147,58 @@ const ui = createUI({
   onUi: () => { audio.unlock(); audio.play('ui'); },
   onModal: kind => {
     if (kind === 'shop' && save.shopSeen !== env().today) { save.shopSeen = env().today; persist(); refreshMenu(); }
+    if (kind !== 'music' && previewTrack) { previewTrack = null; applyTrack(); }
   },
-  onModalClosed: () => {},
-  onSelectSkin: id => { save.skin = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); },
-  onSelectTrail: id => { save.trail = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); },
+  onModalClosed: kind => {
+    if (previewTrack) { previewTrack = null; applyTrack(); }
+    // Si estabas en una sala y cambiaste tu aspecto, volver a la sala
+    if (online.room && ['collection', 'names', 'music'].includes(kind) && (state === 'menu' || state === 'results')) setTimeout(() => { if (!ui.modalOpen && online.room) ui.openModal('room'); }, 50);
+  },
+  onSelectSkin: id => { save.skin = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); sendProfile(); },
+  onSelectTrail: id => { save.trail = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); sendProfile(); },
+  musicPreview: () => previewTrack,
+  onPreviewMusic: id => {
+    audio.unlock();
+    previewTrack = id;
+    applyTrack();
+    ui.refreshModal();
+  },
+  onSelectMusic: id => {
+    save.track = id;
+    persist();
+    previewTrack = null;
+    applyTrack();
+    audio.play('ui');
+    ui.toast('Música', `${musicById(id).name} · sonará en tus rondas`);
+    refreshMenu();
+    ui.refreshModal();
+  },
+  onSelectName: id => { save.nameStyle = id; persist(); audio.play('ui'); refreshMenu(); ui.refreshModal(); sendProfile(); },
+  onRename: raw => {
+    const name = cleanName(raw);
+    if (!name) return { error: 'Escribí un nombre (hasta 16 letras).' };
+    save.name = name;
+    persist();
+    audio.play('claim');
+    ui.toast('Nombre guardado', name);
+    refreshMenu();
+    ui.refreshModal();
+    sendProfile();
+    return {};
+  },
+  // Compra directa desde los catálogos de música y de nombres
+  onBuyItem: (kind, item) => {
+    if (!buySkin(save, { id: item.id, price: item.src.price })) return;
+    if (kind === 'music') { save.track = item.id; previewTrack = null; applyTrack(); }
+    else { save.nameStyle = item.id; sendProfile(); }
+    persist();
+    audio.play('buy');
+    buzz([20, 30, 20]);
+    ui.toast(kind === 'music' ? 'Tema nuevo' : 'Estilo de nombre nuevo', `${item.name} · equipado`);
+    refreshMenu();
+    ui.refreshModal();
+  },
+  onRoomOpen: kind => { audio.play('ui'); ui.openModal(kind, kind === 'collection' ? { tab: 'skins' } : undefined); },
   onCollectionTab: tab => { audio.play('ui'); ui.openModal('collection', { tab }); },
   onBuy: offer => {
     if (!buySkin(save, offer)) return;
@@ -149,6 +208,7 @@ const ui = createUI({
     audio.play('buy');
     buzz([20, 30, 20]);
     ui.toast(isTrail ? 'Estela nueva' : 'Skin nueva', `${(isTrail ? trailById : skinById)(offer.id).name} · equipada`);
+    sendProfile();
     refreshMenu();
     ui.refreshModal();
   },
@@ -160,6 +220,8 @@ const ui = createUI({
     buzz([30, 40, 30, 40, 60]);
     if (r.reward.item) ui.toast(r.reward.item.rarity === 'fundador' ? 'Rareza Fundador' : 'Código canjeado', `${r.reward.item.name} · equipada`);
     refreshMenu();
+    applyTrack();
+    sendProfile();
     ui.openModal('redeemed', r);
     return r;
   },
@@ -203,6 +265,8 @@ const ui = createUI({
   },
   onReset: () => {
     save = resetSave(store);
+    previewTrack = null;
+    applyTrack();
     ensureMissions(save, env().today);
     audio.setSfx(save.sfx);
     audio.setMusic(save.music);
@@ -240,9 +304,21 @@ function onlineGo(nameRaw, url, action, code) {
   else {
     if (!net) net = new NetClient(onNet, onNetStatus);
     online.url = u;
-    net.connect(u, { name, skin: playerSkin().id, trail: playerTrail().id });
+    net.connect(u, profile());
   }
   return {};
+}
+
+function profile() {
+  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id };
+}
+function playerNameStyle() {
+  const st = nameStyleById(save.nameStyle);
+  return isOwned(st, ownedCtx(save)) ? st : nameStyleById('nm-blanco');
+}
+// Avisar a la sala cuando cambia tu nombre o tu aspecto
+function sendProfile() {
+  if (net && net.status === 'on') net.send({ t: 'profile', ...profile() });
 }
 
 function doJoin() {
@@ -254,15 +330,26 @@ function doJoin() {
 
 function leaveOnline() {
   if (net && online.room) net.send({ t: 'leave' });
+  online.lastRoom = null;
+  retries = 0;
   online.room = null;
   mode = 'solo';
   ui.setOnlineMode(false);
 }
 
+let retries = 0;
 function onNetStatus(status, msg) {
   if (status !== 'error') return;
   online.msg = msg || 'Sin conexión.';
-  const wasIn = !!online.room;
+  const wasIn = online.room || (retries > 0 ? online.lastRoom : null);
+  if (online.room) online.lastRoom = online.room;
+  // Si estabas en una sala, reintentar volver a la misma (hasta 3 veces)
+  if (wasIn && retries < 3 && online.url) {
+    retries++;
+    online.pending = wasIn.pub ? { action: 'global' } : { action: 'join', code: wasIn.code };
+    setTimeout(() => net.connect(online.url, profile()), 1500 * retries);
+    ui.toast('Online', 'Se cortó la conexión: reconectando…');
+  }
   online.room = null;
   if (R && R.online && (state === 'playing' || state === 'countdown')) {
     ui.toast('Sin conexión', online.msg);
@@ -271,16 +358,17 @@ function onNetStatus(status, msg) {
     toMenu();
   } else if (mode === 'online') { mode = 'solo'; ui.setOnlineMode(false); }
   if (ui.modalKind === 'online' || ui.modalKind === 'room') ui.openModal('online');
-  else if (wasIn) ui.toast('Online', online.msg);
+  else if (wasIn && retries >= 3) ui.toast('Online', online.msg);
   refreshMenu();
 }
 
 function onNet(m) {
   switch (m.t) {
-    case 'welcome': doJoin(); break;
+    case 'welcome': retries = 0; doJoin(); break;
     case 'room': {
       const first = !online.room;
       online.room = m;
+      if (R && R.online) R.updateProfiles(m.players);
       if (first) mode = 'online';
       if (ui.modalKind === 'online' || (first && ui.modalKind !== 'room' && state !== 'playing' && state !== 'countdown')) ui.openModal('room');
       else if (ui.modalKind === 'room') ui.refreshModal();
@@ -399,6 +487,9 @@ function finishRound({ quick = false } = {}) {
   for (const a of rep.newAch) later(() => { ui.toast('Logro desbloqueado', a.name); audio.play('ach'); });
   for (const m of rep.missionsDone) later(() => { ui.toast('Misión lista para reclamar', missionText(m)); audio.play('claim'); });
   for (const k of rep.newSkins) later(() => { ui.toast('Skin desbloqueada', k.name); audio.play('buy'); });
+  for (const k of rep.newTrails) later(() => { ui.toast('Estela desbloqueada', k.name); audio.play('buy'); });
+  for (const k of rep.newMusic) later(() => { ui.toast('Música desbloqueada', k.name); audio.play('buy'); });
+  for (const k of rep.newNames) later(() => { ui.toast('Estilo de nombre desbloqueado', k.name); audio.play('buy'); });
 
   if (rep.pr.promoted) {
     const rk = rep.pr.rankAfter;
@@ -613,6 +704,7 @@ function emitTrail(dt, sk, tr) {
 }
 
 function intensity() {
+  if (previewTrack) return 0.8;
   if (state === 'playing') return R.pAlive ? R.tension() : 0.25;
   if (state === 'countdown') return 0.32;
   return state === 'menu' ? 0.18 : 0.12;
@@ -682,11 +774,20 @@ function frame(now) {
     }
   }
 
+  reanchorDrag();
   if (R.pAlive && !R.demo) {
     trail.push(R.px, R.pY);
     if (trail.length > TRAIL_LEN) trail.splice(0, 2);
   }
   if (state === 'countdown' || state === 'playing') {
+    if (R.online) {
+      const key = `${R.aliveH}/${R.humans.length}`;
+      if (key !== humansKey) {
+        humansKey = key;
+        const r = online.room;
+        ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Minuto global', `${R.aliveH}/${R.humans.length} reales vivos`, 'Online');
+      }
+    }
     ui.hud(R);
     ui.dashButtons(R);
     ui.predict(R, pred, predStats);
@@ -703,11 +804,12 @@ function frame(now) {
   // Etapa de la ronda: cambia la paleta del fondo y suma capas a la música
   const stage = Math.min(R.cf, 6);
   renderer.setStage(state === 'results' ? 0 : stage);
-  audio.setStage(state === 'playing' ? Math.min(R.cf + (R.cf >= CFG.FORKS ? 1 : 0), 7) : 0);
+  audio.setStage(previewTrack ? 4 : state === 'playing' ? Math.min(R.cf + (R.cf >= CFG.FORKS ? 1 : 0), 7) : 0);
   const tier = rankOf(save.pr).tier;
   renderer.draw(R, fx, {
     skin: sk, trail: tr, trailPts: trail, dt,
     aura: TIER_PERKS[tier].aura, tierCol: TIERS[tier].col,
+    myName: R.online ? (save.name || 'Vos') : '', myNameStyle: playerNameStyle(),
   });
   requestAnimationFrame(frame);
 }
@@ -718,16 +820,37 @@ let pDown = false;
 const keys = new Set();
 const canSteer = () => R && !R.demo && (state === 'playing' || state === 'countdown');
 
+// Táctil: arrastre relativo (el dedo puede estar en cualquier parte y no tapa la bola).
+// Mouse: la bola sigue al puntero. Un solo dedo controla; los demás (p. ej. el impulso) se ignoran.
+const TOUCH_GAIN = 1.35;
+let drag = null;
 cv.addEventListener('pointerdown', e => {
   audio.unlock();
+  if (drag && drag.id !== e.pointerId) return;
   pDown = true;
-  if (canSteer()) R.setTarget(renderer.toWorldX(e.clientX));
+  const touch = e.pointerType !== 'mouse';
+  drag = { id: e.pointerId, touch: touch && save.relTouch, x0: e.clientX, p0: R ? R.px : 0 };
+  if (canSteer() && !drag.touch) R.setTarget(renderer.toWorldX(e.clientX));
+  if (canSteer() && drag.touch) R.setTarget(R.px);
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignorar */ }
+  e.preventDefault();
 });
 cv.addEventListener('pointermove', e => {
-  if ((pDown || e.pointerType === 'mouse') && canSteer()) R.setTarget(renderer.toWorldX(e.clientX));
+  if (!canSteer()) return;
+  if (drag && drag.id === e.pointerId) {
+    if (drag.touch) R.setTarget(drag.p0 + (e.clientX - drag.x0) / renderer.scale * TOUCH_GAIN);
+    else R.setTarget(renderer.toWorldX(e.clientX));
+  } else if (!drag && e.pointerType === 'mouse') R.setTarget(renderer.toWorldX(e.clientX));
 });
-for (const t of ['pointerup', 'pointercancel']) cv.addEventListener(t, () => { pDown = false; });
+for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  cv.addEventListener(t, e => { if (drag && drag.id === e.pointerId) { drag = null; pDown = false; } });
+}
+// Si el dedo ya empujó la bola contra un borde, re-anclar para que volver sea inmediato
+function reanchorDrag() {
+  if (!drag || !drag.touch || !R) return;
+  const over = R.ptx - R.px;
+  if (Math.abs(over) > 40) { drag.p0 -= over - Math.sign(over) * 40; R.ptx = R.px + Math.sign(over) * 40; }
+}
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
 const KEYMAP = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r' };
@@ -790,6 +913,7 @@ function setupPWA() {
 $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
 setupPWA();
+applyTrack();
 toMenu();
 // Invitación: ?sala=ABCD abre el modo online con el código cargado
 try {
@@ -803,6 +927,7 @@ window.__contracorriente = {
   get round() { return R; },
   get state() { return state; },
   get save() { return save; },
+  get audio() { return audio; },
   get online() { return { mode, room: online.room, net }; },
   startRound,
   finishRound,

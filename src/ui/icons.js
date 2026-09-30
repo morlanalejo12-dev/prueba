@@ -47,3 +47,16 @@ export function skinPreview(sk) {
   if (!sk.col) el.classList.add('sk-rainbow');
   return el;
 }
+
+// Nombre con su estilo (color, degradado o efecto)
+export function nameTag(text, style) {
+  const el = document.createElement('span');
+  el.className = 'nm nm-' + style.fx;
+  el.textContent = text;
+  el.dataset.text = text;
+  style.cols.forEach((c, i) => el.style.setProperty('--c' + (i + 1), c));
+  return el;
+}
+
+// Ícono de nota musical para los temas
+export const MUSIC_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';

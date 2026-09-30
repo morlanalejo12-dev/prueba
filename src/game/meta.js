@@ -2,6 +2,8 @@
 // Todo es determinista por fecha, así dos jugadores ven las mismas misiones y ofertas el mismo día.
 import { fmt } from '../util/math.js';
 import { SKINS, TRAILS, SHOP_SKINS, SHOP_TRAILS } from './skins.js';
+import { MUSIC } from './music.js';
+import { NAME_STYLES } from './names.js';
 
 export const SEASON = { number: 1, name: 'Primera corriente', maxLevel: 20 };
 
@@ -125,6 +127,9 @@ export function seasonTrack() {
     if (sk) out.push({ lvl, type: 'skin', skin: sk.id });
     else if (tr) out.push({ lvl, type: 'trail', trail: tr.id });
     else out.push({ lvl, type: 'coins', coins: 40 + lvl * 10 });
+    // Temas y estilos de nombre que también se desbloquean en ese nivel
+    const extra = [...MUSIC, ...NAME_STYLES].filter(k => k.src.type === 'level' && k.src.lvl === lvl);
+    if (extra.length) out[out.length - 1].extra = extra.map(k => k.id);
   }
   return out;
 }

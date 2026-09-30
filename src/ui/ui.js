@@ -2,11 +2,13 @@
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails } from '../game/progress.js';
-import { SKINS, TRAILS } from '../game/skins.js';
+import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames } from '../game/progress.js';
+import { SKINS, TRAILS, skinById } from '../game/skins.js';
+import { MUSIC } from '../game/music.js';
+import { NAME_STYLES, nameStyleById } from '../game/names.js';
 import { TIERS, rankOf } from '../game/ranks.js';
 import { claimableMissions, dailyState, missionText } from '../game/meta.js';
-import { ICON, emblem } from './icons.js';
+import { ICON, emblem, nameTag, skinPreview, MUSIC_ICON } from './icons.js';
 import { buildModal, TITLES_BY_KIND } from './modals.js';
 
 export const $ = id => document.getElementById(id);
@@ -32,6 +34,7 @@ export function createUI(h) {
   $('rCoinIcon').innerHTML = ICON.coin;
   $('icMissions').innerHTML = ICON.target;
   $('icShop').innerHTML = ICON.gift;
+  $('icMusic').innerHTML = MUSIC_ICON;
 
   // ---------- Carteles, pistas, destellos, avisos y feed ----------
   function banner(title, sub, kind, ms) {
@@ -192,7 +195,9 @@ export function createUI(h) {
       const li = document.createElement('li');
       if (p.id === myId) li.className = 'me';
       const n = document.createElement('b'); n.textContent = '#' + fmt(p.rank);
-      const nm = document.createElement('span'); nm.textContent = p.name + (p.id === myId ? ' (vos)' : '');
+      const nm = document.createElement('span');
+      nm.append(skinPreview(skinById(p.skin)), nameTag(p.name, nameStyleById(p.nameStyle)));
+      if (p.id === myId) nm.append(' (vos)');
       const sc = document.createElement('em'); sc.textContent = fmt(p.score) + ' pts';
       li.append(n, nm, sc);
       ol.append(li);
@@ -223,7 +228,6 @@ export function createUI(h) {
   function renderMenu(save, env) {
     const li = levelInfo(save.xp);
     $('pLevel').textContent = li.level;
-    $('pTitle').textContent = titleOf(li.level);
     $('pXp').textContent = `${fmt(li.into)} / ${fmt(li.need)} XP`;
     $('ringFill').style.strokeDashoffset = String(RING * (1 - li.into / li.need));
     $('coins').textContent = fmt(save.coins);
@@ -249,6 +253,13 @@ export function createUI(h) {
     $('bShop').hidden = save.shopSeen === env.today;
     $('tSkins').textContent = `${ownedSkins(save).length + ownedTrails(save).length}/${SKINS.length + TRAILS.length}`;
     $('tSeason').textContent = `Nv ${li.level}`;
+    $('tMusic').textContent = `${ownedMusic(save).length}/${MUSIC.length}`;
+    $('tNames').textContent = `${ownedNames(save).length}/${NAME_STYLES.length}`;
+    // Chip de perfil: el nombre con su estilo (o el título si todavía no eligió nombre)
+    const pt = $('pTitle');
+    pt.innerHTML = '';
+    if (save.name) pt.append(nameTag(save.name, nameStyleById(save.nameStyle)));
+    else pt.textContent = titleOf(li.level);
 
     $('sBest').textContent = save.rounds ? pctText(save.best) : '—';
     $('sRounds').textContent = fmt(save.rounds);

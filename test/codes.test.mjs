@@ -33,10 +33,29 @@ test('OWNER13 da la estela Supernova', () => {
 
 test('códigos inválidos y de monedas', () => {
   const save = loadSave(mem());
-  assert.equal(redeemCode(save, 'OWNER14').ok, false);
+  assert.equal(redeemCode(save, 'OWNER15').ok, false);
   assert.equal(redeemCode(save, '').ok, false);
   const c0 = save.coins;
   assert.ok(redeemCode(save, 'bienvenida').ok);
   assert.equal(save.coins, c0 + 250);
   assert.equal(RARITY_ORDER.at(-1), 'fundador');
+});
+
+test('DKO01 da el tema Voltaje y OWNER14 el nombre Corona Fundadora', async () => {
+  const { MUSIC } = await import('../src/game/music.js');
+  const { NAME_STYLES } = await import('../src/game/names.js');
+  const save = loadSave(mem());
+  const voltaje = MUSIC.find(m => m.id === 'mus-voltaje'), corona = NAME_STYLES.find(n => n.id === 'nm-fundador');
+  assert.equal(isOwned(voltaje, ownedCtx(save)), false);
+  const a = redeemCode(save, 'dko01');
+  assert.ok(a.ok);
+  assert.equal(save.track, 'mus-voltaje');
+  assert.ok(isOwned(voltaje, ownedCtx(save)));
+  const b = redeemCode(save, 'OWNER14');
+  assert.ok(b.ok);
+  assert.equal(save.nameStyle, 'nm-fundador');
+  assert.ok(isOwned(corona, ownedCtx(save)));
+  // Solo se consiguen por código
+  assert.equal(voltaje.src.type, 'code');
+  assert.equal(corona.src.type, 'code');
 });

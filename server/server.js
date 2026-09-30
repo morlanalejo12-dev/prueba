@@ -41,7 +41,7 @@ const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
 wss.on('connection', ws => {
   const id = 'p' + (nextId++).toString(36);
   const me = {
-    id, name: 'Jugador', skin: 'ambar', trail: 'basica', room: null,
+    id, name: 'Jugador', skin: 'ambar', trail: 'basica', nameStyle: 'nm-blanco', room: null,
     send: s => { if (ws.readyState === 1 && ws.bufferedAmount < 1 << 20) ws.send(s); },
   };
   clients.set(id, me);
@@ -49,6 +49,13 @@ wss.on('connection', ws => {
   ws.on('pong', () => { ws.isAlive = true; });
 
   const leave = () => { if (me.room) { lobby.leave(me.room, id); me.room = null; } };
+  const setProfile = m => {
+    me.name = cleanName(m.name) || me.name || 'Jugador ' + id.slice(1).toUpperCase();
+    if (me.name === 'Jugador') me.name = 'Jugador ' + id.slice(1).toUpperCase();
+    me.skin = String(m.skin || me.skin).slice(0, 24);
+    me.trail = String(m.trail || me.trail).slice(0, 24);
+    me.nameStyle = String(m.nameStyle || me.nameStyle).slice(0, 24);
+  };
   const err = msg => me.send(JSON.stringify({ t: 'err', msg }));
 
   ws.on('message', raw => {
@@ -58,9 +65,7 @@ wss.on('connection', ws => {
     switch (m.t) {
       case 'hello':
         if (m.v !== PROTOCOL) { err('Actualizá el juego: la versión no coincide con el servidor.'); return; }
-        me.name = cleanName(m.name) || 'Jugador ' + id.slice(1).toUpperCase();
-        me.skin = String(m.skin || 'ambar').slice(0, 24);
-        me.trail = String(m.trail || 'basica').slice(0, 24);
+        setProfile(m);
         me.send(JSON.stringify({ t: 'welcome', id, now: Date.now() }));
         break;
       case 'join': {
@@ -73,6 +78,12 @@ wss.on('connection', ws => {
         me.room = room;
         break;
       }
+      case 'profile':
+        if (Date.now() - (me.lastProfile || 0) < 250) return;
+        me.lastProfile = Date.now();
+        setProfile(m);
+        if (me.room) me.room.profileChanged(me);
+        break;
       case 'leave': leave(); break;
       case 'start': if (me.room && !me.room.requestStart(id)) err('Solo el anfitrión puede empezar la ronda.'); break;
       case 'in': if (me.room) me.room.input(id, +m.x, +m.y); break;

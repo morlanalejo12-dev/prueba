@@ -41,8 +41,25 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 - Tarjeta de resultado para compartir.
 - **Online:** Minuto global (una ronda pública al comenzar cada minuto) y salas privadas con código de 4 letras.
 - **Códigos promocionales** en Ajustes y en la Tienda.
+- Catálogo de **música** (8 temas) y **estilos de nombre** (19).
 
 ## Novedades
+
+### v0.8
+- **Control táctil nuevo:** en el celular arrastrás desde cualquier parte de la pantalla y la bola se mueve lo mismo (con un poco más de sensibilidad), sin taparla con el dedo. Un segundo dedo (por ejemplo en IMPULSO) no la desvía. Se puede volver al modo anterior en Ajustes.
+- **Catálogo de música** (menú → Música): 8 temas con distinto estilo, que se escuchan antes de elegirlos y se intensifican con cada bifurcación.
+  - Corriente (original), Cascada (lo-fi), Chiptune Rush (8 bits), Neón Nocturno (synthwave), Pulso Profundo (deep house), Vértigo (drum & bass), Tormenta (techno ácido).
+  - Se consiguen por nivel, llegando a liga Oro o en la tienda del catálogo.
+  - **DKO · Voltaje** (rareza Fundador, solo con código): electro house a 128 BPM con supersierras, bombeo de sidechain, pluck pegadizo y redoble cada 8 compases.
+- **Nombre y estilos de nombre** (menú → Nombre): cambiás tu nombre y elegís cómo se ve.
+  - 8 colores básicos, degradados que cambian (Atardecer, Océano, Arcoíris) y estilos con efectos (Tóxico, Neón, Glitch, Escarcha, Fuego, Oro puro, Galaxia).
+  - **Corona Fundadora** (solo con código): corona, degradado de cuatro colores, brillo que recorre el nombre, resplandor y destellos.
+- **Online mejorado:**
+  - En la sala se ve en vivo la skin, la estela y el nombre con estilo de cada jugador; si alguien cambia algo, se actualiza al instante.
+  - En la ronda, los demás jugadores se ven con su skin, su estela y su nombre, y el tuyo también aparece.
+  - Desde la sala hay accesos directos a Cambiar skin, Nombre y Música.
+  - La HUD muestra cuántos jugadores reales siguen vivos, y la tabla final muestra skins y nombres con estilo.
+  - Si se corta la conexión, reconecta solo y vuelve a la misma sala.
 
 ### v0.7
 - **Modo online real.** Botón *Online con amigos* en el menú:
@@ -149,7 +166,8 @@ npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 | `src/game/skins.js` | Catálogo de skins y estelas, y cómo se consigue cada una |
 | `src/game/meta.js` | Misiones diarias, recompensa diaria, tienda y pase de temporada |
 | `src/render/` | Dibujo en canvas, partículas y tarjeta para compartir |
-| `src/audio/` | Efectos y música sintetizados con Web Audio |
+| `src/audio/` | Efectos y música sintetizados con Web Audio; `tracks.js` tiene los 8 temas |
+| `src/game/music.js`, `src/game/names.js` | Catálogos de música y de estilos de nombre |
 | `src/ui/` | Menú, HUD, resultados, ventanas e íconos |
 | `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |
 | `test/` | Tests con `node --test` |

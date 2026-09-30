@@ -1,6 +1,8 @@
 // Códigos promocionales. Se guardan sólo como hash (cyrb53) para que no aparezcan
 // en texto plano al inspeccionar el juego.
 import { skinById, trailById } from './skins.js';
+import { musicById } from './music.js';
+import { nameStyleById } from './names.js';
 
 export function cyrb53(str, seed = 0x5eed) {
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -18,6 +20,8 @@ const CODES = {
   n1co6pem7o: { kind: 'skin', id: 'singularidad' },
   k0jdfhewdk: { kind: 'trail', id: 'supernova' },
   ozmy39to6l: { kind: 'coins', amount: 250 },
+  '2a83psrjeng': { kind: 'music', id: 'mus-voltaje' },
+  '19evwxxecmi': { kind: 'name', id: 'nm-fundador' },
 };
 
 export const normalizeCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -36,8 +40,10 @@ export function redeemCode(save, input) {
     save.coins += reward.amount;
     return { ok: true, reward: { ...reward } };
   }
-  const item = reward.kind === 'skin' ? skinById(reward.id) : trailById(reward.id);
+  const find = { skin: skinById, trail: trailById, music: musicById, name: nameStyleById }[reward.kind];
+  const item = find(reward.id);
   save.owned = { ...save.owned, [item.id]: true };
-  if (reward.kind === 'skin') save.skin = item.id; else save.trail = item.id;
+  const slot = { skin: 'skin', trail: 'trail', music: 'track', name: 'nameStyle' }[reward.kind];
+  save[slot] = item.id;
   return { ok: true, reward: { ...reward, item } };
 }

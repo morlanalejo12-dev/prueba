@@ -5,7 +5,9 @@ import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx
 import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards } from '../game/skins.js';
 import { TIERS, TIER_PERKS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
 import { SEASON, seasonTrack, shopOffers, dailyState, DAILY_REWARDS, missionText, missionReward, MISSION_XP, msToMidnight } from '../game/meta.js';
-import { ICON, emblem, skinPreview, trailPreview } from './icons.js';
+import { ICON, emblem, skinPreview, trailPreview, nameTag, MUSIC_ICON } from './icons.js';
+import { MUSIC, musicById } from '../game/music.js';
+import { NAME_STYLES, nameStyleById } from '../game/names.js';
 
 const RING = 106.8;
 
@@ -38,7 +40,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -244,10 +246,18 @@ const BUILDERS = {
     else status.textContent = r.host === o.myId ? 'Sos el anfitrión: empezá cuando estén todos.' : 'Esperando que el anfitrión empiece la ronda…';
     body.append(status);
     const ul = el('ul', 'room-players');
+    const skinCol = sk => sk.col || '#ff7ad9';
     for (const p of r.players) {
       const li = el('li', p.id === o.myId ? 'me' : '');
-      li.append(skinPreview(skinById(p.skin)), el('span', '', p.name + (p.id === o.myId ? ' (vos)' : '')));
+      const sk = skinById(p.skin), tr = trailById(p.trail);
+      const pv = el('span', 'rp-look');
+      pv.append(trailPreview(tr, skinCol(sk)), skinPreview(sk));
+      const who = el('span', 'rp-who');
+      who.append(nameTag(p.name, nameStyleById(p.nameStyle)));
+      who.append(el('small', '', `${sk.name} · ${tr.name}${p.id === o.myId ? ' · vos' : ''}`));
+      li.append(pv, who);
       if (p.id === r.host) li.append(el('em', '', 'Anfitrión'));
+      else if (p.inRound) li.append(el('em', 'live', 'Jugando'));
       ul.append(li);
     }
     body.append(el('p', 'redeem-label', `${r.players.length} ${r.players.length === 1 ? 'jugador' : 'jugadores'} + bots hasta completar la multitud`), ul);
@@ -257,10 +267,98 @@ const BUILDERS = {
       start.addEventListener('click', () => env.h.onRoomStart());
       body.append(start);
     }
+    const look = el('div', 'row room-look');
+    for (const [label, kind] of [['Cambiar skin', 'collection'], ['Nombre', 'names'], ['Música', 'music']]) {
+      const b = el('button', 'btn btn-ghost btn-sm', label);
+      b.type = 'button';
+      b.addEventListener('click', () => env.h.onRoomOpen(kind));
+      look.append(b);
+    }
+    body.append(look);
     const leave = el('button', 'btn btn-ghost', 'Salir de la sala');
     leave.type = 'button';
     leave.addEventListener('click', () => env.h.onRoomLeave());
     body.append(leave);
+  },
+
+  // Catálogo de música: escuchar, comprar y elegir el tema de las rondas
+  music(body, env) {
+    const { save } = env, ctx = ownedCtx(save), playing = env.h.musicPreview();
+    const head = el('div', 'shop-head');
+    const bal = el('p');
+    bal.append('Tenés ', coinAmount(save.coins), ' destellos');
+    head.append(bal, el('p', '', `Sonando: ${musicById(playing || save.track).name}`));
+    body.append(head, el('p', 'note', 'Tocá ▶ para escucharlo a todo volumen. El tema elegido suena en tus rondas y se intensifica con cada bifurcación.'));
+    const list = [...MUSIC].sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
+    for (const m of list) {
+      const own = isOwned(m, ctx), rar = RARITY[m.rarity], inUse = save.track === m.id, isPlaying = (playing || save.track) === m.id;
+      const card = el('div', 'offer track-card' + (m.rarity === 'fundador' ? ' founder' : '') + (isPlaying ? ' playing' : ''));
+      card.style.setProperty('--rc', rar.col);
+      const ic = el('button', 'track-play');
+      ic.type = 'button';
+      ic.setAttribute('aria-label', (playing === m.id ? 'Detener ' : 'Escuchar ') + m.name);
+      ic.innerHTML = playing === m.id ? '<span class="eq"><i></i><i></i><i></i><i></i></span>' : '<span class="tri">▶</span>';
+      ic.addEventListener('click', () => env.h.onPreviewMusic(playing === m.id ? null : m.id));
+      const info = el('div');
+      const tag = el('span', 'rarity', `${m.genre} · ${rar.name}`);
+      tag.style.color = rar.col;
+      info.append(el('b', '', m.name), tag, el('small', 'track-meta', `${m.bpm} BPM${own ? '' : ' · ' + unlockText(m)}`));
+      const btn = el('button', 'btn btn-sm');
+      btn.type = 'button';
+      if (inUse) { btn.textContent = 'En uso'; btn.className += ' btn-ghost'; btn.disabled = true; }
+      else if (own) { btn.textContent = 'Usar'; btn.className += ' btn-primary'; btn.addEventListener('click', () => env.h.onSelectMusic(m.id)); }
+      else if (m.src.type === 'shop') {
+        const ok = save.coins >= m.src.price;
+        btn.className += ok ? ' btn-primary' : ' btn-ghost';
+        btn.innerHTML = ICON.coin;
+        btn.append(' ' + fmt(m.src.price));
+        if (ok) btn.addEventListener('click', () => env.h.onBuyItem('music', m)); else btn.disabled = true;
+      } else { btn.innerHTML = ICON.lock; btn.className += ' btn-ghost'; btn.disabled = true; btn.setAttribute('aria-label', 'Bloqueado'); }
+      card.append(ic, info, btn);
+      body.append(card);
+    }
+  },
+
+  // Nombre: cambiarlo y elegir su estilo
+  names(body, env) {
+    const { save } = env, ctx = ownedCtx(save), text = save.name || 'Tu nombre';
+    const hero = el('div', 'name-hero');
+    hero.append(nameTag(text, nameStyleById(save.nameStyle)));
+    const row = el('div', 'redeem-row');
+    const input = el('input', 'redeem-input name-input');
+    input.id = 'nameInput';
+    Object.assign(input, { type: 'text', maxLength: 16, placeholder: 'Escribí tu nombre', value: save.name || '', autocomplete: 'nickname' });
+    input.setAttribute('aria-label', 'Tu nombre');
+    const saveBtn = el('button', 'btn btn-primary btn-sm', 'Guardar');
+    saveBtn.type = 'button';
+    const msg = el('p', 'redeem-msg');
+    const doSave = () => { const r = env.h.onRename(input.value); if (r && r.error) msg.textContent = r.error; };
+    saveBtn.addEventListener('click', doSave);
+    onEnter(input, doSave);
+    row.append(input, saveBtn);
+    body.append(hero, row, msg, el('p', 'note', 'Tu nombre se ve en las salas online, sobre tu bola y en la tabla de resultados. Elegí un estilo:'));
+    const grid = el('div', 'col-grid name-grid');
+    const list = [...NAME_STYLES].sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
+    for (const st of list) {
+      const own = isOwned(st, ctx), rar = RARITY[st.rarity], inUse = save.nameStyle === st.id;
+      const card = el('button', 'col-card name-card' + (own ? '' : ' locked') + (st.rarity === 'fundador' ? ' founder' : ''));
+      card.type = 'button';
+      card.setAttribute('aria-checked', String(inUse));
+      card.style.setProperty('--rc', rar.col);
+      const shopOk = !own && st.src.type === 'shop' && save.coins >= st.src.price;
+      const r = el('span', 'rarity', rar.name);
+      r.style.color = rar.col;
+      let foot;
+      if (own) foot = inUse ? 'En uso' : 'Usar';
+      else if (st.src.type === 'shop') foot = `${fmt(st.src.price)} destellos`;
+      else foot = unlockText(st);
+      card.append(nameTag(save.name || st.name, st), el('b', '', st.name), r, el('small', '', foot));
+      if (own) card.addEventListener('click', () => env.h.onSelectName(st.id));
+      else if (shopOk) { card.classList.add('buyable'); card.addEventListener('click', () => env.h.onBuyItem('name', st)); }
+      else card.setAttribute('aria-disabled', 'true');
+      grid.append(card);
+    }
+    body.append(grid);
   },
 
   codes(body, env) {
@@ -277,14 +375,19 @@ const BUILDERS = {
       hero.append(c, el('small', '', 'Recibiste'), el('strong', '', `${fmt(r.amount)} destellos`));
     } else {
       const it = r.item, rar = RARITY[it.rarity];
-      const prev = r.kind === 'skin' ? skinPreview(it) : trailPreview(it, skinById(env.save.skin).col || undefined);
+      let prev;
+      if (r.kind === 'skin') prev = skinPreview(it);
+      else if (r.kind === 'trail') prev = trailPreview(it, skinById(env.save.skin).col || undefined);
+      else if (r.kind === 'music') { prev = el('span', 'redeem-music'); prev.innerHTML = '<span class="eq big-eq"><i></i><i></i><i></i><i></i><i></i></span>'; }
+      else { prev = el('span', 'redeem-name'); prev.append(nameTag(env.save.name || 'Tu nombre', it)); }
       prev.classList.add('big');
-      const tag = el('span', 'rarity', `${r.kind === 'skin' ? 'Skin' : 'Estela'} · ${rar.name}`);
+      const kindName = { skin: 'Skin', trail: 'Estela', music: 'Música', name: 'Estilo de nombre' }[r.kind];
+      const tag = el('span', 'rarity', `${kindName} · ${rar.name}`);
       tag.style.color = rar.col;
       hero.append(prev, tag, el('strong', '', it.name));
     }
     body.append(hero);
-    if (r.item) body.append(el('p', 'unlock', `Ya la tenés equipada. ${r.item.rarity === 'fundador' ? 'Rareza Fundador: la más exclusiva del juego.' : ''}`));
+    if (r.item) body.append(el('p', 'unlock', `${r.kind === 'music' ? 'Ya suena en tus rondas.' : 'Ya lo tenés equipado.'} ${r.item.rarity === 'fundador' ? 'Rareza Fundador: la más exclusiva del juego.' : ''}`));
     const btn = el('button', 'btn btn-primary', '¡A jugar!');
     btn.type = 'button';
     btn.setAttribute('data-close', '');
@@ -349,6 +452,10 @@ const BUILDERS = {
       if (r.type === 'skin') { const sk = skinById(r.skin); rw.append(skinPreview(sk), `Skin ${sk.name}`); }
       else if (r.type === 'trail') { const tr = trailById(r.trail); rw.append(trailPreview(tr, skinById(save.skin).col || undefined), `Estela ${tr.name}`); }
       else rw.append(coinAmount(r.coins), ' destellos');
+      for (const id of r.extra || []) {
+        const m = MUSIC.find(k => k.id === id), n = NAME_STYLES.find(k => k.id === id);
+        rw.append(el('small', 'rw-extra', m ? `+ Música: ${m.name}` : `+ Nombre: ${n.name}`));
+      }
       item.append(el('span', 'lv', `Nv ${r.lvl}`), rw, el('span', 'st', got ? 'Obtenida' : r.lvl === li.level + 1 ? 'Siguiente' : ''));
       ul.append(item);
     }
@@ -469,6 +576,7 @@ const BUILDERS = {
       ['sfx', 'Sonido', 'Efectos del juego'],
       ['music', 'Música', 'Se intensifica con la tensión de la ronda'],
       ['vib', 'Vibración', 'En celulares compatibles'],
+      ['relTouch', 'Control por arrastre', 'Táctil: arrastrá desde cualquier parte de la pantalla (si lo apagás, la bola va adonde tocás)'],
     ];
     for (const [key, name, desc] of rows) {
       const b = el('button', 'switch-row');
