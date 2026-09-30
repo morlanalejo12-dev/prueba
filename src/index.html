@@ -25,7 +25,9 @@
     <span class="lbl">Puntos</span>
     <span class="hud-score"><span id="hCombo" class="combo" hidden></span><span id="hScore" class="num">0</span></span>
   </div>
+  <div id="hRival" class="hud-rival"><span class="lbl">Rival</span><b id="hRivalName">@rival</b><em id="hRivalRank"></em></div>
 </div>
+<div id="feed" class="feed" aria-live="polite" hidden></div>
 <div id="banner" class="banner" hidden><div id="bTitle" class="b-title"></div><div id="bSub" class="b-sub"></div></div>
 <div id="hint" class="hint" hidden></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
@@ -43,33 +45,46 @@
       </span>
       <span class="chip-text"><strong id="pTitle">Chispa</strong><small id="pXp">0 / 120 XP</small></span>
     </button>
-    <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ajustes">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-    </button>
+    <div class="top-actions">
+      <button id="coinsBtn" class="coin-pill" type="button" aria-label="Destellos: abrir la tienda"><span id="coinIcon"></span><b id="coins">0</b></button>
+      <button id="helpBtn" class="icon-btn" type="button" aria-label="Reglas">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/></svg>
+      </button>
+      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+      </button>
+    </div>
   </header>
 
   <div class="menu-main">
-    <p class="eyebrow">Temporada beta · v0.3</p>
+    <p class="eyebrow">Temporada 1 · Primera corriente</p>
     <h1 id="logo" class="logo"><span class="l1">Contra</span><span class="l2">corriente</span></h1>
     <p class="tagline">Todos caen a la vez. Sobrevive el que no sigue a la masa.</p>
+    <button id="rankBtn" class="rank-card" type="button" aria-label="Ver tu rango">
+      <span id="rankEmblem" class="rank-emblem"></span>
+      <span class="rank-text">
+        <strong id="rankLabel">Bronce III</strong>
+        <span class="rank-bar"><i id="rankFill"></i></span>
+        <small id="rankPr">0 / 100 PR</small>
+      </span>
+      <span id="pathBadge" class="path-badge" title="Racha de caminos"></span>
+    </button>
     <button id="play" class="btn-play" type="button">Jugar</button>
     <p class="online"><span class="live-dot" aria-hidden="true"></span><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
     <nav class="menu-grid" aria-label="Secciones">
-      <button class="tile" type="button" data-open="how">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/></svg>
-        <span>Reglas</span><small>4 pasos</small>
+      <button class="tile" type="button" data-open="missions">
+        <span id="icMissions"></span><span>Misiones</span><small id="tMissions">0/3</small><em id="bMissions" class="badge" hidden>!</em>
       </button>
-      <button class="tile" type="button" data-open="skins">
+      <button class="tile" type="button" data-open="shop">
+        <span id="icShop"></span><span>Tienda</span><small id="tShop">3 ofertas</small><em id="bShop" class="badge" hidden>Nuevo</em>
+      </button>
+      <button class="tile" type="button" data-open="collection">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20c4-1 7.5-4 9.5-8"/><circle cx="16" cy="8" r="4"/></svg>
-        <span>Estelas</span><small id="tSkins">1/6</small>
+        <span>Colección</span><small id="tSkins">1/16</small>
       </button>
-      <button class="tile" type="button" data-open="ach">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/></svg>
-        <span>Logros</span><small id="tAch">0/14</small>
-      </button>
-      <button class="tile" type="button" data-open="records">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-8M12 20V5M19 20v-5"/></svg>
-        <span>Récords</span><small id="tRec">—</small>
+      <button class="tile" type="button" data-open="season">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v6l-7 4-7-4z"/><path d="M5 14l7 4 7-4M5 18l7 3 7-3"/></svg>
+        <span>Temporada</span><small id="tSeason">Nv 1</small>
       </button>
     </nav>
   </div>
@@ -78,7 +93,7 @@
     <div class="mstat"><b id="sBest">—</b><span>Mejor</span></div>
     <div class="mstat"><b id="sRounds">0</b><span>Rondas</span></div>
     <div class="mstat"><b id="sStreak">0</b><span>Racha</span></div>
-    <div class="mstat"><b id="sOutliers">0</b><span>Outlier</span></div>
+    <div class="mstat"><b id="sInstinct">—</b><span>Instinto</span></div>
   </footer>
 </section>
 
@@ -96,11 +111,20 @@
       <div><dt>Justas</dt><dd id="rNear">0</dd></div>
       <div><dt>Chispas</dt><dd id="rOrbs">0</dd></div>
     </dl>
-    <div class="xp">
-      <div class="xp-top"><strong id="rXp">+0 XP</strong><span id="rLevel">Nivel 1 · Chispa</span></div>
-      <div class="xpbar"><span id="rXpFill"></span></div>
-      <p id="rUnlock" class="unlock" hidden></p>
+    <div class="res-grid">
+      <div class="res-box">
+        <div class="res-rank"><span id="rEmblem"></span><div><strong id="rRankLabel">Bronce III</strong><span id="rPrDelta" class="delta">+0 PR</span></div></div>
+        <div class="rank-bar"><i id="rPrFill"></i></div>
+      </div>
+      <div class="res-box">
+        <div class="res-rewards"><span><b id="rXp">+0</b> XP</span><span class="coin-inline"><span id="rCoinIcon"></span><b id="rCoins">+0</b></span></div>
+        <div class="xpbar"><span id="rXpFill"></span></div>
+        <small id="rLevel" class="res-level">Nivel 1 · Chispa</small>
+      </div>
     </div>
+    <p id="rUnlock" class="unlock" hidden></p>
+    <p id="rRival" class="rival-line"></p>
+    <ul id="rMissions" class="res-missions" hidden></ul>
     <div id="rAch" class="ach-earned" hidden></div>
     <div class="outlier">
       <span class="lbl">Outlier del minuto</span>

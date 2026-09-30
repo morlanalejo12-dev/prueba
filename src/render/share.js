@@ -6,7 +6,7 @@ export function shareText(sum) {
   return `Quedé #${fmt(sum.rank)} de ${fmt(sum.total)} en Contracorriente: sobreviví a más que el ${pctText(sum.pct)} de los jugadores. ¿Me ganás?`;
 }
 
-export function renderShareCard(sum, { colors, fonts, playerColor, level, title }) {
+export function renderShareCard(sum, { colors, fonts, playerColor, level, title, rank }) {
   const W = 1080, H = 1350;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -57,7 +57,7 @@ export function renderShareCard(sum, { colors, fonts, playerColor, level, title 
 
   cx.fillStyle = colors.muted;
   cx.font = `600 32px ${fonts.body}`;
-  cx.fillText(`${sum.forksOk}/${sum.forks} caminos · ${fmt(sum.score)} puntos · Nivel ${level} ${title}`, W / 2, 1080);
+  cx.fillText(`${sum.forksOk}/${sum.forks} caminos · ${fmt(sum.score)} puntos · ${rank || `Nivel ${level} ${title}`}`, W / 2, 1080);
 
   cx.fillStyle = colors.gold;
   cx.font = `800 40px ${fonts.display}`;

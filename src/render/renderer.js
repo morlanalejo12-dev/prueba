@@ -6,6 +6,9 @@ import { gapsAt, altOpen, altPhase } from '../sim/gates.js';
 
 const G = new Float64Array(4);
 
+// Color principal de una skin (las arcoíris cambian con el tiempo)
+export const skinColor = (sk, t) => sk.col || `hsl(${Math.round((t * 90) % 360)} 95% 68%)`;
+
 export class Renderer {
   constructor(canvas) {
     this.cv = canvas;
@@ -72,7 +75,7 @@ export class Renderer {
     const fogOn = !!(f && f.variant === 'fog' && R.pY >= f.startY - 100 && !f.resolved);
     this.drawCrowd(R, Y, fogOn ? 0.1 : 0.8);
     this.drawParticles(fx, Y);
-    if (R.pAlive) this.drawPlayer(R, Y, opts.playerColor, opts.trail);
+    if (R.pAlive) this.drawPlayer(R, Y, opts.skin, opts.trail);
     if (fogOn) this.drawFog(R, Y);
     if (f && !R.demo) this.drawLabels(R, f, Y, fogOn);
     this.drawPops(fx, Y);
@@ -197,21 +200,71 @@ export class Renderer {
     cx.globalAlpha = 1;
   }
 
-  drawPlayer(R, Y, color, tr) {
-    const { cx, C } = this, P = CFG.PR, py = Y(R.pY);
-    // Estela: últimas posiciones del jugador (pares x, y)
-    cx.fillStyle = color;
-    for (let k = 0; k < tr.length; k += 2) {
-      const a = k / tr.length;
-      cx.globalAlpha = a * 0.5;
-      cx.beginPath(); cx.arc(tr[k], Y(tr[k + 1]), P * (0.3 + a * 0.6), 0, TAU); cx.fill();
+  drawPlayer(R, Y, sk, tr) {
+    const { cx } = this, P = CFG.PR, t = R.t;
+    const col = skinColor(sk, t), col2 = sk.col2 || col;
+    const n = tr.length;
+    // Estela según la skin (pares x, y del más viejo al más nuevo)
+    if (sk.trail === 'ribbon' && n >= 4) {
+      cx.lineCap = 'round';
+      for (let k = 2; k < n; k += 2) {
+        const a = k / n;
+        cx.strokeStyle = (k >> 1) % 2 ? col : col2;
+        cx.globalAlpha = a * 0.75;
+        cx.lineWidth = P * 1.5 * a;
+        cx.beginPath(); cx.moveTo(tr[k - 2], Y(tr[k - 1])); cx.lineTo(tr[k], Y(tr[k + 1])); cx.stroke();
+      }
+    } else {
+      const glitch = sk.trail === 'glitch', rainbow = sk.trail === 'rainbow';
+      for (let k = 0; k < n; k += 2) {
+        const a = k / n;
+        cx.globalAlpha = a * 0.5;
+        if (glitch) {
+          const off = (((k * 7919 + Math.floor(t * 18)) % 7) - 3) * 2.2;
+          cx.fillStyle = (k >> 1) % 2 ? col : col2;
+          const sz = P * (0.5 + a * 0.9);
+          cx.fillRect(tr[k] + off - sz / 2, Y(tr[k + 1]) - sz / 2, sz, sz);
+          continue;
+        }
+        cx.fillStyle = rainbow ? `hsl(${Math.round((t * 90 + k * 9) % 360)} 95% 68%)` : col;
+        cx.beginPath(); cx.arc(tr[k], Y(tr[k + 1]), P * (0.3 + a * 0.6), 0, TAU); cx.fill();
+      }
     }
-    cx.globalAlpha = 0.18 + Math.sin(R.t * 8) * 0.06;
-    cx.beginPath(); cx.arc(R.px, py, P * 2.3, 0, TAU); cx.fill();
     cx.globalAlpha = 1;
-    cx.beginPath(); cx.arc(R.px, py, P, 0, TAU); cx.fill();
-    cx.fillStyle = C.text;
-    cx.beginPath(); cx.arc(R.px, py, P * 0.4, 0, TAU); cx.fill();
+    this.drawShape(sk.shape, R.px, Y(R.pY), P, col, col2, t);
+  }
+
+  drawShape(shape, x, y, r, col, col2, t) {
+    const { cx, C } = this;
+    cx.fillStyle = col;
+    cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06;
+    cx.beginPath(); cx.arc(x, y, r * 2.3, 0, TAU); cx.fill();
+    cx.globalAlpha = 1;
+    if (shape === 'diamond') {
+      cx.save(); cx.translate(x, y); cx.rotate(Math.PI / 4 + Math.sin(t * 2) * 0.12);
+      cx.fillRect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+      cx.fillStyle = col2 === col ? C.text : col2;
+      cx.fillRect(-r * 0.35, -r * 0.35, r * 0.7, r * 0.7);
+      cx.restore();
+    } else if (shape === 'ring') {
+      cx.strokeStyle = col; cx.lineWidth = 3;
+      cx.beginPath(); cx.arc(x, y, r, 0, TAU); cx.stroke();
+      cx.fillStyle = col2;
+      cx.beginPath(); cx.arc(x, y, r * 0.45, 0, TAU); cx.fill();
+    } else if (shape === 'star') {
+      cx.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const a = t * 1.5 + k * Math.PI / 5, rr = k % 2 ? r * 0.55 : r * 1.3;
+        cx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      cx.closePath(); cx.fill();
+      cx.fillStyle = col2 === col ? C.text : col2;
+      cx.beginPath(); cx.arc(x, y, r * 0.3, 0, TAU); cx.fill();
+    } else {
+      cx.beginPath(); cx.arc(x, y, r, 0, TAU); cx.fill();
+      cx.fillStyle = col2 === col ? C.text : col2;
+      cx.beginPath(); cx.arc(x, y, r * 0.4, 0, TAU); cx.fill();
+    }
   }
 
   drawFog(R, Y) {

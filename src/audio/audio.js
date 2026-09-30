@@ -156,6 +156,11 @@ export class AudioEngine {
       case 'ach': arp([880, 1175, 1568], 0.08, 'sine', 0.07, 0.2); break;
       case 'outlier': arp([523, 659, 784, 1047, 1319], 0.08, 'triangle', 0.08, 0.2); break;
       case 'ui': this.voice(o, 540, 'sine', 0.04, 0.05, t); break;
+      case 'milestone': arp([784, 988, 1175], 0.06, 'square', 0.05, 0.1); break;
+      case 'rival': arp([523, 784], 0.08, 'triangle', 0.07, 0.14); break;
+      case 'claim': arp([988, 1319], 0.07, 'sine', 0.08, 0.16); this.hat(o, t, 0.05); break;
+      case 'buy': arp([659, 880, 1109, 1319], 0.06, 'triangle', 0.07, 0.14); break;
+      case 'rankup': arp([392, 523, 659, 784, 1047, 1319], 0.09, 'triangle', 0.09, 0.22); this.kick(o, t, 0.4); break;
       default: break;
     }
   }

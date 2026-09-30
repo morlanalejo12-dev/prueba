@@ -9,7 +9,8 @@ const memStore = (init = {}) => {
 
 const sum = over => ({
   score: 500, rank: 300, total: 1201, pct: 75, forksOk: 1, forks: 6, near: 0, maxCombo: 0, orbs: 3,
-  alive: false, outlier: false, why: 'majority', feats: { gold: false, fog: false, invert: false }, ...over,
+  alive: false, outlier: false, why: 'majority', feats: { gold: false, fog: false, invert: false },
+  forksSeen: 2, beatRival: false, rival: '@x', ...over,
 });
 
 test('niveles: los límites caen donde corresponde', () => {
@@ -67,5 +68,23 @@ test('migra el guardado de la v0.2 y tolera datos rotos', () => {
   assert.ok(store.get(SAVE_KEY));
   const broken = loadSave(memStore({ [SAVE_KEY]: '{no es json' }));
   assert.equal(broken.rounds, 0);
-  assert.equal(ACHIEVEMENTS.length, 14);
+  assert.equal(ACHIEVEMENTS.length, 17);
+});
+
+test('la racha de caminos sigue entre rondas y se corta al caer en una bifurcación', () => {
+  const save = loadSave(memStore());
+  applyRound(save, sum({ forksOk: 3, forksSeen: 3, alive: false, why: 'wall' }));
+  assert.equal(save.pathStreak, 3); // chocó un muro: la racha sigue
+  applyRound(save, sum({ forksOk: 2, forksSeen: 3 }));
+  assert.equal(save.pathStreak, 0);
+  assert.equal(save.bestPathStreak, 5);
+});
+
+test('una ronda da PR, destellos y avanza misiones', () => {
+  const save = loadSave(memStore());
+  const rep = applyRound(save, sum({ pct: 95, forksOk: 4, forksSeen: 5, orbs: 10 }), new Date(2026, 8, 29));
+  assert.ok(rep.pr.delta > 0 && save.pr === rep.pr.after);
+  assert.ok(rep.coins > 0 && save.coins >= rep.coins);
+  assert.equal(save.missions.day, '2026-09-29');
+  assert.equal(save.missions.list.length, 3);
 });

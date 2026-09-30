@@ -1,19 +1,19 @@
-// Capa de interfaz DOM: HUD, carteles, avisos, menú, resultados y ventanas.
+// Capa de interfaz DOM: HUD, carteles, feed, avisos, menú, resultados y ventanas.
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { SKINS, TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow } from '../game/progress.js';
+import { levelInfo, titleOf, streakNow, instinct, ownedSkins } from '../game/progress.js';
+import { SKINS } from '../game/skins.js';
+import { TIERS, rankOf } from '../game/ranks.js';
+import { claimableMissions, dailyState, missionText } from '../game/meta.js';
+import { ICON, emblem } from './icons.js';
+import { buildModal, TITLES_BY_KIND } from './modals.js';
 
 export const $ = id => document.getElementById(id);
 
-const ICON = {
-  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
-  trophy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/></svg>',
-};
-
 const RING = 106.8; // circunferencia del anillo de nivel (r = 17)
 const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export const WHY_TEXT = {
   wall: 'Chocaste contra un muro.',
@@ -23,11 +23,16 @@ export const WHY_TEXT = {
 };
 
 export function createUI(h) {
-  // ---------- Carteles, pistas, destellos y avisos ----------
   let bannerTok = 0, hintTimer = 0, lastInputKeyboard = false;
   window.addEventListener('keydown', () => { lastInputKeyboard = true; }, true);
   window.addEventListener('pointerdown', () => { lastInputKeyboard = false; }, true);
 
+  $('coinIcon').innerHTML = ICON.coin;
+  $('rCoinIcon').innerHTML = ICON.coin;
+  $('icMissions').innerHTML = ICON.target;
+  $('icShop').innerHTML = ICON.gift;
+
+  // ---------- Carteles, pistas, destellos, avisos y feed ----------
   function banner(title, sub, kind, ms) {
     const el = $('banner'), my = ++bannerTok;
     $('bTitle').textContent = title;
@@ -67,6 +72,19 @@ export function createUI(h) {
     setTimeout(() => el.remove(), 3700);
   }
 
+  // Feed en vivo: `parts` alterna texto normal y resaltado, empezando por texto normal
+  function feed(kind, ...parts) {
+    const box = $('feed');
+    box.hidden = false;
+    const p = document.createElement('p');
+    if (kind) p.className = kind;
+    p.innerHTML = parts.map((t, i) => (i % 2 ? `<b>${esc(t)}</b>` : esc(t))).join('');
+    box.append(p);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => p.remove(), 3900);
+  }
+  function clearFeed() { $('feed').innerHTML = ''; $('feed').hidden = true; }
+
   // ---------- HUD ----------
   const forkDots = [];
   for (let i = 0; i < CFG.FORKS; i++) {
@@ -76,7 +94,7 @@ export function createUI(h) {
   }
   let hudKey = '';
   function hud(R) {
-    const key = `${R.aliveTotal}|${Math.floor(R.score)}|${R.cf}|${R.combo}|${R.pAlive}`;
+    const key = `${R.aliveTotal}|${Math.floor(R.score)}|${R.cf}|${R.combo}|${R.pAlive}|${R.rivalAlive}`;
     if (key === hudKey) return;
     hudKey = key;
     $('hAlive').textContent = fmt(R.aliveTotal);
@@ -84,12 +102,19 @@ export function createUI(h) {
     const cb = $('hCombo');
     cb.hidden = R.combo < 2;
     cb.textContent = `x${R.combo}`;
-    forkDots.forEach((d, k) => {
-      d.className = R.forkLog[k] || (k === R.cf && R.pAlive ? 'now' : '');
-    });
+    forkDots.forEach((d, k) => { d.className = R.forkLog[k] || (k === R.cf && R.pAlive ? 'now' : ''); });
+    $('hRival').classList.toggle('down', !R.rivalAlive);
+  }
+  function setRival(name, rankLabel) {
+    $('hRivalName').textContent = name;
+    $('hRivalRank').textContent = rankLabel;
   }
 
-  function showHud(on) { $('hud').hidden = !on; hudKey = ''; }
+  function showHud(on) {
+    $('hud').hidden = !on;
+    hudKey = '';
+    if (!on) clearFeed();
+  }
   function showSpectator(rank, total, pct) {
     $('spectText').innerHTML = `Puesto <b>#${fmt(rank)}</b> de ${fmt(total)} · más que el ${pctText(pct)}. Mirá cómo sigue la ronda.`;
     $('spect').hidden = false;
@@ -97,19 +122,37 @@ export function createUI(h) {
   function hideSpectator() { $('spect').hidden = true; }
 
   // ---------- Menú ----------
-  function renderMenu(save) {
+  // Devuelve si hay recompensa diaria disponible
+  function renderMenu(save, env) {
     const li = levelInfo(save.xp);
     $('pLevel').textContent = li.level;
     $('pTitle').textContent = titleOf(li.level);
     $('pXp').textContent = `${fmt(li.into)} / ${fmt(li.need)} XP`;
     $('ringFill').style.strokeDashoffset = String(RING * (1 - li.into / li.need));
-    $('tSkins').textContent = `${SKINS.filter(k => li.level >= k.lvl).length}/${SKINS.length}`;
-    $('tAch').textContent = `${Object.keys(save.ach).length}/${ACHIEVEMENTS.length}`;
-    $('tRec').textContent = save.bestScore ? fmt(save.bestScore) : '—';
+    $('coins').textContent = fmt(save.coins);
+
+    const rk = rankOf(save.pr);
+    $('rankEmblem').innerHTML = emblem(rk.tier, 46);
+    $('rankLabel').textContent = rk.label;
+    $('rankPr').textContent = rk.need ? `${fmt(rk.into)} / ${fmt(rk.need)} PR` : `${fmt(save.pr)} PR`;
+    $('rankFill').style.width = rk.need ? (rk.into / rk.need * 100) + '%' : '100%';
+    $('rankBtn').style.setProperty('--rank', TIERS[rk.tier].col);
+    $('pathBadge').innerHTML = save.pathStreak >= 2 ? `${ICON.flame}${save.pathStreak}` : '';
+
+    const mis = save.missions && save.missions.day === env.today ? save.missions.list : [];
+    $('tMissions').textContent = `${mis.filter(m => m.claimed).length}/${mis.length || 3}`;
+    const claim = claimableMissions(save);
+    $('bMissions').hidden = !claim;
+    $('bMissions').textContent = claim;
+    $('bShop').hidden = save.shopSeen === env.today;
+    $('tSkins').textContent = `${ownedSkins(save).length}/${SKINS.length}`;
+    $('tSeason').textContent = `Nv ${li.level}`;
+
     $('sBest').textContent = save.rounds ? pctText(save.best) : '—';
     $('sRounds').textContent = fmt(save.rounds);
     $('sStreak').textContent = fmt(streakNow(save));
-    $('sOutliers').textContent = fmt(save.outliers);
+    $('sInstinct').textContent = save.forksSeen ? instinct(save) + '%' : '—';
+    return dailyState(save, env.today, env.yesterday).available;
   }
 
   function showScreen(name) {
@@ -123,25 +166,25 @@ export function createUI(h) {
   }
 
   // ---------- Resultados ----------
-  function tweenRank(to, from) {
-    const el = $('rRank');
-    if (reduceMotion) { el.textContent = '#' + fmt(to); return; }
-    const t0 = performance.now(), d = 900;
+  function tween(elm, from, to, fmtFn, d = 900) {
+    if (reduceMotion) { elm.textContent = fmtFn(to); return; }
+    const t0 = performance.now();
     const tick = now => {
       const k = Math.min(1, (now - t0) / d);
-      el.textContent = '#' + fmt(from + (to - from) * easeOutCubic(k));
+      elm.textContent = fmtFn(from + (to - from) * easeOutCubic(k));
       if (k < 1 && !$('results').hidden) requestAnimationFrame(tick);
-      else el.textContent = '#' + fmt(to);
+      else elm.textContent = fmtFn(to);
     };
     requestAnimationFrame(tick);
   }
 
   function renderResults(sum, rep, outlier) {
     $('rEyebrow').textContent = sum.outlier ? 'Sos el Outlier del minuto'
+      : rep.pr.promoted ? 'Ascenso'
       : rep.recordPos === 1 && rep.recordCount > 1 ? 'Nuevo récord de puntos'
       : rep.newBestPct ? 'Nuevo mejor puesto'
       : sum.alive ? 'Llegaste al final' : 'Fin de la ronda';
-    tweenRank(sum.rank, sum.total);
+    tween($('rRank'), sum.total, sum.rank, v => '#' + fmt(v));
     $('rOf').textContent = 'de ' + fmt(sum.total);
     $('rPct').textContent = sum.outlier
       ? 'Nadie duró más que vos. Tu nombre sale en la pantalla de todos.'
@@ -152,7 +195,25 @@ export function createUI(h) {
     $('rNear').textContent = fmt(sum.near);
     $('rOrbs').textContent = fmt(sum.orbs);
 
-    $('rXp').textContent = `+${fmt(rep.gain)} XP`;
+    // Rango
+    const pr = rep.pr, rk = pr.rankAfter;
+    $('rEmblem').innerHTML = emblem(rk.tier, 40);
+    $('rRankLabel').textContent = rk.label;
+    const dEl = $('rPrDelta');
+    dEl.className = 'delta ' + (pr.delta > 0 ? 'up' : pr.delta < 0 ? 'down' : '');
+    dEl.textContent = (pr.delta > 0 ? '+' : '') + fmt(pr.delta) + ' PR' + (pr.raw < pr.delta ? ' · protegido' : '');
+    const rf = $('rPrFill');
+    rf.parentElement.style.setProperty('--rank', TIERS[rk.tier].col);
+    const sameDiv = pr.rankBefore.tier === rk.tier && pr.rankBefore.div === rk.div;
+    rf.style.transition = 'none';
+    rf.style.width = (sameDiv && pr.rankBefore.need ? pr.rankBefore.into / pr.rankBefore.need * 100 : 0) + '%';
+    void rf.offsetWidth;
+    rf.style.transition = '';
+    rf.style.width = rk.need ? (rk.into / rk.need * 100) + '%' : '100%';
+
+    // XP y destellos
+    tween($('rXp'), 0, rep.gain, v => '+' + fmt(v));
+    tween($('rCoins'), 0, rep.coins, v => '+' + fmt(v));
     $('rLevel').textContent = `Nivel ${rep.after.level} · ${titleOf(rep.after.level)}`;
     const fill = $('rXpFill'), up = rep.after.level > rep.before.level;
     fill.classList.remove('anim');
@@ -160,12 +221,34 @@ export function createUI(h) {
     void fill.offsetWidth;
     fill.classList.add('anim');
     fill.style.width = (rep.after.into / rep.after.need * 100) + '%';
-    const un = $('rUnlock');
-    un.hidden = !up;
-    if (up) {
-      const skins = rep.unlockedSkins.map(k => k.name);
-      un.textContent = `¡Subiste a nivel ${rep.after.level}!` + (skins.length ? ` Nueva estela: ${skins.join(' y ')}.` : '');
+
+    const lines = [];
+    if (up) lines.push(`¡Subiste a nivel ${rep.after.level}!`);
+    if (rep.newSkins.length) lines.push(`Nueva skin: ${rep.newSkins.map(k => k.name).join(' y ')}.`);
+    $('rUnlock').hidden = !lines.length;
+    $('rUnlock').textContent = lines.join(' ');
+
+    // Rival
+    const rv = $('rRival');
+    rv.className = 'rival-line' + (sum.beatRival ? ' win' : '');
+    rv.innerHTML = sum.beatRival
+      ? `Le ganaste a tu rival <b>${esc(sum.rival)}</b> · <b>+5 PR</b>`
+      : `Tu rival <b>${esc(sum.rival)}</b> duró más que vos.`;
+
+    // Misiones del día
+    const ul = $('rMissions');
+    ul.innerHTML = '';
+    const list = (rep.missions || []).filter(m => !m.claimed);
+    for (const m of list) {
+      const li = document.createElement('li');
+      if (m.progress >= m.goal) li.className = 'done';
+      li.append(missionText(m));
+      const b = document.createElement('b');
+      b.textContent = m.progress >= m.goal ? 'Lista' : `${fmt(m.progress)}/${fmt(m.goal)}`;
+      li.append(b);
+      ul.append(li);
     }
+    ul.hidden = !list.length;
 
     const box = $('rAch');
     box.innerHTML = '';
@@ -184,228 +267,37 @@ export function createUI(h) {
   function setNext(n) { $('rNext').textContent = n; }
 
   // ---------- Ventanas ----------
-  let opener = null, modalKind = '';
-  const TITLES_BY_KIND = { how: 'Cómo jugar', skins: 'Estelas', ach: 'Logros', records: 'Récords', settings: 'Ajustes', profile: 'Tu perfil', share: 'Compartir resultado' };
+  let opener = null, modalKind = '', modalData = null;
+  const env = () => ({ ...h.env(), save: h.getSave(), getSave: h.getSave, h, close: closeModal });
 
   function openModal(kind, data) {
-    opener = document.activeElement;
+    if ($('modal').hidden) opener = document.activeElement;
     modalKind = kind;
+    modalData = data;
     $('modalTitle').textContent = TITLES_BY_KIND[kind];
     const body = $('modalBody');
     body.innerHTML = '';
-    BUILDERS[kind](body, h.getSave(), data);
+    buildModal(kind, body, env(), data);
     $('modal').hidden = false;
-    $('modal').querySelector('.sheet-head [data-close]').focus({ preventScroll: true });
-    h.onModal(true);
+    body.scrollTop = 0;
+    if (lastInputKeyboard) $('modal').querySelector('.sheet-head [data-close]').focus({ preventScroll: true });
+    h.onModal(kind);
+  }
+  function refreshModal() {
+    if (!modalKind) return;
+    const body = $('modalBody'), top = body.scrollTop;
+    body.innerHTML = '';
+    buildModal(modalKind, body, env(), modalData);
+    body.scrollTop = top;
   }
   function closeModal() {
     if ($('modal').hidden) return;
     $('modal').hidden = true;
+    const k = modalKind;
     modalKind = '';
-    h.onModal(false);
+    h.onModalClosed(k);
     if (opener && opener.focus) opener.focus({ preventScroll: true });
   }
-  const refreshModal = () => { if (modalKind) { const k = modalKind; const body = $('modalBody'); body.innerHTML = ''; BUILDERS[k](body, h.getSave()); } };
-
-  const BUILDERS = {
-    how(body) {
-      body.innerHTML = `
-        <ol class="steps">
-          <li><span class="n">1</span><div><b>Movete</b><p>Arrastrá el dedo o el mouse. En la compu también funcionan ← → y A D.</p></div></li>
-          <li><span class="n">2</span><div><b>Esquivá y juntá</b><p>Pasá por los huecos y agarrá las chispas doradas. Pasar muy cerca de un muro suma más.</p></div></li>
-          <li><span class="n">3</span><div><b>Elegí el camino</b><p>Cuando el túnel se divide, el camino con más gente se derrumba. La multitud cambia de idea: leela.</p></div></li>
-          <li><span class="n">4</span><div><b>Llegá al final</b><p>Sobreviví a las ${CFG.FORKS} bifurcaciones. El último en pie es el Outlier del minuto.</p></div></li>
-        </ol>
-        <h3>Muros</h3>
-        <ul class="legend">
-          <li><i class="sw gap"></i><span><b>Fijo.</b> Un hueco quieto.</span></li>
-          <li><i class="sw moving"></i><span><b>Móvil.</b> El hueco va de lado a lado.</span></li>
-          <li><i class="sw double"></i><span><b>Doble.</b> Dos huecos: el chico tiene chispas.</span></li>
-          <li><i class="sw alt"></i><span><b>Puertas.</b> Se alternan: la roja está cerrada y la barra dorada marca cuánto falta.</span></li>
-        </ul>
-        <h3>Bifurcaciones</h3>
-        <ul class="legend">
-          <li><i class="sw gold"></i><span><b>Dorada.</b> Puntos x2, pero todos la ven.</span></li>
-          <li><i class="sw narrow"></i><span><b>Angosta.</b> Difícil de pasar: entra poca gente.</span></li>
-          <li><i class="sw fog"></i><span><b>Niebla.</b> No ves a la multitud.</span></li>
-          <li><i class="sw invert"></i><span><b>Inversión.</b> Esa vez cae el camino con menos gente.</span></li>
-        </ul>`;
-    },
-
-    skins(body, save) {
-      const li = levelInfo(save.xp);
-      const grid = document.createElement('div');
-      grid.className = 'skin-grid';
-      grid.setAttribute('role', 'radiogroup');
-      grid.setAttribute('aria-label', 'Color de tu estela');
-      for (const sk of SKINS) {
-        const open = li.level >= sk.lvl;
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'skin-card';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', String(save.skin === sk.id));
-        b.disabled = !open;
-        const dot = document.createElement('i');
-        if (sk.col) b.style.setProperty('--c', sk.col);
-        else { b.style.setProperty('--c', '#ff7ad9'); dot.style.background = 'conic-gradient(#ff7ad9, #8fd8ff, #5ef2c2, #ffd166, #ff7ad9)'; }
-        const name = document.createElement('b');
-        name.textContent = sk.name;
-        const req = document.createElement('small');
-        req.textContent = open ? (save.skin === sk.id ? 'En uso' : 'Disponible') : `Nivel ${sk.lvl}`;
-        b.append(dot, name, req);
-        b.addEventListener('click', () => { h.onSelectSkin(sk.id); refreshModal(); });
-        grid.append(b);
-      }
-      const p = document.createElement('p');
-      p.textContent = 'Subí de nivel jugando rondas para desbloquear más colores.';
-      body.append(grid, p);
-    },
-
-    ach(body, save) {
-      const got = Object.keys(save.ach).length;
-      const p = document.createElement('p');
-      p.textContent = `Desbloqueaste ${got} de ${ACHIEVEMENTS.length}.`;
-      const ul = document.createElement('ul');
-      ul.className = 'ach-list';
-      for (const a of ACHIEVEMENTS) {
-        const on = !!save.ach[a.id];
-        const li = document.createElement('li');
-        if (on) li.className = 'on';
-        li.innerHTML = `<span class="ic">${on ? ICON.check : ICON.lock}</span><div><b></b><span></span></div>`;
-        li.querySelector('b').textContent = a.name;
-        li.querySelector('div span').textContent = a.desc;
-        ul.append(li);
-      }
-      body.append(p, ul);
-    },
-
-    records(body, save) {
-      if (!save.records.length) {
-        body.innerHTML = '<p class="empty">Todavía no hay récords. Jugá una ronda y aparecen acá.</p>';
-        return;
-      }
-      const rows = save.records.map((r, i) => `<tr><td>${i + 1}</td><td class="r">${fmt(r.score)}</td><td class="r">#${fmt(r.rank)}</td><td class="r">${pctText(r.pct)}</td></tr>`).join('');
-      body.innerHTML = `<table class="rec-table"><thead><tr><th>#</th><th class="r">Puntos</th><th class="r">Puesto</th><th class="r">Superaste</th></tr></thead><tbody>${rows}</tbody></table>
-        <p>Tus 5 mejores rondas en este dispositivo.</p>`;
-    },
-
-    settings(body, save) {
-      const rows = [
-        ['sfx', 'Sonido', 'Efectos del juego'],
-        ['music', 'Música', 'Se intensifica con la tensión de la ronda'],
-        ['vib', 'Vibración', 'En celulares compatibles'],
-      ];
-      for (const [key, name, desc] of rows) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'switch-row';
-        b.setAttribute('role', 'switch');
-        b.setAttribute('aria-checked', String(!!save[key]));
-        b.innerHTML = '<span><b></b><small></small></span><i class="switch" aria-hidden="true"></i>';
-        b.querySelector('b').textContent = name;
-        b.querySelector('small').textContent = desc;
-        b.addEventListener('click', () => {
-          h.onToggle(key);
-          b.setAttribute('aria-checked', String(!!h.getSave()[key]));
-        });
-        body.append(b);
-      }
-      const zone = document.createElement('div');
-      zone.className = 'danger-zone';
-      const reset = document.createElement('button');
-      reset.type = 'button';
-      reset.className = 'btn btn-danger';
-      reset.textContent = 'Borrar mi progreso';
-      let armed = false;
-      reset.addEventListener('click', () => {
-        if (!armed) {
-          armed = true;
-          reset.textContent = 'Tocá de nuevo para confirmar';
-          setTimeout(() => { armed = false; reset.textContent = 'Borrar mi progreso'; }, 3500);
-          return;
-        }
-        h.onReset();
-        closeModal();
-      });
-      const note = document.createElement('p');
-      note.className = 'note';
-      note.textContent = 'Tu progreso se guarda solo en este dispositivo.';
-      zone.append(reset, note);
-      body.append(zone);
-    },
-
-    profile(body, save) {
-      const li = levelInfo(save.xp);
-      const head = document.createElement('div');
-      head.className = 'profile-head';
-      head.innerHTML = `<span class="ring" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle class="ring-fg" cx="20" cy="20" r="17" style="stroke-dashoffset:${RING * (1 - li.into / li.need)}"/></svg><b>${li.level}</b></span><div><strong></strong><small></small><div class="xpbar"><span style="width:${li.into / li.need * 100}%"></span></div></div>`;
-      head.querySelector('strong').textContent = titleOf(li.level);
-      head.querySelector('small').textContent = `Nivel ${li.level} · ${fmt(li.into)} / ${fmt(li.need)} XP`;
-      const stats = document.createElement('div');
-      stats.className = 'pstats';
-      const cells = [
-        [fmt(save.rounds), 'Rondas'], [save.rounds ? pctText(save.best) : '—', 'Mejor resultado'],
-        [fmt(save.outliers), 'Veces Outlier'], [`${fmt(streakNow(save))} ${streakNow(save) === 1 ? 'día' : 'días'}`, 'Racha'],
-      ];
-      stats.innerHTML = cells.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-      const h3 = document.createElement('h3');
-      h3.textContent = 'Títulos';
-      const ul = document.createElement('ul');
-      ul.className = 'ladder';
-      for (const t of TITLES) {
-        const item = document.createElement('li');
-        if (li.level >= t.lvl) item.className = 'on';
-        item.innerHTML = '<b></b><span></span>';
-        item.querySelector('b').textContent = t.name;
-        item.querySelector('span').textContent = `Nivel ${t.lvl}`;
-        ul.append(item);
-      }
-      body.append(head, stats, h3, ul);
-    },
-
-    share(body, save, data) {
-      const img = document.createElement('img');
-      img.className = 'share-img';
-      img.alt = 'Tarjeta con tu resultado';
-      img.src = data.image;
-      const txt = document.createElement('p');
-      txt.className = 'share-text';
-      txt.textContent = data.text;
-      const row = document.createElement('div');
-      row.className = 'row';
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'btn btn-primary';
-      copy.textContent = 'Copiar texto';
-      copy.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(data.text);
-          copy.textContent = 'Copiado';
-        } catch (e) {
-          const range = document.createRange();
-          range.selectNodeContents(txt);
-          const sel = window.getSelection();
-          sel.removeAllRanges(); sel.addRange(range);
-          copy.textContent = 'Seleccionado: copialo';
-        }
-      });
-      const dl = document.createElement('a');
-      dl.className = 'btn btn-ghost';
-      dl.href = data.image;
-      dl.download = 'contracorriente-resultado.png';
-      dl.textContent = 'Descargar';
-      // Dentro de un visor embebido las descargas están bloqueadas: ahí solo queda copiar o mantener presionada la imagen
-      const embedded = window.self !== window.top;
-      if (embedded) row.style.gridTemplateColumns = '1fr';
-      row.append(copy);
-      if (!embedded) row.append(dl);
-      const note = document.createElement('p');
-      note.className = 'note';
-      note.textContent = 'En el celular, mantené presionada la imagen para guardarla.';
-      body.append(img, txt, row, note);
-    },
-  };
 
   // ---------- Conexiones ----------
   $('play').addEventListener('click', h.onPlay);
@@ -413,8 +305,8 @@ export function createUI(h) {
   $('home').addEventListener('click', h.onHome);
   $('skip').addEventListener('click', h.onSkip);
   $('shareBtn').addEventListener('click', h.onShare);
-  $('settingsBtn').addEventListener('click', () => openModal('settings'));
-  $('profileBtn').addEventListener('click', () => openModal('profile'));
+  const opens = { settingsBtn: 'settings', profileBtn: 'profile', helpBtn: 'how', coinsBtn: 'shop', rankBtn: 'rank' };
+  for (const [id, kind] of Object.entries(opens)) $(id).addEventListener('click', () => { h.onUi(); openModal(kind); });
   document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { h.onUi(); openModal(b.dataset.open); }));
   $('modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
   window.addEventListener('keydown', e => {
@@ -430,8 +322,10 @@ export function createUI(h) {
   });
 
   return {
-    banner, hideBanner, hint, hideHint, flash, toast, hud, showHud, showSpectator, hideSpectator,
-    renderMenu, showScreen, renderResults, setNext, openModal, closeModal,
+    banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud,
+    showSpectator, hideSpectator, renderMenu, showScreen, renderResults, setNext,
+    openModal, refreshModal, closeModal,
     get modalOpen() { return !$('modal').hidden; },
+    get modalKind() { return modalKind; },
   };
 }

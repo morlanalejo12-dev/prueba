@@ -7,7 +7,14 @@ import { buildLevel, laneAt } from './level.js';
 import { clearance, GATE_HALF } from './gates.js';
 import { createCrowd, updateCrowd, resetCrowdForFork } from './crowd.js';
 
-const NEAR_MARGIN = 9;   // a menos de esta distancia del borde, la pasada cuenta como "justa"
+const NEAR_MARGIN = 9;
+// Hitos estilo battle royale: puntos extra al quedar entre los últimos N
+export const MILESTONES = [
+  { n: 100, pts: 50 },
+  { n: 50, pts: 100 },
+  { n: 10, pts: 200 },
+  { n: 3, pts: 300 },
+];   // a menos de esta distancia del borde, la pasada cuenta como "justa"
 const FX_CAP = 240;      // máximo de partículas por colapso
 
 // Qué caminos colapsan: el más poblado (o el menos poblado si la bifurcación está invertida).
@@ -70,10 +77,19 @@ export class Round {
     this.forkLog = [];
     this.feats = { gold: false, fog: false, invert: false };
 
+    // Rival: un bot al azar al que tenés que sobrevivir
+    this.rival = Math.floor(this.r() * bots);
+    this.rivalName = this.botName(this.rival);
+    this.rivalDeath = Infinity;
+    this.milestoneIdx = 0;
+
     this.ended = false;
     this.outlier = null;
+    this.beatRival = false;
     this.events = [];
   }
+
+  get rivalAlive() { return this.rivalDeath === Infinity; }
 
   emit(type, data) {
     if (!this.demo || type === 'forkResolved') this.events.push({ type, ...data });
@@ -113,6 +129,7 @@ export class Round {
     if (this.pAlive && !this.ended) this.updatePlayer(dt, f);
     updateCrowd(this, dt, f);
     if (f && !this.ended && !f.resolved && this.pY >= f.endY + 12) this.resolveFork(f);
+    if (this.pAlive && !this.ended) this.checkMilestones();
     if (!this.ended && (this.pY >= this.lvl.endY || this.aliveTotal <= 1)) this.finish();
   }
 
@@ -215,12 +232,29 @@ export class Round {
     }
   }
 
+  checkMilestones() {
+    let hit = null, pts = 0;
+    while (this.milestoneIdx < MILESTONES.length && this.aliveTotal <= MILESTONES[this.milestoneIdx].n) {
+      hit = MILESTONES[this.milestoneIdx];
+      pts += hit.pts;
+      this.milestoneIdx++;
+    }
+    if (hit) {
+      this.score += pts;
+      this.emit('milestone', { n: hit.n, pts, x: this.px, y: this.pY });
+    }
+  }
+
   // ---------- Multitud ----------
   killBot(i, fx) {
     const c = this.crowd;
     c.alive[i] = 0;
     c.death[i] = this.t;
     this.aliveBots--;
+    if (i === this.rival) {
+      this.rivalDeath = this.t;
+      if (this.pAlive) this.emit('rivalDown', { name: this.rivalName });
+    }
     if (fx && this._fx && this._fx.length < FX_CAP * 2) this._fx.push(c.x[i], this.pY + c.yo[i]);
   }
 
@@ -301,6 +335,9 @@ export class Round {
     const pd = this.pAlive ? Infinity : this.pDeath;
     const youWin = !this.demo && (pd > bestDeath || (pd === bestDeath && this.score >= bestScore));
     if (youWin) this.rank = 1;
+    // Ganarle al rival: durar más que él, o terminar ambos vivos con más puntos
+    const rd = this.rivalDeath;
+    this.beatRival = !this.demo && (pd > rd || (pd === Infinity && rd === Infinity && this.score > c.sc[this.rival]));
     this.outlier = youWin ? { you: true, score: this.score } : { you: false, name: this.botName(who), score: bestScore };
     this.emit('roundEnd', {});
   }
@@ -315,6 +352,7 @@ export class Round {
       score: Math.round(this.score), rank: this.rank, total: this.n + 1, pct: this.pct,
       forksOk: this.forksOk, forks: CFG.FORKS, near: this.near, maxCombo: this.maxCombo, orbs: this.orbs,
       alive: this.pAlive, outlier: !!(this.outlier && this.outlier.you), why: this.why, feats: { ...this.feats },
+      forksSeen: this.forkLog.length, beatRival: this.beatRival, rival: this.rivalName,
     };
   }
 }

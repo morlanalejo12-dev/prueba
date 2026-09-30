@@ -18,10 +18,24 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 - Variantes: **camino dorado** (x2), **angosto**, **niebla** e **inversión** (esa vez cae el camino con menos gente).
 - Chispas coleccionables, pasadas justas con combos y cámara lenta en cada colapso.
 - Música generativa que se intensifica con la tensión, efectos de sonido y vibración.
-- Niveles, títulos, 6 estelas, 14 logros, racha diaria y tabla de récords.
+- Ranked con ligas, 16 skins, tienda, misiones diarias, recompensa diaria y pase de temporada.
+- Rival por ronda, feed en vivo, hitos de top 100/50/10/3, 17 logros y récords.
 - Tarjeta de resultado para compartir.
 
 ## Novedades
+
+### v0.4
+- **Ranked**: ligas Bronce, Plata, Oro, Platino y Diamante (con divisiones III, II, I), Maestro y Leyenda. Los PR suben o bajan según a cuántos superaste, y hay protección de liga. Animación de ascenso.
+- **16 skins** con rarezas (común, rara, épica, legendaria), 4 formas (orbe, diamante, anillo, estrella) y 6 estelas animadas (puntos, chispas, fuego, cinta, glitch, arcoíris).
+- **Destellos** (moneda del juego) y **tienda** con 3 ofertas por día, una rebajada.
+- **Misiones diarias**: 3 por día, iguales para todos, con recompensa al reclamarlas.
+- **Recompensa diaria** de 7 días (el día 7 da la skin Aurora).
+- **Pase de temporada** gratuito hasta el nivel 20.
+- **Rival**: en cada ronda se te asigna un rival; durar más que él da PR y destellos extra.
+- **Feed en vivo** de la ronda e **hitos** "Top 100, 50, 10 y 3" con puntos extra.
+- **Racha de caminos** entre rondas y estadística de **Instinto** (porcentaje histórico de bifurcaciones superadas).
+- 3 logros nuevos (17 en total). Perfil con pestañas de Resumen, Logros y Récords.
+- Menú con rango, moneda y avisos de cosas para reclamar.
 
 ### v0.3
 - **Menú rediseñado**: centrado, sin scroll, con perfil, secciones y estadísticas. Ventanas para Reglas, Estelas, Logros, Récords, Perfil y Ajustes.
@@ -73,10 +87,13 @@ npm run build    # genera index.html (y dist/artifact.html)
 | --- | --- |
 | `src/config.js` | Todos los parámetros de balance (bots, velocidad, estrategias, probabilidades) |
 | `src/sim/` | Simulación pura y determinista: nivel, muros, multitud y ronda. No usa el DOM. |
-| `src/game/progress.js` | Niveles, logros, récords, racha y guardado |
+| `src/game/progress.js` | Niveles, logros, récords, racha, guardado y aplicación de cada ronda |
+| `src/game/ranks.js` | Ligas, divisiones y cálculo de PR |
+| `src/game/skins.js` | Catálogo de skins y cómo se consigue cada una |
+| `src/game/meta.js` | Misiones diarias, recompensa diaria, tienda y pase de temporada |
 | `src/render/` | Dibujo en canvas, partículas y tarjeta para compartir |
 | `src/audio/` | Efectos y música sintetizados con Web Audio |
-| `src/ui/` | Menú, HUD, resultados y ventanas |
+| `src/ui/` | Menú, HUD, resultados, ventanas e íconos |
 | `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |
 | `test/` | Tests con `node --test` |
 

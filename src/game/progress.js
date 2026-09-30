@@ -1,22 +1,21 @@
-// Progreso del jugador: niveles, títulos, estelas, logros, récords y racha.
+// Progreso del jugador: niveles, títulos, logros, récords, racha, rango, destellos y colección.
 // Funciones puras sobre un objeto `save`; el almacenamiento se inyecta para poder testearlo.
+import { SKINS, isOwned } from './skins.js';
+import { rankOf, prDelta, applyPR } from './ranks.js';
+import { progressMissions, seasonCoins, ensureMissions, MISSION_XP, missionReward } from './meta.js';
 
 export const SAVE_KEY = 'cc-save-v3';
 const LEGACY_KEY = 'cc-stats';
 
 const DEFAULTS = {
-  v: 3, rounds: 0, best: 0, bestScore: 0, outliers: 0, xp: 0, skin: 'ambar',
+  v: 4, rounds: 0, best: 0, bestScore: 0, outliers: 0, xp: 0, skin: 'ambar',
   sfx: true, music: true, vib: true, streak: 0, lastDay: '', ach: {}, records: [],
+  // v0.4
+  coins: 0, pr: 0, peakPR: 0, owned: {}, missions: null, daily: { last: '', next: 0 },
+  forksSeen: 0, forksWon: 0, pathStreak: 0, bestPathStreak: 0, rivalsBeaten: 0, shopSeen: '',
 };
 
-export const SKINS = [
-  { id: 'ambar', name: 'Ámbar', lvl: 1, col: '#ffb547' },
-  { id: 'menta', name: 'Menta', lvl: 2, col: '#5ef2c2' },
-  { id: 'rosa', name: 'Rosa', lvl: 4, col: '#ff7ad9' },
-  { id: 'hielo', name: 'Hielo', lvl: 6, col: '#8fd8ff' },
-  { id: 'solar', name: 'Solar', lvl: 9, col: '#fff1a8' },
-  { id: 'prisma', name: 'Prisma', lvl: 12, col: null }, // cambia de color con el tiempo
-];
+export { SKINS };
 
 export const TITLES = [
   { lvl: 1, name: 'Chispa' },
@@ -41,6 +40,9 @@ export const ACHIEVEMENTS = [
   { id: 'invert', name: 'Leíste la trampa', desc: 'Sobreviví a una inversión.', test: s => s.feats.invert },
   { id: 'streak3', name: 'Constante', desc: 'Jugá 3 días seguidos.', test: (s, save) => save.streak >= 3 },
   { id: 'veteran', name: 'Veterano', desc: 'Jugá 25 rondas.', test: (s, save) => save.rounds >= 25 },
+  { id: 'path10', name: 'Imparable', desc: 'Sobreviví a 10 bifurcaciones seguidas, aunque sea entre rondas.', test: (s, save) => save.bestPathStreak >= 10 },
+  { id: 'rival5', name: 'Némesis', desc: 'Ganale a 5 rivales.', test: (s, save) => save.rivalsBeaten >= 5 },
+  { id: 'gold_rank', name: 'Liga de Oro', desc: 'Llegá a la liga Oro.', test: (s, save) => rankOf(save.peakPR).tier >= 2 },
 ];
 
 // ---------- Niveles ----------
@@ -59,11 +61,21 @@ export function titleOf(level) {
 }
 
 export const xpForRound = s => Math.round(s.score / 10) + s.forksOk * 15 + (s.outlier ? 150 : 0) + (s.alive ? 50 : 0);
+export const coinsForRound = s => Math.round(s.score / 40) + s.forksOk * 4 + (s.outlier ? 60 : 0) + (s.beatRival ? 10 : 0);
+
+// Porcentaje histórico de bifurcaciones superadas
+export const instinct = save => (save.forksSeen ? Math.round(save.forksWon / save.forksSeen * 100) : 0);
+
+// ---------- Colección ----------
+export function ownedCtx(save) {
+  return { level: levelInfo(save.xp).level, peakTier: rankOf(save.peakPR).tier, ach: save.ach, owned: save.owned };
+}
+export const ownedSkins = save => { const ctx = ownedCtx(save); return SKINS.filter(k => isOwned(k, ctx)); };
 
 // ---------- Fechas ----------
 const pad = n => String(n).padStart(2, '0');
 export const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const yesterdayOf = d => { const y = new Date(d); y.setDate(y.getDate() - 1); return y; };
+export const yesterdayOf = d => { const y = new Date(d); y.setDate(y.getDate() - 1); return y; };
 
 export function streakNow(save, now = new Date()) {
   const ok = save.lastDay === dayKey(now) || save.lastDay === dayKey(yesterdayOf(now));
@@ -94,13 +106,15 @@ export function loadSave(store) {
     }
   }
   const save = { ...DEFAULTS, ...(data || {}) };
-  for (const k of ['rounds', 'best', 'bestScore', 'outliers', 'xp', 'streak']) {
+  for (const k of ['rounds', 'best', 'bestScore', 'outliers', 'xp', 'streak', 'coins', 'pr', 'peakPR',
+    'forksSeen', 'forksWon', 'pathStreak', 'bestPathStreak', 'rivalsBeaten']) {
     if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = DEFAULTS[k];
   }
-  if (!save.ach || typeof save.ach !== 'object') save.ach = {};
+  for (const k of ['ach', 'owned']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
+  if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
   if (!SKINS.some(k => k.id === save.skin)) save.skin = DEFAULTS.skin;
-  save.v = 3;
+  save.v = 4;
   return save;
 }
 
@@ -109,17 +123,38 @@ export function writeSave(store, save) {
 }
 
 export function resetSave(store) {
-  const fresh = { ...DEFAULTS, ach: {}, records: [] };
+  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, daily: { last: '', next: 0 } };
   writeSave(store, fresh);
   return fresh;
 }
 
+// Suma XP y aplica las recompensas del pase por los niveles ganados
+function addXP(save, xp) {
+  const before = levelInfo(save.xp);
+  save.xp += xp;
+  const after = levelInfo(save.xp);
+  save.coins += seasonCoins(before.level, after.level);
+  return { before, after };
+}
+
+export function claimMission(save, index) {
+  const m = save.missions && save.missions.list[index];
+  if (!m || m.claimed || m.progress < m.goal) return null;
+  m.claimed = true;
+  const coins = missionReward(m);
+  save.coins += coins;
+  const lv = addXP(save, MISSION_XP);
+  return { coins, xp: MISSION_XP, ...lv };
+}
+
 // ---------- Aplicar el resultado de una ronda ----------
 export function applyRound(save, sum, now = new Date()) {
+  const ownedBefore = new Set(ownedSkins(save).map(k => k.id));
   const prevBest = save.best, first = save.rounds === 0;
   save.rounds++;
   save.best = Math.max(save.best, sum.pct);
   if (sum.outlier) save.outliers++;
+  if (sum.beatRival) save.rivalsBeaten++;
 
   const today = dayKey(now);
   if (save.lastDay !== today) {
@@ -127,11 +162,28 @@ export function applyRound(save, sum, now = new Date()) {
     save.lastDay = today;
   }
 
+  // Racha de caminos: cuenta bifurcaciones superadas seguidas, aunque sea entre rondas
+  save.forksSeen += sum.forksSeen;
+  save.forksWon += sum.forksOk;
+  save.pathStreak += sum.forksOk;
+  save.bestPathStreak = Math.max(save.bestPathStreak, save.pathStreak);
+  if (sum.forksSeen > sum.forksOk) save.pathStreak = 0; // caer en una bifurcación corta la racha (un muro no)
+
+  // Rango
+  const rankBefore = rankOf(save.pr);
+  const delta = prDelta(sum);
+  const prBefore = save.pr;
+  save.pr = applyPR(save.pr, delta);
+  save.peakPR = Math.max(save.peakPR, save.pr);
+  const rankAfter = rankOf(save.pr);
+
+  // XP, destellos y misiones
   const gain = xpForRound(sum);
-  const before = levelInfo(save.xp);
-  save.xp += gain;
-  const after = levelInfo(save.xp);
-  const unlockedSkins = SKINS.filter(k => k.lvl > before.level && k.lvl <= after.level);
+  const coins = coinsForRound(sum);
+  save.coins += coins;
+  const lv = addXP(save, gain);
+  const missionsDone = progressMissions(save, sum, today);
+  ensureMissions(save, today);
 
   const newAch = ACHIEVEMENTS.filter(a => !save.ach[a.id] && a.test(sum, save));
   for (const a of newAch) save.ach[a.id] = today;
@@ -143,9 +195,14 @@ export function applyRound(save, sum, now = new Date()) {
   const recordPos = save.records.indexOf(rec) + 1;
   save.bestScore = Math.max(save.bestScore, sum.score);
 
+  const newSkins = ownedSkins(save).filter(k => !ownedBefore.has(k.id));
+  const promoted = rankAfter.tier > rankBefore.tier || (rankAfter.tier === rankBefore.tier && rankAfter.div < rankBefore.div);
+
   return {
-    gain, before, after, unlockedSkins, newAch, recordPos,
-    recordCount: save.records.length,
-    newBestPct: !first && sum.pct > prevBest,
+    gain, coins, before: lv.before, after: lv.after, newAch, newSkins, missionsDone,
+    recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
+    pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
+    pathStreak: save.pathStreak,
+    missions: save.missions.list,
   };
 }
