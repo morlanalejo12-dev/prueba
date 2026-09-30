@@ -17,6 +17,9 @@ import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
 import { redeemCode } from './game/codes.js';
+import { NetClient, serverUrl } from './net/client.js';
+import { NetRound } from './net/netround.js';
+import { cleanName } from './util/name.js';
 
 const store = localStore();
 let save = loadSave(store);
@@ -45,6 +48,12 @@ const trail = [];
 const TRAIL_LEN = 44;
 const LANE = ['A', 'B', 'C', 'D'];
 
+// Modo online
+let mode = 'solo';
+let net = null;
+const online = { room: null, msg: '', pending: null, url: '', startAt: 0 };
+let roomRefreshT = 0;
+
 const randSeed = () => (Math.random() * 4294967296) >>> 0;
 const env = () => { const now = new Date(); return { today: dayKey(now), yesterday: dayKey(yesterdayOf(now)) }; };
 
@@ -65,14 +74,45 @@ function playerTrail() {
 }
 
 function refreshMenu() {
+  updateOnlineChip();
   return ui.renderMenu(save, env());
+}
+
+function updateOnlineChip() {
+  const r = online.room, el = $('onlineSub');
+  if (!el) return;
+  if (!r) el.textContent = 'Minuto global · salas privadas';
+  else if (r.pub) { const t = nextGlobalText(); el.textContent = t ? `En el minuto global · empieza en ${t}` : 'En el minuto global'; }
+  else el.textContent = `En la sala ${r.code} · ${r.players.length} ${r.players.length === 1 ? 'jugador' : 'jugadores'}`;
+  $('onlineBtn').classList.toggle('in-room', !!r);
 }
 
 const ui = createUI({
   env,
   getSave: () => save,
-  onPlay: () => { audio.unlock(); startRound(); },
-  onHome: () => { audio.play('ui'); toMenu(); },
+  onPlay: () => { audio.unlock(); leaveOnline(); startRound(); },
+  onAgain: () => {
+    audio.unlock();
+    if (mode === 'online' && online.room) { audio.play('ui'); ui.openModal('room'); }
+    else { leaveOnline(); startRound(); }
+  },
+  onHome: () => { audio.play('ui'); leaveOnline(); toMenu(); },
+  onOnline: () => { audio.unlock(); ui.openModal(online.room ? 'room' : 'online'); },
+  onlineState: () => ({
+    status: net ? net.status : 'off', msg: online.msg, room: online.room, myId: net && net.id,
+    askUrl: !serverUrl(''), nextGlobal: nextGlobalText(),
+  }),
+  onOnlineGo: ({ name, url, action, code }) => onlineGo(name, url, action, code),
+  onRoomStart: () => { audio.play('ui'); net && net.send({ t: 'start' }); },
+  onRoomLeave: () => { audio.play('ui'); leaveOnline(); ui.closeModal(); refreshMenu(); },
+  onInvite: async () => {
+    const r = online.room;
+    if (!r) return false;
+    const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
+    const link = hosted ? `${location.origin}${location.pathname}?sala=${r.code}` : '';
+    const text = `¡Sumate a mi sala de Contracorriente! Código: ${r.code}${link ? ' · ' + link : ''}`;
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; }
+  },
   onDash: dir => doDash(dir),
   onPredict: lane => {
     const f = R.fork;
@@ -82,7 +122,7 @@ const ui = createUI({
     buzz(10);
   },
   onNextNow: () => {
-    if (state !== 'playing' || R.pAlive) return;
+    if (state !== 'playing' || R.pAlive || R.online) return;
     audio.play('ui');
     R.runToEnd();
     R.events.length = 0;
@@ -90,7 +130,7 @@ const ui = createUI({
     startRound();
   },
   onSkip: () => {
-    if (state === 'playing' && !R.pAlive) { R.runToEnd(); drainEvents(); endAt = 0.05; }
+    if (state === 'playing' && !R.pAlive && !R.online) { R.runToEnd(); drainEvents(); endAt = 0.05; }
   },
   onShare: openShare,
   onUi: () => { audio.unlock(); audio.play('ui'); },
@@ -177,6 +217,115 @@ function resetView() {
   acc = 0; slow = 1; slowT = 0; tickT = 0; riserFork = -1;
 }
 
+// ---------- Online ----------
+function nextGlobalText() {
+  const r = online.room;
+  if (!r || !r.pub || !net || !r.startAt || r.phase !== 'lobby') return '';
+  const s = Math.max(0, Math.ceil((r.startAt - net.serverNow) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function onlineGo(nameRaw, url, action, code) {
+  const name = cleanName(nameRaw);
+  if (!name) return { error: 'Elegí un nombre para que te reconozcan.' };
+  if (action === 'join' && !/^[A-Z]{4}$/.test(code || '')) return { error: 'El código tiene 4 letras.' };
+  save.name = name;
+  if (url !== null) save.server = (url || '').trim();
+  persist();
+  const u = serverUrl(save.server);
+  if (!u) return { error: 'Poné la dirección del servidor.' };
+  online.pending = { action, code };
+  online.msg = '';
+  if (net && net.status === 'on' && online.url === u) doJoin();
+  else {
+    if (!net) net = new NetClient(onNet, onNetStatus);
+    online.url = u;
+    net.connect(u, { name, skin: playerSkin().id, trail: playerTrail().id });
+  }
+  return {};
+}
+
+function doJoin() {
+  const p = online.pending;
+  online.pending = null;
+  if (!p || !net) return;
+  net.send({ t: 'join', create: p.action === 'create', code: p.action === 'join' ? p.code : 'GLOBAL' });
+}
+
+function leaveOnline() {
+  if (net && online.room) net.send({ t: 'leave' });
+  online.room = null;
+  mode = 'solo';
+  ui.setOnlineMode(false);
+}
+
+function onNetStatus(status, msg) {
+  if (status !== 'error') return;
+  online.msg = msg || 'Sin conexión.';
+  const wasIn = !!online.room;
+  online.room = null;
+  if (R && R.online && (state === 'playing' || state === 'countdown')) {
+    ui.toast('Sin conexión', online.msg);
+    mode = 'solo';
+    ui.setOnlineMode(false);
+    toMenu();
+  } else if (mode === 'online') { mode = 'solo'; ui.setOnlineMode(false); }
+  if (ui.modalKind === 'online' || ui.modalKind === 'room') ui.openModal('online');
+  else if (wasIn) ui.toast('Online', online.msg);
+  refreshMenu();
+}
+
+function onNet(m) {
+  switch (m.t) {
+    case 'welcome': doJoin(); break;
+    case 'room': {
+      const first = !online.room;
+      online.room = m;
+      if (first) mode = 'online';
+      if (ui.modalKind === 'online' || (first && ui.modalKind !== 'room' && state !== 'playing' && state !== 'countdown')) ui.openModal('room');
+      else if (ui.modalKind === 'room') ui.refreshModal();
+      refreshMenu();
+      break;
+    }
+    case 'err':
+      online.msg = m.msg;
+      ui.toast('Online', m.msg);
+      if (ui.modalKind === 'online') ui.refreshModal();
+      break;
+    case 'start': startOnline(m); break;
+    case 's': if (R && R.online && R.seed === online.seed) R.onSnap(m); break;
+    case 'ev': if (R && R.online && R.seed === online.seed) R.onEvents(m); break;
+    case 'end': if (R && R.online && R.seed === online.seed) R.onEnd(m, net.id); break;
+    default: break;
+  }
+}
+
+function startOnline(m) {
+  if (R && !R.demo && !R.online && (state === 'playing' || state === 'countdown')) return;
+  ui.closeModal();
+  mode = 'online';
+  online.seed = m.seed;
+  online.startAt = m.at;
+  R = new NetRound(m, net.id, o => net.send(o));
+  resetView();
+  pred = null;
+  predStats.hits = 0; predStats.coins = 0;
+  ui.hideDash();
+  ui.setOnlineMode(true);
+  state = 'countdown';
+  countT = (m.at - net.serverNow) / 1000;
+  endAt = null;
+  tutorial = null;
+  ui.showScreen('none');
+  ui.showHud(true);
+  const r = online.room, hn = m.humans.length;
+  ui.setRival(r && !r.pub ? `Sala ${r.code}` : 'Minuto global', `${hn} ${hn === 1 ? 'real' : 'reales'}`, 'Online');
+  ui.hideSpectator(); ui.hideBanner(); ui.hideHint();
+  ui.banner(String(Math.max(1, Math.ceil(countT))), `${fmt(R.total)} jugadores · ${hn} ${hn === 1 ? 'real' : 'reales'}`, 'count', 900);
+  audio.play('count');
+  ui.hint(hn > 1 ? 'Los otros jugadores reales llevan su nombre encima.' : 'Invitá amigos con el código de la sala.', 2600);
+}
+
 function toMenu() {
   state = 'menu';
   R = new Round({ seed: randSeed(), demo: true });
@@ -197,6 +346,7 @@ function startRound() {
   // Partida guiada: la primera ronda protege 3 bifurcaciones y la segunda, una
   const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
   R = new Round({ seed: randSeed(), guided });
+  ui.setOnlineMode(false);
   resetView();
   pred = null;
   predStats.hits = 0; predStats.coins = 0;
@@ -217,6 +367,12 @@ function startRound() {
 
 // quick: se aplica el resultado sin mostrar la pantalla (botón "Otra ronda")
 function finishRound({ quick = false } = {}) {
+  if (R.online && !R.summary()) {
+    // Mirabas sin jugar esta ronda: volver a la sala
+    toMenu();
+    if (online.room) ui.openModal('room');
+    return;
+  }
   lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
   const rep = applyRound(save, lastSum);
   persist();
@@ -231,7 +387,10 @@ function finishRound({ quick = false } = {}) {
   ui.renderResults(lastSum, rep, R.outlier);
   ui.showScreen('results');
   nextT = CFG.NEXT_S;
-  ui.setNext(nextT);
+  if (R.online) {
+    ui.renderStandings(R.standings, net && net.id);
+    ui.setAgain('Volver a la sala', null);
+  } else ui.setAgain('Jugar otra', nextT);
 
   if (lastSum.outlier) { audio.play('outlier'); buzz([30, 50, 30, 50, 60]); }
   if (rep.after.level > rep.before.level) setTimeout(() => { audio.play('levelup'); buzz([20, 30, 20]); }, 700);
@@ -325,6 +484,9 @@ function handle(e) {
       audio.play('claim');
       if (!dashHintShown && save.rounds < 4) { dashHintShown = true; ui.hint('Cada 10 chispas ganás un impulso para cambiarte de camino.', 3200); }
       break;
+    case 'humanDown':
+      ui.feed('hot', '', e.name, e.why === 'wall' ? ' chocó contra un muro' : ' cayó');
+      break;
     case 'rivalDown':
       ui.feed('good', 'Tu rival ', e.name, ' cayó');
       audio.play('rival');
@@ -405,7 +567,7 @@ function onPlayerDied(e) {
     : e.why === 'inverted' ? `Era una inversión: caía el más vacío (${fmt(e.sameEvent + 1)} cayeron con vos)`
     : `Elegiste el camino de la mayoría (${fmt(e.sameEvent + 1)} cayeron con vos)`;
   ui.banner(e.why === 'wall' ? 'Chocaste' : 'Caíste', sub, 'bad', 1800);
-  ui.showSpectator(e.rank, R.n + 1, e.pct);
+  ui.showSpectator(e.rank, R.total, e.pct);
 }
 
 // ---------- Ciclo por cuadro ----------
@@ -457,6 +619,7 @@ function intensity() {
 }
 
 function simulate(dt) {
+  if (R.online) { R.step(dt); drainEvents(); return; }
   acc += dt;
   while (acc >= CFG.FIXED_DT) { R.step(CFG.FIXED_DT); acc -= CFG.FIXED_DT; }
   drainEvents();
@@ -470,21 +633,21 @@ function frame(now) {
 
   if (state === 'countdown') {
     const before = Math.ceil(countT);
-    countT -= dt;
-    R.movePlayer(dt, null);
+    if (R.online) { countT = (online.startAt - net.serverNow) / 1000; R.idle(dt); }
+    else { countT -= dt; R.movePlayer(dt, null); }
     if (countT <= 0) {
       state = 'playing';
-      ui.banner('¡Ya!', `${fmt(R.n + 1)} jugadores cayendo a la vez`, 'ok', 900);
+      ui.banner('¡Ya!', `${fmt(R.total)} jugadores cayendo a la vez`, 'ok', 900);
       audio.play('go');
       buzz(30);
     } else if (Math.ceil(countT) !== before) {
-      ui.banner(String(Math.ceil(countT)), `${fmt(R.n + 1)} jugadores listos`, 'count', 900);
+      ui.banner(String(Math.ceil(countT)), `${fmt(R.total)} jugadores listos`, 'count', 900);
       audio.play('count');
     }
   } else if (state === 'playing') {
     if (slowT > 0) slowT -= dt;
     else slow = Math.min(1, slow + dt * 2.5);
-    simulate(dt * slow);
+    simulate(R.online ? dt : dt * slow);
     tensionTick(dt);
     emitTrail(dt, sk, tr);
     // Enseñar el impulso la primera vez que se puede usar
@@ -504,7 +667,11 @@ function frame(now) {
   } else {
     simulate(dt);
     if (state === 'menu' && R.ended) R = new Round({ seed: randSeed(), demo: true });
-    if (state === 'results' && !ui.modalOpen) {
+    if (state === 'results' && mode === 'online') {
+      // En online la siguiente ronda la arranca el servidor
+      const txt = nextGlobalText();
+      if (txt !== ui.lastNext) { ui.lastNext = txt; ui.setAgain('Volver a la sala', txt || null); }
+    } else if (state === 'results' && !ui.modalOpen) {
       const before = Math.ceil(nextT);
       nextT -= dt;
       if (Math.ceil(nextT) !== before) {
@@ -523,6 +690,13 @@ function frame(now) {
     ui.hud(R);
     ui.dashButtons(R);
     ui.predict(R, pred, predStats);
+  }
+  // La ventana de la sala muestra una cuenta regresiva: refrescarla cada segundo
+  roomRefreshT -= dt;
+  if (roomRefreshT <= 0) {
+    roomRefreshT = 1;
+    if (ui.modalKind === 'room') ui.refreshModal();
+    if (state === 'menu') updateOnlineChip();
   }
   fx.update(dt);
   audio.setIntensity(intensity());
@@ -617,6 +791,11 @@ $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
 setupPWA();
 toMenu();
+// Invitación: ?sala=ABCD abre el modo online con el código cargado
+try {
+  const code = new URLSearchParams(location.search).get('sala');
+  if (code && /^[A-Za-z]{4}$/.test(code)) setTimeout(() => ui.openModal('online', { code: code.toUpperCase() }), 400);
+} catch (e) { /* sin parámetros */ }
 requestAnimationFrame(frame);
 
 // Acceso para pruebas desde la consola
@@ -624,6 +803,7 @@ window.__contracorriente = {
   get round() { return R; },
   get state() { return state; },
   get save() { return save; },
+  get online() { return { mode, room: online.room, net }; },
   startRound,
   finishRound,
   toMenu,

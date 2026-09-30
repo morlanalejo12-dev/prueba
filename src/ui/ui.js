@@ -165,9 +165,46 @@ export function createUI(h) {
       : locked ? 'Ya se cerraron las predicciones.'
       : `Acertá y ganás ${prize} destellos. Llevás ${stats.hits} ${stats.hits === 1 ? 'acierto' : 'aciertos'}.`;
   }
-  function setRival(name, rankLabel) {
+  function setRival(name, rankLabel, label = 'Rival') {
+    $('hRival').querySelector('.lbl').textContent = label;
     $('hRivalName').textContent = name;
     $('hRivalRank').textContent = rankLabel;
+  }
+
+  // Online: sin "Otra ronda" ni "Ver resultado" (la ronda la maneja el servidor)
+  function setOnlineMode(on) {
+    $('spectActions').hidden = on;
+    document.body.classList.toggle('is-online', on);
+  }
+
+  // Tabla de la sala al final de una ronda online
+  function renderStandings(list, myId) {
+    const box = $('rStandings');
+    box.innerHTML = '';
+    box.hidden = !list || list.length < 1;
+    if (box.hidden) return;
+    const head = document.createElement('p');
+    head.className = 'lbl';
+    head.textContent = 'Tu sala';
+    box.append(head);
+    const ol = document.createElement('ol');
+    for (const p of list.slice(0, 12)) {
+      const li = document.createElement('li');
+      if (p.id === myId) li.className = 'me';
+      const n = document.createElement('b'); n.textContent = '#' + fmt(p.rank);
+      const nm = document.createElement('span'); nm.textContent = p.name + (p.id === myId ? ' (vos)' : '');
+      const sc = document.createElement('em'); sc.textContent = fmt(p.score) + ' pts';
+      li.append(n, nm, sc);
+      ol.append(li);
+    }
+    box.append(ol);
+  }
+
+  function setAgain(label, count) {
+    const b = $('again');
+    b.firstChild.textContent = label + ' ';
+    $('rNext').hidden = count === null;
+    if (count !== null) $('rNext').textContent = count;
   }
 
   function showHud(on) {
@@ -297,6 +334,7 @@ export function createUI(h) {
 
     // Rival
     const rv = $('rRival');
+    rv.hidden = !sum.rival;
     rv.className = 'rival-line' + (sum.beatRival ? ' win' : '');
     rv.innerHTML = sum.beatRival
       ? `Le ganaste a tu rival <b>${esc(sum.rival)}</b> · <b>+5 PR</b>`
@@ -329,6 +367,7 @@ export function createUI(h) {
     box.hidden = !rep.newAch.length;
 
     $('rOutlier').textContent = outlier.you ? `¡Vos! · ${fmt(outlier.score)} pts` : `${outlier.name} · ${fmt(outlier.score)} pts`;
+    renderStandings(null);
   }
 
   function setNext(n) { $('rNext').textContent = n; }
@@ -368,7 +407,8 @@ export function createUI(h) {
 
   // ---------- Conexiones ----------
   $('play').addEventListener('click', h.onPlay);
-  $('again').addEventListener('click', h.onPlay);
+  $('again').addEventListener('click', h.onAgain);
+  $('onlineBtn').addEventListener('click', () => { h.onUi(); h.onOnline(); });
   $('home').addEventListener('click', h.onHome);
   $('skip').addEventListener('click', h.onSkip);
   $('nextNow').addEventListener('click', h.onNextNow);
@@ -393,6 +433,7 @@ export function createUI(h) {
   });
 
   return {
+    setOnlineMode, renderStandings, setAgain,
     banner, hideBanner, hint, hideHint, flash, toast, feed, clearFeed, hud, setRival, showHud, dashButtons, hideDash, predict,
     showSpectator, hideSpectator, renderMenu, showScreen, renderResults, setNext,
     openModal, refreshModal, closeModal,

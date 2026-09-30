@@ -1,0 +1,10 @@
+# Despliegue en Render (https://render.com): New → Blueprint → elegir este repositorio.
+# Sirve el juego y el modo online en la misma dirección.
+services:
+  - type: web
+    name: contracorriente
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health

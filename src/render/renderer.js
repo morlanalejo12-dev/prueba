@@ -5,6 +5,7 @@ import { clamp, fmt, TAU } from '../util/math.js';
 import { hash01 } from '../util/rng.js';
 import { gapsAt, altOpen, altPhase } from '../sim/gates.js';
 import { SHAPE } from './fx.js';
+import { skinById } from '../game/skins.js';
 
 const G = new Float64Array(4);
 
@@ -119,6 +120,7 @@ export class Renderer {
     const f = R.fork;
     const fogOn = !!(f && f.variant === 'fog' && R.pY >= f.startY - 100 && !f.resolved);
     this.drawCrowd(R, Y, fogOn ? 0.1 : 0.8);
+    if (R.others && R.others.length) this.drawOthers(R, Y);
     this.drawRings(fx, Y);
     this.drawParticles(fx, Y);
     if (R.pAlive) this.drawPlayer(R, Y, opts);
@@ -253,6 +255,26 @@ export class Renderer {
       cx.rotate(R.t * 2 + o.y);
       cx.fillRect(-rr * 0.7, -rr * 0.7, rr * 1.4, rr * 1.4);
       cx.restore();
+    }
+  }
+
+  // Online: los demás jugadores reales, con su skin y su nombre
+  drawOthers(R, Y) {
+    const { cx } = this, y = Y(R.pY), P = CFG.PR * 0.85;
+    cx.font = `700 10px ${this.FB}`;
+    cx.textAlign = 'center';
+    for (const o of R.others) {
+      if (!o.alive) continue;
+      const sk = skinById(o.skin);
+      const col = skinColor(sk, R.t);
+      this.drawShape(sk.shape, o.x, y, P, col, sk.col2 || col, R.t);
+      cx.globalAlpha = 0.9;
+      cx.fillStyle = 'rgba(13,10,32,0.7)';
+      const w = cx.measureText(o.name).width + 10;
+      cx.fillRect(o.x - w / 2, y - P - 22, w, 14);
+      cx.fillStyle = col;
+      cx.fillText(o.name, o.x, y - P - 11);
+      cx.globalAlpha = 1;
     }
   }
 

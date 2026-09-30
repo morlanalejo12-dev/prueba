@@ -32,7 +32,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -161,6 +161,98 @@ const BUILDERS = {
     }
     body.append(el('p', 'note', 'Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria.'));
     body.append(redeemBox(env));
+  },
+
+  // Conexión: nombre, servidor y a qué sala entrar
+  online(body, env, data) {
+    const o = env.h.onlineState();
+    const form = el('form', 'online-form');
+    form.noValidate = true;
+    const nameL = el('label', 'redeem-label', 'Tu nombre en la sala');
+    const name = el('input', 'redeem-input name-input');
+    name.id = 'onlineName';
+    nameL.htmlFor = name.id;
+    Object.assign(name, { type: 'text', maxLength: 16, autocomplete: 'nickname', placeholder: 'Ej: Ana', value: env.save.name || '' });
+    form.append(nameL, name);
+    let url = null;
+    if (o.askUrl) {
+      const urlL = el('label', 'redeem-label', 'Servidor');
+      url = el('input', 'redeem-input url-input');
+      url.id = 'onlineUrl';
+      urlL.htmlFor = url.id;
+      Object.assign(url, { type: 'url', placeholder: 'mi-servidor.onrender.com', value: env.save.server || '', autocomplete: 'off', spellcheck: false });
+      form.append(urlL, url, el('p', 'note', 'Abriste el juego como archivo: poné la dirección del servidor online (te la pasa quien lo publicó).'));
+    }
+    const msg = el('p', 'redeem-msg', o.msg || '');
+    msg.setAttribute('role', 'status');
+    const go = (action, code) => {
+      const r = env.h.onOnlineGo({ name: name.value, url: url ? url.value : null, action, code });
+      if (r && r.error) msg.textContent = r.error;
+    };
+    const global = el('button', 'btn btn-primary online-global');
+    global.type = 'submit';
+    global.innerHTML = '<span class="live-dot" aria-hidden="true"></span>';
+    global.append(el('span', '', 'Minuto global'), el('small', '', o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : 'Una ronda al comenzar cada minuto'));
+    form.addEventListener('submit', e => { e.preventDefault(); go('global'); });
+    const create = el('button', 'btn btn-ghost', 'Crear sala privada');
+    create.type = 'button';
+    create.addEventListener('click', () => go('create'));
+    const joinRow = el('div', 'redeem-row');
+    const code = el('input', 'redeem-input');
+    code.id = 'roomCode';
+    Object.assign(code, { type: 'text', maxLength: 4, placeholder: 'CÓDIGO', autocomplete: 'off', spellcheck: false });
+    code.setAttribute('aria-label', 'Código de sala');
+    if (data && data.code) code.value = data.code;
+    code.addEventListener('input', () => { code.value = code.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+    const join = el('button', 'btn btn-ghost btn-sm', 'Unirme');
+    join.type = 'button';
+    join.addEventListener('click', () => go('join', code.value));
+    joinRow.append(code, join);
+    form.append(global, create, el('p', 'redeem-label', 'O entrá a la sala de un amigo'), joinRow, msg);
+    body.append(form);
+    if (o.status === 'connecting') msg.textContent = 'Conectando…';
+  },
+
+  // Sala: jugadores, código para invitar y cuándo empieza
+  room(body, env) {
+    const o = env.h.onlineState(), r = o.room;
+    if (!r) { body.append(el('p', '', 'Conectando con la sala…')); return; }
+    const head = el('div', 'room-head');
+    if (r.pub) {
+      head.append(el('strong', '', 'Minuto global'), el('small', '', 'Sala pública: juega todo el que esté conectado'));
+    } else {
+      const codeEl = el('strong', 'room-code', r.code);
+      head.append(el('small', '', 'Código de la sala'), codeEl);
+      const share = el('button', 'btn btn-ghost btn-sm', 'Copiar invitación');
+      share.type = 'button';
+      share.addEventListener('click', async () => { share.textContent = (await env.h.onInvite()) ? '¡Copiada!' : 'Código: ' + r.code; });
+      head.append(share);
+    }
+    body.append(head);
+    const status = el('p', 'room-status');
+    const inRound = r.phase === 'playing' || r.phase === 'countdown';
+    if (inRound) status.textContent = 'Hay una ronda en curso: entrás en la próxima.';
+    else if (r.pub) status.textContent = o.nextGlobal ? `La próxima ronda empieza en ${o.nextGlobal}` : 'Esperando la próxima ronda…';
+    else status.textContent = r.host === o.myId ? 'Sos el anfitrión: empezá cuando estén todos.' : 'Esperando que el anfitrión empiece la ronda…';
+    body.append(status);
+    const ul = el('ul', 'room-players');
+    for (const p of r.players) {
+      const li = el('li', p.id === o.myId ? 'me' : '');
+      li.append(skinPreview(skinById(p.skin)), el('span', '', p.name + (p.id === o.myId ? ' (vos)' : '')));
+      if (p.id === r.host) li.append(el('em', '', 'Anfitrión'));
+      ul.append(li);
+    }
+    body.append(el('p', 'redeem-label', `${r.players.length} ${r.players.length === 1 ? 'jugador' : 'jugadores'} + bots hasta completar la multitud`), ul);
+    if (!r.pub && r.host === o.myId && !inRound) {
+      const start = el('button', 'btn btn-primary', 'Empezar ronda');
+      start.type = 'button';
+      start.addEventListener('click', () => env.h.onRoomStart());
+      body.append(start);
+    }
+    const leave = el('button', 'btn btn-ghost', 'Salir de la sala');
+    leave.type = 'button';
+    leave.addEventListener('click', () => env.h.onRoomLeave());
+    body.append(leave);
   },
 
   codes(body, env) {

@@ -1,15 +1,22 @@
 {
   "name": "contracorriente",
-  "version": "0.3.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Juego online de un botón: en cada bifurcación se derrumba el camino con más gente.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "start": "node server/server.js",
     "test": "node --test test/*.test.mjs",
     "check": "npm test && npm run build"
   },
   "devDependencies": {
     "esbuild": "0.28.2"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

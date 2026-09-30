@@ -107,6 +107,7 @@ export class Round {
   }
 
   get aliveTotal() { return this.aliveBots + (this.pAlive ? 1 : 0); }
+  get total() { return this.n + 1; }
   get fork() { return this.lvl.forks[this.cf]; }
 
   setTarget(x) { this.ptx = x; }

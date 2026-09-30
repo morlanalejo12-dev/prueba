@@ -4,15 +4,26 @@ Un juego online de un solo control: cada minuto, todos los jugadores caen juntos
 
 Este prototipo responde una sola pregunta: **¿la bifurcación genera tensión y dan ganas de jugar otra ronda?**
 
-## Publicarlo en una URL
+## Publicarlo en una URL (con modo online)
 
-El workflow `.github/workflows/pages.yml` arma el juego y lo publica en GitHub Pages en cada cambio. Para activarlo, en GitHub entrá a **Settings → Pages → Source** y elegí **GitHub Actions**. GitHub Pages en repositorios privados requiere un plan pago; si el repo es privado y gratis, se puede publicar gratis en Netlify o Cloudflare Pages conectando el repo, con el comando `npm run build` y la carpeta `dist/site`.
+El modo online necesita un servidor. El repo ya trae todo para publicarlo gratis en **Render**, que sirve el juego y el online en la misma dirección:
 
-Una vez publicado, desde el celular se puede instalar como app (Ajustes → Instalar como app, o "Agregar a pantalla de inicio") y funciona sin conexión.
+1. Entrá a [render.com](https://render.com) y creá una cuenta con tu GitHub.
+2. **New → Blueprint** y elegí este repositorio (Render lee `render.yaml`).
+3. Esperá a que termine el despliegue: te da una dirección como `https://contracorriente.onrender.com`.
+4. Compartí esa dirección: el botón **Online con amigos** funciona directo.
+
+En el plan gratis el servidor se duerme tras 15 minutos sin uso; la primera visita tarda unos 30 segundos en despertarlo.
+
+Si alguien abre el `index.html` descargado, también puede jugar online: en **Online con amigos** pone la dirección del servidor (por ejemplo `contracorriente.onrender.com`) y queda guardada. Para no tener que escribirla, se puede fijar en `ONLINE_URL` dentro de `src/config.js` y volver a armar el juego.
+
+Para probar el servidor en tu computadora: `npm install`, `npm run build` y `npm start`, y abrí `http://localhost:8080` en dos pestañas.
+
+Solo la versión sin online (sin servidor) también se puede publicar en Netlify o Cloudflare Pages con el comando `npm run build` y la carpeta `dist/site`, o en GitHub Pages con el workflow `.github/workflows/pages.yml` (en repos privados requiere un plan pago). Una vez publicado, desde el celular se puede instalar como app.
 
 ## Cómo probarlo
 
-Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita instalación ni servidor.
+Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar solo no necesita instalación ni servidor; para jugar online, mirá la sección anterior.
 
 - **Celular:** arrastrá el dedo a izquierda o derecha.
 - **PC:** mouse, flechas ← → o las teclas A y D.
@@ -24,12 +35,26 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 - Variantes: **camino dorado** (x2), **angosto**, **niebla** e **inversión** (esa vez cae el camino con menos gente).
 - Chispas coleccionables, pasadas justas con combos y cámara lenta en cada colapso.
 - Música generativa que se intensifica con la tensión, efectos de sonido y vibración.
-- Ranked con ligas y ventajas por liga, 27 skins y 15 estelas, tienda, misiones diarias, recompensa diaria y pase de temporada.
+- Ranked con ligas y ventajas por liga, 28 skins y 16 estelas, tienda, misiones diarias, recompensa diaria y pase de temporada.
 - Muerte súbita hasta que queda un solo ganador, fondo que cambia por etapa y música progresiva.
 - Rival por ronda, feed en vivo, hitos de top 100/50/10/3, 17 logros y récords.
 - Tarjeta de resultado para compartir.
+- **Online:** Minuto global (una ronda pública al comenzar cada minuto) y salas privadas con código de 4 letras.
+- **Códigos promocionales** en Ajustes y en la Tienda.
 
 ## Novedades
+
+### v0.7
+- **Modo online real.** Botón *Online con amigos* en el menú:
+  - **Minuto global:** sala pública; la ronda arranca sola al comenzar cada minuto con todos los conectados.
+  - **Salas privadas:** creás una sala, compartís el código de 4 letras (o el link `?sala=CÓDIGO`) y el anfitrión decide cuándo empieza.
+  - Los jugadores reales cuentan en cada bifurcación; los bots completan la multitud. Ves a los demás con su skin y su nombre.
+  - Al final, tabla de posiciones de tu sala. Tu progreso, rango y recompensas se siguen guardando en tu dispositivo.
+  - El servidor decide todo (muros, carriles, colapsos) y compensa la latencia: lo que ves en tu pantalla es lo que cuenta.
+- **Códigos promocionales** (Ajustes o Tienda → *Código promocional*).
+- Nueva rareza **Fundador**, por encima de Mítica, solo por código:
+  - Skin **Singularidad**: un agujero negro con disco de acreción giratorio, anillo de fotones, destellos y chispas en órbita.
+  - Estela **Supernova**: plasma dorado y magenta con núcleo incandescente, arcos eléctricos, estrellas y ondas expansivas.
 
 ### v0.6
 - **Impulso**: dentro de los carriles podés pasarte al camino vecino a último momento (botones en pantalla, o Q / E / Espacio en la compu). Empezás con 1 y cada 10 chispas ganás otro (máximo 2).
@@ -90,7 +115,7 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. No necesita
 
 ## Qué está simulado
 
-La multitud son **1.200 bots** que corren en el navegador; todavía no hay servidor. En cada bifurcación, cada bot usa una de cuatro estrategias:
+En el modo solo, la multitud son **1.200 bots** que corren en el navegador. En el online, la misma simulación corre en el servidor y los jugadores reales se suman a ella. En cada bifurcación, cada bot usa una de cuatro estrategias:
 
 | Estrategia | Proporción | Comportamiento |
 | --- | --- | --- |
@@ -99,7 +124,7 @@ La multitud son **1.200 bots** que corren en el navegador; todavía no hay servi
 | Tercos | 25% | Elige una vez y no cambia |
 | De último momento | 15% | Cambia al camino con menos gente justo antes de entrar |
 
-En pruebas automáticas, cada bifurcación elimina cerca de la mitad, las rondas duran unos 43 segundos y quedan entre 2 y 20 sobrevivientes. Un jugador que solo sigue a la minoría pierde más de la mitad de las veces en la primera bifurcación: hay que leer cómo se mueve la multitud, no solo mirar el porcentaje.
+En pruebas automáticas, cada bifurcación elimina cerca de la mitad y la muerte súbita asegura un solo ganador. Un jugador que solo sigue a la minoría pierde seguido: hay que leer cómo se mueve la multitud, no solo mirar el porcentaje.
 
 ## Para desarrolladores
 
@@ -108,13 +133,17 @@ El juego se escribe en módulos dentro de `src/` y se arma en un solo `index.htm
 ```bash
 npm install      # una sola vez
 npm test         # tests de simulación y progreso
-npm run build    # genera index.html (y dist/artifact.html)
+npm run build    # genera index.html, dist/artifact.html y dist/site
+npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 ```
 
 | Carpeta | Qué hay |
 | --- | --- |
 | `src/config.js` | Todos los parámetros de balance (bots, velocidad, estrategias, probabilidades) |
-| `src/sim/` | Simulación pura y determinista: nivel, muros, multitud y ronda. No usa el DOM. |
+| `src/sim/` | Simulación pura y determinista: nivel, muros, multitud y ronda. No usa el DOM. `multi.js` suma jugadores humanos con compensación de latencia. |
+| `src/net/` | Cliente online: conexión WebSocket y la vista de la ronda que llega del servidor |
+| `server/` | Servidor Node (`ws`): salas, Minuto global, instantáneas a 15 por segundo y eventos |
+| `src/game/codes.js` | Códigos promocionales (guardados como hash) |
 | `src/game/progress.js` | Niveles, logros, récords, racha, guardado y aplicación de cada ronda |
 | `src/game/ranks.js` | Ligas, divisiones y cálculo de PR |
 | `src/game/skins.js` | Catálogo de skins y estelas, y cómo se consigue cada una |
@@ -125,7 +154,7 @@ npm run build    # genera index.html (y dist/artifact.html)
 | `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |
 | `test/` | Tests con `node --test` |
 
-La simulación publica eventos (`orb`, `nearMiss`, `forkResolved`, `playerDied`…) y la presentación reacciona a ellos. Así la lógica se puede testear sin navegador y más adelante correr en un servidor.
+La simulación publica eventos (`orb`, `nearMiss`, `forkResolved`, `playerDied`…) y la presentación reacciona a ellos. En el online, el servidor manda esos mismos eventos por la red, así el render, el HUD y el sonido son los mismos en los dos modos.
 
 ## Qué medir con testers
 
@@ -135,6 +164,6 @@ La simulación publica eventos (`orb`, `nearMiss`, `forkResolved`, `playerDied`�
 
 ## Próximos pasos
 
-- Servidor con salas por región y reloj global (rondas a los :00 de cada minuto).
-- Multitud real en lugar de bots, con bots solo para completar salas vacías.
+- Cuentas en la nube (progreso compartido entre dispositivos) y ranking global.
+- Salas por región para bajar la latencia.
 - Clips automáticos para compartir.

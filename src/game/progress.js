@@ -14,7 +14,7 @@ const DEFAULTS = {
   coins: 0, pr: 0, peakPR: 0, owned: {}, missions: null, daily: { last: '', next: 0 }, trail: 'basica',
   forksSeen: 0, forksWon: 0, pathStreak: 0, bestPathStreak: 0, rivalsBeaten: 0, shopSeen: '',
   // v0.7
-  codes: {}, name: '',
+  codes: {}, name: '', server: '',
 };
 
 export { SKINS, TRAILS };
@@ -120,6 +120,7 @@ export function loadSave(store) {
   if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
   if (typeof save.name !== 'string') save.name = '';
+  if (typeof save.server !== 'string') save.server = '';
   if (!SKINS.some(k => k.id === save.skin)) save.skin = DEFAULTS.skin;
   if (!TRAILS.some(k => k.id === save.trail)) save.trail = DEFAULTS.trail;
   save.v = 4;

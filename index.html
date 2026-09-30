@@ -827,6 +827,49 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .redeem-input:focus { outline: 2px solid var(--spark); outline-offset: 1px; }
 .redeem-msg { margin: 0; min-height: 1.2em; font-size: 13px; color: var(--danger); }
 .redeem.bad .redeem-row { animation: shakeX 0.35s; }
+
+/* ---------- v0.7 · Online ---------- */
+.btn-online {
+  appearance: none; cursor: pointer; width: min(100%, 320px);
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  padding: 11px var(--s4); border-radius: var(--pill);
+  background: var(--glass); border: 1px solid var(--edge-2, var(--edge)); color: var(--text);
+}
+.btn-online .live-dot { grid-row: span 2; }
+.btn-online .bo-main { font: 800 14px/1.1 var(--f-display); letter-spacing: 0.08em; text-transform: uppercase; }
+.btn-online small { font: 600 11px/1.3 var(--f-mono); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-online.in-room { border-color: var(--mint); box-shadow: 0 0 18px rgba(94, 242, 194, 0.18); }
+.btn-online.in-room small { color: var(--mint); }
+.btn-online:hover { border-color: var(--mint); }
+.btn-online:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+
+.online-form { display: flex; flex-direction: column; gap: 10px; }
+.online-form .name-input, .online-form .url-input { letter-spacing: 0.02em; text-transform: none; }
+.online-global { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; text-align: left; margin-top: 6px; }
+.online-global .live-dot { grid-row: span 2; background: var(--ink); box-shadow: none; }
+.online-global small { font: 600 11px/1.2 var(--f-mono); opacity: 0.75; text-transform: none; letter-spacing: 0; }
+#roomCode { letter-spacing: 0.4em; }
+
+.room-head { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.room-head strong { font: 800 22px/1.1 var(--f-display); }
+.room-head small { font: 600 12px/1 var(--f-mono); color: var(--muted); }
+.room-code { font: 800 44px/1 var(--f-mono) !important; letter-spacing: 0.25em; color: var(--mint); text-shadow: 0 0 22px rgba(94, 242, 194, 0.35); padding-left: 0.25em; }
+.room-status { margin: 0; text-align: center; font: 700 14px/1.35 var(--f-body); color: var(--gold); }
+.room-players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 38vh; overflow: auto; }
+.room-players li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: var(--s2); padding: 6px 10px; border-radius: var(--r1); background: var(--glass); border: 1px solid var(--edge); }
+.room-players li .sk { width: 28px; height: 28px; transform: scale(0.8); }
+.room-players li span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-players li em { font: 700 10px/1 var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); font-style: normal; }
+.room-players li.me { border-color: var(--mint); }
+
+.standings { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.standings .lbl { margin: 0; font: 700 11px/1 var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.standings ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.standings li { display: grid; grid-template-columns: 3.4em minmax(0, 1fr) auto; gap: var(--s2); align-items: center; font-size: 14px; padding: 5px 10px; border-radius: var(--r1); background: var(--glass); }
+.standings li b { font: 700 13px/1 var(--f-mono); color: var(--gold); }
+.standings li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standings li em { font: 600 12px/1 var(--f-mono); color: var(--muted); font-style: normal; }
+.standings li.me { outline: 1px solid var(--mint); }
 </style>
 </head>
 <body>
@@ -861,7 +904,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     <div id="predictBtns" class="predict-btns"></div>
     <small id="predictInfo"></small>
   </div>
-  <div class="spect-actions">
+  <div id="spectActions" class="spect-actions">
     <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
     <button id="nextNow" class="btn btn-primary btn-sm" type="button">Otra ronda</button>
   </div>
@@ -901,7 +944,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       <span id="pathBadge" class="path-badge" title="Racha de caminos"></span>
     </button>
     <button id="play" class="btn-play" type="button">Jugar</button>
-    <p class="online"><span class="live-dot" aria-hidden="true"></span><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
+    <button id="onlineBtn" class="btn-online" type="button">
+      <span class="live-dot" aria-hidden="true"></span><span class="bo-main">Online con amigos</span><small id="onlineSub">Minuto global · salas privadas</small>
+    </button>
+    <p class="online"><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
     <nav class="menu-grid" aria-label="Secciones">
       <button class="tile" type="button" data-open="missions">
         <span id="icMissions"></span><span>Misiones</span><small id="tMissions">0/3</small><em id="bMissions" class="badge" hidden>!</em>
@@ -961,6 +1007,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       <span class="lbl">Outlier del minuto</span>
       <strong id="rOutlier"></strong>
     </div>
+    <div id="rStandings" class="standings" hidden></div>
     <div class="actions">
       <button id="again" class="btn btn-primary" type="button">Jugar otra <span id="rNext" class="count-pill">10</span></button>
       <div class="row">
@@ -1032,7 +1079,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ORBS_PER_DASH: 10,
     // chispas para recargar un impulso
     // Motor
-    FIXED_DT: 1 / 120
+    FIXED_DT: 1 / 120,
+    // Servidor online por defecto cuando el juego se abre como archivo (vacío = hay que configurarlo en Ajustes)
+    ONLINE_URL: ""
   });
   var BOT = Object.freeze({ HERD: 0, CONTRA: 1, STUB: 2, LATE: 3 });
 
@@ -1579,6 +1628,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     }
     get aliveTotal() {
       return this.aliveBots + (this.pAlive ? 1 : 0);
+    }
+    get total() {
+      return this.n + 1;
     }
     get fork() {
       return this.lvl.forks[this.cf];
@@ -2275,6 +2327,93 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     }
   };
 
+  // src/game/skins.js
+  var RARITY = {
+    comun: { name: "Común", col: "#a69ecb" },
+    rara: { name: "Rara", col: "#8fd8ff" },
+    epica: { name: "Épica", col: "#ff7ad9" },
+    legendaria: { name: "Legendaria", col: "#ffd166" },
+    mitica: { name: "Mítica", col: "#ff5470" },
+    fundador: { name: "Fundador", col: "#ffe08a" }
+  };
+  var RARITY_ORDER = ["comun", "rara", "epica", "legendaria", "mitica", "fundador"];
+  var SKINS = [
+    { id: "ambar", name: "Ámbar", rarity: "comun", col: "#ffb547", shape: "orb", src: { type: "level", lvl: 1 } },
+    { id: "menta", name: "Menta", rarity: "comun", col: "#5ef2c2", shape: "orb", src: { type: "level", lvl: 2 } },
+    { id: "coral", name: "Coral", rarity: "comun", col: "#ff8f70", shape: "square", src: { type: "level", lvl: 3 } },
+    { id: "rosa", name: "Rosa", rarity: "comun", col: "#ff7ad9", shape: "orb", src: { type: "level", lvl: 4 } },
+    { id: "hielo", name: "Hielo", rarity: "rara", col: "#8fd8ff", col2: "#e8f7ff", shape: "diamond", src: { type: "level", lvl: 6 } },
+    { id: "luna", name: "Luna", rarity: "rara", col: "#e8e6ff", col2: "#8f86c9", shape: "ring", src: { type: "level", lvl: 8 } },
+    { id: "solar", name: "Solar", rarity: "rara", col: "#fff1a8", col2: "#ffb547", shape: "star", src: { type: "level", lvl: 9 } },
+    { id: "prisma", name: "Prisma", rarity: "epica", col: null, shape: "hex", src: { type: "level", lvl: 12 } },
+    { id: "nebula", name: "Nébula", rarity: "epica", col: "#b48cff", col2: "#ff7ad9", shape: "hex", src: { type: "level", lvl: 16 } },
+    { id: "obsidiana", name: "Obsidiana", rarity: "comun", col: "#5a4f8c", col2: "#cbbfff", shape: "square", src: { type: "shop", price: 150 } },
+    { id: "diamante", name: "Diamante", rarity: "rara", col: "#8fd8ff", col2: "#b48cff", shape: "diamond", src: { type: "shop", price: 300 } },
+    { id: "neon", name: "Neón", rarity: "rara", col: "#5ef2c2", col2: "#ff7ad9", shape: "ring", src: { type: "shop", price: 320 } },
+    { id: "esmeralda", name: "Esmeralda", rarity: "rara", col: "#2fd68a", col2: "#c9ffe6", shape: "hex", src: { type: "shop", price: 340 } },
+    { id: "rubi", name: "Rubí", rarity: "rara", col: "#ff3d6e", col2: "#ffc2d1", shape: "diamond", src: { type: "shop", price: 340 } },
+    { id: "cometa", name: "Cometa", rarity: "rara", col: "#cbbfff", col2: "#ffffff", shape: "orb", src: { type: "shop", price: 350 } },
+    { id: "brasa", name: "Brasa", rarity: "epica", col: "#ff8a3d", col2: "#ffd166", shape: "orb", src: { type: "shop", price: 600 } },
+    { id: "glitch", name: "Glitch", rarity: "epica", col: "#ff5470", col2: "#5ef2c2", shape: "square", src: { type: "shop", price: 650 } },
+    { id: "pixel", name: "Píxel", rarity: "epica", col: "#7bff6b", col2: "#1d1747", shape: "square", src: { type: "shop", price: 680 } },
+    { id: "galaxia", name: "Galaxia", rarity: "legendaria", col: "#b48cff", col2: "#8fd8ff", shape: "star", src: { type: "shop", price: 1200 } },
+    { id: "aurora", name: "Aurora", rarity: "epica", col: "#5ef2c2", col2: "#b48cff", shape: "orb", src: { type: "daily" } },
+    { id: "soln", name: "Sol negro", rarity: "legendaria", col: "#1a1333", col2: "#ffb547", shape: "ring", src: { type: "ach", id: "path10" } },
+    { id: "corona", name: "Corona", rarity: "legendaria", col: "#ffd166", col2: "#ff8a3d", shape: "star", src: { type: "ach", id: "outlier" } },
+    // Exclusivas de liga
+    { id: "laurel", name: "Laurel", rarity: "epica", col: "#ffd166", col2: "#fff1a8", shape: "ring", src: { type: "rank", tier: 2 } },
+    { id: "tormenta", name: "Tormenta", rarity: "epica", col: "#5ef2c2", col2: "#e8f7ff", shape: "hex", src: { type: "rank", tier: 3 } },
+    { id: "cristal", name: "Cristal", rarity: "legendaria", col: "#e8f7ff", col2: "#8fd8ff", shape: "diamond", src: { type: "rank", tier: 4 } },
+    { id: "fenix", name: "Fénix", rarity: "legendaria", col: "#ff5d3d", col2: "#ffd166", shape: "star", src: { type: "rank", tier: 5 } },
+    { id: "eclipse", name: "Eclipse", rarity: "mitica", col: "#0d0a20", col2: "#ffd166", shape: "ring", src: { type: "rank", tier: 6 } },
+    // Rango Fundador: sólo por código promocional
+    { id: "singularidad", name: "Singularidad", rarity: "fundador", col: "#ffd166", col2: "#b48cff", shape: "singularity", src: { type: "code" } }
+  ];
+  var TRAILS = [
+    { id: "basica", name: "Básica", rarity: "comun", type: "dots", col: null, src: { type: "level", lvl: 1 } },
+    { id: "chispas", name: "Chispas", rarity: "rara", type: "spark", col: null, src: { type: "level", lvl: 5 } },
+    { id: "arcoiris", name: "Arcoíris", rarity: "epica", type: "rainbow", col: null, src: { type: "level", lvl: 10 } },
+    { id: "burbujas", name: "Burbujas", rarity: "rara", type: "bubbles", col: "#8fd8ff", src: { type: "level", lvl: 14 } },
+    { id: "cinta", name: "Cinta", rarity: "rara", type: "ribbon", col: null, src: { type: "shop", price: 280 } },
+    { id: "estela_cometa", name: "Cola de cometa", rarity: "rara", type: "comet", col: "#e8f7ff", src: { type: "shop", price: 360 } },
+    { id: "llamas", name: "Llamas", rarity: "epica", type: "fire", col: "#ff8a3d", col2: "#ffd166", src: { type: "shop", price: 620 } },
+    { id: "interferencia", name: "Interferencia", rarity: "epica", type: "glitch", col: "#ff5470", col2: "#5ef2c2", src: { type: "shop", price: 640 } },
+    { id: "polvo", name: "Polvo de hada", rarity: "epica", type: "spark", col: "#ff7ad9", col2: "#fff1a8", src: { type: "shop", price: 560 } },
+    { id: "plata", name: "Estela plateada", rarity: "rara", type: "ribbon", col: "#e8ecf5", col2: "#9aa6c0", src: { type: "rank", tier: 1 } },
+    { id: "rayo", name: "Rayo", rarity: "epica", type: "bolt", col: "#8fd8ff", col2: "#ffffff", src: { type: "rank", tier: 3 } },
+    { id: "constelacion", name: "Constelación", rarity: "legendaria", type: "stars", col: "#e8f7ff", col2: "#8fd8ff", src: { type: "rank", tier: 4 } },
+    { id: "brasas", name: "Brasas reales", rarity: "legendaria", type: "embers", col: "#ffd166", col2: "#ff5d3d", src: { type: "rank", tier: 5 } },
+    { id: "vacio", name: "Vacío", rarity: "mitica", type: "void", col: "#ffd166", col2: "#0d0a20", src: { type: "rank", tier: 6 } },
+    { id: "boreal", name: "Boreal", rarity: "legendaria", type: "ribbon", col: "#5ef2c2", col2: "#b48cff", src: { type: "ach", id: "rival5" } },
+    { id: "supernova", name: "Supernova", rarity: "fundador", type: "supernova", col: "#ffd166", col2: "#ff5ed1", src: { type: "code" } }
+  ];
+  var skinById = (id) => SKINS.find((k) => k.id === id) || SKINS[0];
+  var trailById = (id) => TRAILS.find((k) => k.id === id) || TRAILS[0];
+  function isOwned(item, ctx) {
+    const s = item.src;
+    if (s.type === "level") return ctx.level >= s.lvl;
+    if (s.type === "rank") return ctx.peakTier >= s.tier;
+    if (s.type === "ach") return !!ctx.ach[s.id];
+    return !!ctx.owned[item.id];
+  }
+  var TIER_NAMES = ["Bronce", "Plata", "Oro", "Platino", "Diamante", "Maestro", "Leyenda"];
+  var ACH_TEXT = { outlier: "Sé Outlier del minuto", path10: "Logro Imparable", rival5: "Logro Némesis" };
+  function unlockText(item) {
+    const s = item.src;
+    if (s.type === "level") return `Nivel ${s.lvl}`;
+    if (s.type === "rank") return `Liga ${TIER_NAMES[s.tier]}`;
+    if (s.type === "ach") return ACH_TEXT[s.id] || "Logro";
+    if (s.type === "daily") return "Premio del día 7";
+    if (s.type === "code") return "Código promocional";
+    return `Tienda · ${s.price}`;
+  }
+  var SHOP_SKINS = SKINS.filter((k) => k.src.type === "shop");
+  var SHOP_TRAILS = TRAILS.filter((k) => k.src.type === "shop");
+  var rankRewards = (tier) => [
+    ...SKINS.filter((k) => k.src.type === "rank" && k.src.tier === tier).map((k) => ({ kind: "skin", item: k })),
+    ...TRAILS.filter((k) => k.src.type === "rank" && k.src.tier === tier).map((k) => ({ kind: "trail", item: k }))
+  ];
+
   // src/render/renderer.js
   var G = new Float64Array(4);
   var skinColor = (sk, t) => sk.col || `hsl(${Math.round(t * 90 % 360)} 95% 68%)`;
@@ -2382,6 +2521,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const f = R2.fork;
       const fogOn = !!(f && f.variant === "fog" && R2.pY >= f.startY - 100 && !f.resolved);
       this.drawCrowd(R2, Y, fogOn ? 0.1 : 0.8);
+      if (R2.others && R2.others.length) this.drawOthers(R2, Y);
       this.drawRings(fx2, Y);
       this.drawParticles(fx2, Y);
       if (R2.pAlive) this.drawPlayer(R2, Y, opts);
@@ -2517,6 +2657,25 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
         cx.rotate(R2.t * 2 + o.y);
         cx.fillRect(-rr * 0.7, -rr * 0.7, rr * 1.4, rr * 1.4);
         cx.restore();
+      }
+    }
+    // Online: los demás jugadores reales, con su skin y su nombre
+    drawOthers(R2, Y) {
+      const { cx } = this, y = Y(R2.pY), P = CFG.PR * 0.85;
+      cx.font = `700 10px ${this.FB}`;
+      cx.textAlign = "center";
+      for (const o of R2.others) {
+        if (!o.alive) continue;
+        const sk = skinById(o.skin);
+        const col = skinColor(sk, R2.t);
+        this.drawShape(sk.shape, o.x, y, P, col, sk.col2 || col, R2.t);
+        cx.globalAlpha = 0.9;
+        cx.fillStyle = "rgba(13,10,32,0.7)";
+        const w = cx.measureText(o.name).width + 10;
+        cx.fillRect(o.x - w / 2, y - P - 22, w, 14);
+        cx.fillStyle = col;
+        cx.fillText(o.name, o.x, y - P - 11);
+        cx.globalAlpha = 1;
       }
     }
     drawCrowd(R2, Y, alpha) {
@@ -3110,93 +3269,6 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return cv2.toDataURL("image/png");
   }
 
-  // src/game/skins.js
-  var RARITY = {
-    comun: { name: "Común", col: "#a69ecb" },
-    rara: { name: "Rara", col: "#8fd8ff" },
-    epica: { name: "Épica", col: "#ff7ad9" },
-    legendaria: { name: "Legendaria", col: "#ffd166" },
-    mitica: { name: "Mítica", col: "#ff5470" },
-    fundador: { name: "Fundador", col: "#ffe08a" }
-  };
-  var RARITY_ORDER = ["comun", "rara", "epica", "legendaria", "mitica", "fundador"];
-  var SKINS = [
-    { id: "ambar", name: "Ámbar", rarity: "comun", col: "#ffb547", shape: "orb", src: { type: "level", lvl: 1 } },
-    { id: "menta", name: "Menta", rarity: "comun", col: "#5ef2c2", shape: "orb", src: { type: "level", lvl: 2 } },
-    { id: "coral", name: "Coral", rarity: "comun", col: "#ff8f70", shape: "square", src: { type: "level", lvl: 3 } },
-    { id: "rosa", name: "Rosa", rarity: "comun", col: "#ff7ad9", shape: "orb", src: { type: "level", lvl: 4 } },
-    { id: "hielo", name: "Hielo", rarity: "rara", col: "#8fd8ff", col2: "#e8f7ff", shape: "diamond", src: { type: "level", lvl: 6 } },
-    { id: "luna", name: "Luna", rarity: "rara", col: "#e8e6ff", col2: "#8f86c9", shape: "ring", src: { type: "level", lvl: 8 } },
-    { id: "solar", name: "Solar", rarity: "rara", col: "#fff1a8", col2: "#ffb547", shape: "star", src: { type: "level", lvl: 9 } },
-    { id: "prisma", name: "Prisma", rarity: "epica", col: null, shape: "hex", src: { type: "level", lvl: 12 } },
-    { id: "nebula", name: "Nébula", rarity: "epica", col: "#b48cff", col2: "#ff7ad9", shape: "hex", src: { type: "level", lvl: 16 } },
-    { id: "obsidiana", name: "Obsidiana", rarity: "comun", col: "#5a4f8c", col2: "#cbbfff", shape: "square", src: { type: "shop", price: 150 } },
-    { id: "diamante", name: "Diamante", rarity: "rara", col: "#8fd8ff", col2: "#b48cff", shape: "diamond", src: { type: "shop", price: 300 } },
-    { id: "neon", name: "Neón", rarity: "rara", col: "#5ef2c2", col2: "#ff7ad9", shape: "ring", src: { type: "shop", price: 320 } },
-    { id: "esmeralda", name: "Esmeralda", rarity: "rara", col: "#2fd68a", col2: "#c9ffe6", shape: "hex", src: { type: "shop", price: 340 } },
-    { id: "rubi", name: "Rubí", rarity: "rara", col: "#ff3d6e", col2: "#ffc2d1", shape: "diamond", src: { type: "shop", price: 340 } },
-    { id: "cometa", name: "Cometa", rarity: "rara", col: "#cbbfff", col2: "#ffffff", shape: "orb", src: { type: "shop", price: 350 } },
-    { id: "brasa", name: "Brasa", rarity: "epica", col: "#ff8a3d", col2: "#ffd166", shape: "orb", src: { type: "shop", price: 600 } },
-    { id: "glitch", name: "Glitch", rarity: "epica", col: "#ff5470", col2: "#5ef2c2", shape: "square", src: { type: "shop", price: 650 } },
-    { id: "pixel", name: "Píxel", rarity: "epica", col: "#7bff6b", col2: "#1d1747", shape: "square", src: { type: "shop", price: 680 } },
-    { id: "galaxia", name: "Galaxia", rarity: "legendaria", col: "#b48cff", col2: "#8fd8ff", shape: "star", src: { type: "shop", price: 1200 } },
-    { id: "aurora", name: "Aurora", rarity: "epica", col: "#5ef2c2", col2: "#b48cff", shape: "orb", src: { type: "daily" } },
-    { id: "soln", name: "Sol negro", rarity: "legendaria", col: "#1a1333", col2: "#ffb547", shape: "ring", src: { type: "ach", id: "path10" } },
-    { id: "corona", name: "Corona", rarity: "legendaria", col: "#ffd166", col2: "#ff8a3d", shape: "star", src: { type: "ach", id: "outlier" } },
-    // Exclusivas de liga
-    { id: "laurel", name: "Laurel", rarity: "epica", col: "#ffd166", col2: "#fff1a8", shape: "ring", src: { type: "rank", tier: 2 } },
-    { id: "tormenta", name: "Tormenta", rarity: "epica", col: "#5ef2c2", col2: "#e8f7ff", shape: "hex", src: { type: "rank", tier: 3 } },
-    { id: "cristal", name: "Cristal", rarity: "legendaria", col: "#e8f7ff", col2: "#8fd8ff", shape: "diamond", src: { type: "rank", tier: 4 } },
-    { id: "fenix", name: "Fénix", rarity: "legendaria", col: "#ff5d3d", col2: "#ffd166", shape: "star", src: { type: "rank", tier: 5 } },
-    { id: "eclipse", name: "Eclipse", rarity: "mitica", col: "#0d0a20", col2: "#ffd166", shape: "ring", src: { type: "rank", tier: 6 } },
-    // Rango Fundador: sólo por código promocional
-    { id: "singularidad", name: "Singularidad", rarity: "fundador", col: "#ffd166", col2: "#b48cff", shape: "singularity", src: { type: "code" } }
-  ];
-  var TRAILS = [
-    { id: "basica", name: "Básica", rarity: "comun", type: "dots", col: null, src: { type: "level", lvl: 1 } },
-    { id: "chispas", name: "Chispas", rarity: "rara", type: "spark", col: null, src: { type: "level", lvl: 5 } },
-    { id: "arcoiris", name: "Arcoíris", rarity: "epica", type: "rainbow", col: null, src: { type: "level", lvl: 10 } },
-    { id: "burbujas", name: "Burbujas", rarity: "rara", type: "bubbles", col: "#8fd8ff", src: { type: "level", lvl: 14 } },
-    { id: "cinta", name: "Cinta", rarity: "rara", type: "ribbon", col: null, src: { type: "shop", price: 280 } },
-    { id: "estela_cometa", name: "Cola de cometa", rarity: "rara", type: "comet", col: "#e8f7ff", src: { type: "shop", price: 360 } },
-    { id: "llamas", name: "Llamas", rarity: "epica", type: "fire", col: "#ff8a3d", col2: "#ffd166", src: { type: "shop", price: 620 } },
-    { id: "interferencia", name: "Interferencia", rarity: "epica", type: "glitch", col: "#ff5470", col2: "#5ef2c2", src: { type: "shop", price: 640 } },
-    { id: "polvo", name: "Polvo de hada", rarity: "epica", type: "spark", col: "#ff7ad9", col2: "#fff1a8", src: { type: "shop", price: 560 } },
-    { id: "plata", name: "Estela plateada", rarity: "rara", type: "ribbon", col: "#e8ecf5", col2: "#9aa6c0", src: { type: "rank", tier: 1 } },
-    { id: "rayo", name: "Rayo", rarity: "epica", type: "bolt", col: "#8fd8ff", col2: "#ffffff", src: { type: "rank", tier: 3 } },
-    { id: "constelacion", name: "Constelación", rarity: "legendaria", type: "stars", col: "#e8f7ff", col2: "#8fd8ff", src: { type: "rank", tier: 4 } },
-    { id: "brasas", name: "Brasas reales", rarity: "legendaria", type: "embers", col: "#ffd166", col2: "#ff5d3d", src: { type: "rank", tier: 5 } },
-    { id: "vacio", name: "Vacío", rarity: "mitica", type: "void", col: "#ffd166", col2: "#0d0a20", src: { type: "rank", tier: 6 } },
-    { id: "boreal", name: "Boreal", rarity: "legendaria", type: "ribbon", col: "#5ef2c2", col2: "#b48cff", src: { type: "ach", id: "rival5" } },
-    { id: "supernova", name: "Supernova", rarity: "fundador", type: "supernova", col: "#ffd166", col2: "#ff5ed1", src: { type: "code" } }
-  ];
-  var skinById = (id) => SKINS.find((k) => k.id === id) || SKINS[0];
-  var trailById = (id) => TRAILS.find((k) => k.id === id) || TRAILS[0];
-  function isOwned(item, ctx) {
-    const s = item.src;
-    if (s.type === "level") return ctx.level >= s.lvl;
-    if (s.type === "rank") return ctx.peakTier >= s.tier;
-    if (s.type === "ach") return !!ctx.ach[s.id];
-    return !!ctx.owned[item.id];
-  }
-  var TIER_NAMES = ["Bronce", "Plata", "Oro", "Platino", "Diamante", "Maestro", "Leyenda"];
-  var ACH_TEXT = { outlier: "Sé Outlier del minuto", path10: "Logro Imparable", rival5: "Logro Némesis" };
-  function unlockText(item) {
-    const s = item.src;
-    if (s.type === "level") return `Nivel ${s.lvl}`;
-    if (s.type === "rank") return `Liga ${TIER_NAMES[s.tier]}`;
-    if (s.type === "ach") return ACH_TEXT[s.id] || "Logro";
-    if (s.type === "daily") return "Premio del día 7";
-    if (s.type === "code") return "Código promocional";
-    return `Tienda · ${s.price}`;
-  }
-  var SHOP_SKINS = SKINS.filter((k) => k.src.type === "shop");
-  var SHOP_TRAILS = TRAILS.filter((k) => k.src.type === "shop");
-  var rankRewards = (tier) => [
-    ...SKINS.filter((k) => k.src.type === "rank" && k.src.tier === tier).map((k) => ({ kind: "skin", item: k })),
-    ...TRAILS.filter((k) => k.src.type === "rank" && k.src.tier === tier).map((k) => ({ kind: "trail", item: k }))
-  ];
-
   // src/game/ranks.js
   var TIERS = [
     { id: "bronce", name: "Bronce", col: "#d08b5b" },
@@ -3409,7 +3481,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     shopSeen: "",
     // v0.7
     codes: {},
-    name: ""
+    name: "",
+    server: ""
   };
   var TITLES = [
     { lvl: 1, name: "Chispa" },
@@ -3544,6 +3617,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     if (!save2.daily || typeof save2.daily !== "object") save2.daily = { last: "", next: 0 };
     if (!Array.isArray(save2.records)) save2.records = [];
     if (typeof save2.name !== "string") save2.name = "";
+    if (typeof save2.server !== "string") save2.server = "";
     if (!SKINS.some((k) => k.id === save2.skin)) save2.skin = DEFAULTS.skin;
     if (!TRAILS.some((k) => k.id === save2.trail)) save2.trail = DEFAULTS.trail;
     save2.v = 4;
@@ -3704,6 +3778,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     share: "Compartir resultado",
     daily: "Recompensa diaria",
     rankup: "Ascenso",
+    online: "Jugar online",
+    room: "Sala",
     codes: "Canjear código",
     redeemed: "¡Código canjeado!"
   };
@@ -3846,6 +3922,106 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
       body.append(el("p", "note", "Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria."));
       body.append(redeemBox(env2));
+    },
+    // Conexión: nombre, servidor y a qué sala entrar
+    online(body, env2, data) {
+      const o = env2.h.onlineState();
+      const form = el("form", "online-form");
+      form.noValidate = true;
+      const nameL = el("label", "redeem-label", "Tu nombre en la sala");
+      const name = el("input", "redeem-input name-input");
+      name.id = "onlineName";
+      nameL.htmlFor = name.id;
+      Object.assign(name, { type: "text", maxLength: 16, autocomplete: "nickname", placeholder: "Ej: Ana", value: env2.save.name || "" });
+      form.append(nameL, name);
+      let url = null;
+      if (o.askUrl) {
+        const urlL = el("label", "redeem-label", "Servidor");
+        url = el("input", "redeem-input url-input");
+        url.id = "onlineUrl";
+        urlL.htmlFor = url.id;
+        Object.assign(url, { type: "url", placeholder: "mi-servidor.onrender.com", value: env2.save.server || "", autocomplete: "off", spellcheck: false });
+        form.append(urlL, url, el("p", "note", "Abriste el juego como archivo: poné la dirección del servidor online (te la pasa quien lo publicó)."));
+      }
+      const msg = el("p", "redeem-msg", o.msg || "");
+      msg.setAttribute("role", "status");
+      const go = (action, code2) => {
+        const r = env2.h.onOnlineGo({ name: name.value, url: url ? url.value : null, action, code: code2 });
+        if (r && r.error) msg.textContent = r.error;
+      };
+      const global = el("button", "btn btn-primary online-global");
+      global.type = "submit";
+      global.innerHTML = '<span class="live-dot" aria-hidden="true"></span>';
+      global.append(el("span", "", "Minuto global"), el("small", "", o.nextGlobal ? `Próxima ronda en ${o.nextGlobal}` : "Una ronda al comenzar cada minuto"));
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        go("global");
+      });
+      const create = el("button", "btn btn-ghost", "Crear sala privada");
+      create.type = "button";
+      create.addEventListener("click", () => go("create"));
+      const joinRow = el("div", "redeem-row");
+      const code = el("input", "redeem-input");
+      code.id = "roomCode";
+      Object.assign(code, { type: "text", maxLength: 4, placeholder: "CÓDIGO", autocomplete: "off", spellcheck: false });
+      code.setAttribute("aria-label", "Código de sala");
+      if (data && data.code) code.value = data.code;
+      code.addEventListener("input", () => {
+        code.value = code.value.toUpperCase().replace(/[^A-Z]/g, "");
+      });
+      const join = el("button", "btn btn-ghost btn-sm", "Unirme");
+      join.type = "button";
+      join.addEventListener("click", () => go("join", code.value));
+      joinRow.append(code, join);
+      form.append(global, create, el("p", "redeem-label", "O entrá a la sala de un amigo"), joinRow, msg);
+      body.append(form);
+      if (o.status === "connecting") msg.textContent = "Conectando…";
+    },
+    // Sala: jugadores, código para invitar y cuándo empieza
+    room(body, env2) {
+      const o = env2.h.onlineState(), r = o.room;
+      if (!r) {
+        body.append(el("p", "", "Conectando con la sala…"));
+        return;
+      }
+      const head = el("div", "room-head");
+      if (r.pub) {
+        head.append(el("strong", "", "Minuto global"), el("small", "", "Sala pública: juega todo el que esté conectado"));
+      } else {
+        const codeEl = el("strong", "room-code", r.code);
+        head.append(el("small", "", "Código de la sala"), codeEl);
+        const share = el("button", "btn btn-ghost btn-sm", "Copiar invitación");
+        share.type = "button";
+        share.addEventListener("click", async () => {
+          share.textContent = await env2.h.onInvite() ? "¡Copiada!" : "Código: " + r.code;
+        });
+        head.append(share);
+      }
+      body.append(head);
+      const status = el("p", "room-status");
+      const inRound = r.phase === "playing" || r.phase === "countdown";
+      if (inRound) status.textContent = "Hay una ronda en curso: entrás en la próxima.";
+      else if (r.pub) status.textContent = o.nextGlobal ? `La próxima ronda empieza en ${o.nextGlobal}` : "Esperando la próxima ronda…";
+      else status.textContent = r.host === o.myId ? "Sos el anfitrión: empezá cuando estén todos." : "Esperando que el anfitrión empiece la ronda…";
+      body.append(status);
+      const ul = el("ul", "room-players");
+      for (const p of r.players) {
+        const li = el("li", p.id === o.myId ? "me" : "");
+        li.append(skinPreview(skinById(p.skin)), el("span", "", p.name + (p.id === o.myId ? " (vos)" : "")));
+        if (p.id === r.host) li.append(el("em", "", "Anfitrión"));
+        ul.append(li);
+      }
+      body.append(el("p", "redeem-label", `${r.players.length} ${r.players.length === 1 ? "jugador" : "jugadores"} + bots hasta completar la multitud`), ul);
+      if (!r.pub && r.host === o.myId && !inRound) {
+        const start = el("button", "btn btn-primary", "Empezar ronda");
+        start.type = "button";
+        start.addEventListener("click", () => env2.h.onRoomStart());
+        body.append(start);
+      }
+      const leave = el("button", "btn btn-ghost", "Salir de la sala");
+      leave.type = "button";
+      leave.addEventListener("click", () => env2.h.onRoomLeave());
+      body.append(leave);
     },
     codes(body, env2) {
       body.append(el("p", "", "Si tenés un código de un evento o de los creadores, canjealo acá."), redeemBox(env2));
@@ -4367,9 +4543,44 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       const prize = 5 + f.k * 5;
       $("predictInfo").textContent = mine >= 0 ? `Elegiste ${LANES[mine]}: si acertás, +${prize} destellos.` : locked ? "Ya se cerraron las predicciones." : `Acertá y ganás ${prize} destellos. Llevás ${stats.hits} ${stats.hits === 1 ? "acierto" : "aciertos"}.`;
     }
-    function setRival(name, rankLabel) {
+    function setRival(name, rankLabel, label = "Rival") {
+      $("hRival").querySelector(".lbl").textContent = label;
       $("hRivalName").textContent = name;
       $("hRivalRank").textContent = rankLabel;
+    }
+    function setOnlineMode(on) {
+      $("spectActions").hidden = on;
+      document.body.classList.toggle("is-online", on);
+    }
+    function renderStandings(list, myId) {
+      const box = $("rStandings");
+      box.innerHTML = "";
+      box.hidden = !list || list.length < 1;
+      if (box.hidden) return;
+      const head = document.createElement("p");
+      head.className = "lbl";
+      head.textContent = "Tu sala";
+      box.append(head);
+      const ol = document.createElement("ol");
+      for (const p of list.slice(0, 12)) {
+        const li = document.createElement("li");
+        if (p.id === myId) li.className = "me";
+        const n = document.createElement("b");
+        n.textContent = "#" + fmt(p.rank);
+        const nm = document.createElement("span");
+        nm.textContent = p.name + (p.id === myId ? " (vos)" : "");
+        const sc = document.createElement("em");
+        sc.textContent = fmt(p.score) + " pts";
+        li.append(n, nm, sc);
+        ol.append(li);
+      }
+      box.append(ol);
+    }
+    function setAgain(label, count) {
+      const b = $("again");
+      b.firstChild.textContent = label + " ";
+      $("rNext").hidden = count === null;
+      if (count !== null) $("rNext").textContent = count;
     }
     function showHud(on) {
       $("hud").hidden = !on;
@@ -4480,6 +4691,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       $("rUnlock").hidden = !lines.length;
       $("rUnlock").textContent = lines.join(" ");
       const rv = $("rRival");
+      rv.hidden = !sum.rival;
       rv.className = "rival-line" + (sum.beatRival ? " win" : "");
       rv.innerHTML = sum.beatRival ? `Le ganaste a tu rival <b>${esc(sum.rival)}</b> · <b>+5 PR</b>` : `Tu rival <b>${esc(sum.rival)}</b> duró más que vos.`;
       const ul = $("rMissions");
@@ -4506,6 +4718,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
       box.hidden = !rep.newAch.length;
       $("rOutlier").textContent = outlier.you ? `¡Vos! · ${fmt(outlier.score)} pts` : `${outlier.name} · ${fmt(outlier.score)} pts`;
+      renderStandings(null);
     }
     function setNext(n) {
       $("rNext").textContent = n;
@@ -4541,7 +4754,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       if (opener && opener.focus) opener.focus({ preventScroll: true });
     }
     $("play").addEventListener("click", h.onPlay);
-    $("again").addEventListener("click", h.onPlay);
+    $("again").addEventListener("click", h.onAgain);
+    $("onlineBtn").addEventListener("click", () => {
+      h.onUi();
+      h.onOnline();
+    });
     $("home").addEventListener("click", h.onHome);
     $("skip").addEventListener("click", h.onSkip);
     $("nextNow").addEventListener("click", h.onNextNow);
@@ -4582,6 +4799,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       }
     });
     return {
+      setOnlineMode,
+      renderStandings,
+      setAgain,
       banner,
       hideBanner,
       hint,
@@ -4652,6 +4872,434 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return { ok: true, reward: { ...reward, item } };
   }
 
+  // src/net/client.js
+  var PROTOCOL = 1;
+  function serverUrl(custom) {
+    const raw = (custom || "").trim();
+    if (raw) {
+      let u = raw.replace(/^http/, "ws");
+      if (!/^wss?:\/\//.test(u)) u = "wss://" + u;
+      if (!/\/ws\/?$/.test(u)) u = u.replace(/\/$/, "") + "/ws";
+      return u;
+    }
+    if (typeof location !== "undefined" && /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname)) {
+      return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+    }
+    return CFG.ONLINE_URL || "";
+  }
+  var NetClient = class {
+    constructor(onMessage, onStatus) {
+      this.onMessage = onMessage;
+      this.onStatus = onStatus;
+      this.ws = null;
+      this.status = "off";
+      this.offset = 0;
+      this.rtt = 0;
+      this.hello = null;
+      this.pingT = 0;
+    }
+    get serverNow() {
+      return Date.now() + this.offset;
+    }
+    setStatus(s, msg) {
+      this.status = s;
+      if (this.onStatus) this.onStatus(s, msg);
+    }
+    connect(url, hello) {
+      this.close();
+      this.hello = hello;
+      if (!url) {
+        this.setStatus("error", "Falta la dirección del servidor.");
+        return;
+      }
+      if (typeof WebSocket === "undefined") {
+        this.setStatus("error", "Tu navegador no permite el modo online.");
+        return;
+      }
+      let ws;
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        this.setStatus("error", "Dirección de servidor inválida.");
+        return;
+      }
+      this.ws = ws;
+      this.setStatus("connecting");
+      const timeout = setTimeout(() => {
+        if (this.ws === ws && ws.readyState !== 1) {
+          ws.close();
+          this.setStatus("error", "No se pudo conectar con el servidor.");
+        }
+      }, 9e3);
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        this.send({ t: "hello", v: PROTOCOL, ...hello });
+        this.ping();
+        this.pingT = setInterval(() => this.ping(), 5e3);
+      };
+      ws.onmessage = (e) => {
+        let m;
+        try {
+          m = JSON.parse(e.data);
+        } catch (err) {
+          return;
+        }
+        if (m.t === "welcome") {
+          this.id = m.id;
+          this.offset = m.now - Date.now();
+          this.setStatus("on");
+        }
+        if (m.t === "pong") {
+          const now = Date.now();
+          this.rtt = now - m.c;
+          this.offset = m.s + this.rtt / 2 - now;
+          return;
+        }
+        if (m.t === "room" || m.t === "start") this.offset = this.offset * 0.7 + (m.now - Date.now()) * 0.3;
+        this.onMessage(m);
+      };
+      ws.onclose = () => {
+        clearTimeout(timeout);
+        clearInterval(this.pingT);
+        if (this.ws !== ws) return;
+        this.ws = null;
+        if (this.status === "connecting") this.setStatus("error", "No se pudo conectar con el servidor. Revisá la dirección o probá en un rato.");
+        else if (this.status !== "error") this.setStatus("error", "Se cortó la conexión con el servidor.");
+      };
+      ws.onerror = () => {
+      };
+    }
+    ping() {
+      this.send({ t: "ping", c: Date.now() });
+    }
+    send(obj) {
+      if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
+    }
+    close() {
+      clearInterval(this.pingT);
+      if (this.ws) {
+        const ws = this.ws;
+        this.ws = null;
+        try {
+          ws.close();
+        } catch (e) {
+        }
+      }
+      this.status = "off";
+    }
+  };
+
+  // src/net/netround.js
+  var SEND_EVERY = 0.05;
+  var SNAP_DT = 4 / 60;
+  function b64bytes(s) {
+    const bin = atob(s), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  var NetRound = class {
+    constructor(start, myId, send) {
+      this.online = true;
+      this.demo = false;
+      this.seed = start.seed;
+      this.send = send;
+      const L = start.level;
+      for (const o of L.orbs) o.taken = false;
+      this.lvl = L;
+      this.n = start.n;
+      const yo = new Int8Array(b64bytes(start.yo).buffer);
+      this.crowd = {
+        x: new Float32Array(this.n),
+        yo: Float32Array.from(yo),
+        alive: new Uint8Array(this.n).fill(1),
+        x0: new Float32Array(this.n),
+        x1: new Float32Array(this.n)
+      };
+      for (let i = 0; i < this.n; i++) this.crowd.x[i] = this.crowd.x0[i] = this.crowd.x1[i] = CFG.W / 2;
+      this.humans = start.humans;
+      const me = start.humans.find((h) => h.id === myId);
+      this.meIdx = me ? me.idx : -1;
+      this.others = start.humans.filter((h) => h.id !== myId).map((h) => ({ ...h, x: CFG.W / 2, x0: CFG.W / 2, x1: CFG.W / 2, alive: true }));
+      this.aliveBots = this.n;
+      this.aliveH = start.humans.length;
+      this.t = 0;
+      this.pY = 0;
+      this.speed = CFG.SPEED0;
+      this.cf = 0;
+      this.px = CFG.W / 2;
+      this.ptx = this.px;
+      this.keyDir = 0;
+      this.pAlive = this.meIdx >= 0;
+      this.pLane = -1;
+      this.laneFork = -1;
+      this.score = 0;
+      this.combo = 0;
+      this.charges = CFG.DASH_START;
+      this.dashFork = -1;
+      this.forkLog = [];
+      this.rival = -1;
+      this.rivalAlive = true;
+      this.rivalName = "";
+      this.ended = false;
+      this.outlier = null;
+      this.result = null;
+      this.events = [];
+      this.running = false;
+      this.clock = null;
+      this.snapAt = 0;
+      this.sendT = 0;
+      this.overtime = 0;
+      this.pOrb = 0;
+    }
+    // Durante la cuenta regresiva: moverse y avisar la posición inicial
+    idle(dt) {
+      this.movePlayer(dt, null);
+      this.sendT -= dt;
+      if (this.sendT <= 0) {
+        this.sendT = 0.1;
+        this.send({ t: "in", x: Math.round(this.px * 10) / 10, y: 0 });
+      }
+    }
+    get total() {
+      return this.n + this.humans.length;
+    }
+    get aliveTotal() {
+      return this.aliveBots + this.aliveH;
+    }
+    get fork() {
+      return this.lvl.forks[this.cf];
+    }
+    setTarget(x) {
+      this.ptx = x;
+    }
+    setKeyDir(d) {
+      this.keyDir = d;
+      if (!d) this.ptx = this.px;
+    }
+    tension() {
+      const f = this.fork;
+      if (!f || this.ended) return 0.3;
+      if (this.pY >= f.entryY) return 0.85 + 0.15 * clamp((this.pY - f.entryY) / (f.endY - f.entryY), 0, 1);
+      if (this.pY >= f.startY - 150) return 0.55 + 0.25 * clamp((this.pY - f.startY + 150) / (f.entryY - f.startY + 150), 0, 1);
+      return 0.4;
+    }
+    movePlayer(dt, f) {
+      const P = CFG.PR;
+      if (this.keyDir) this.ptx = this.px + this.keyDir * 60;
+      let lo = CFG.WALL + P, hi = CFG.W - CFG.WALL - P;
+      if (f && !f.resolved && this.laneFork !== f.i && this.pY >= f.entryY) {
+        this.laneFork = f.i;
+        this.pLane = laneAt(f, this.px);
+      }
+      if (f && this.laneFork === f.i && this.pLane >= 0) {
+        const L = f.lanes[this.pLane];
+        lo = L.x0 + P;
+        hi = L.x1 - P;
+      }
+      const md = CFG.PLAYER_SPEED * dt;
+      this.px = clamp(this.px + clamp(clamp(this.ptx, lo, hi) - this.px, -md, md), lo, hi);
+    }
+    canDash() {
+      const f = this.fork;
+      return !!(this.pAlive && !this.ended && this.running && f && this.charges > 0 && this.laneFork === f.i && this.pLane >= 0 && !f.resolved && this.pY < f.endY - 10 && this.dashFork !== f.i);
+    }
+    dash(dir) {
+      if (!this.canDash()) return false;
+      const f = this.fork, to = this.pLane + dir;
+      if (to < 0 || to >= f.k) return false;
+      const from = this.pLane, fromX = this.px;
+      this.send({ t: "in", x: this.px, y: this.pY });
+      this.send({ t: "dash", d: dir });
+      this.pLane = to;
+      this.px = this.ptx = (f.lanes[to].x0 + f.lanes[to].x1) / 2;
+      this.charges--;
+      this.dashFork = f.i;
+      this.events.push({ type: "dash", from, to, x0: fromX, x1: this.px, y: this.pY });
+      return true;
+    }
+    // ---------- Reloj e interpolación ----------
+    step(dt) {
+      if (!this.running || this.ended) return;
+      this.t += dt;
+      this.pY += this.speed * dt;
+      const c = this.clock;
+      if (c) {
+        const el2 = (performance.now() - c.at) / 1e3;
+        const ty = c.y + c.sp * el2, tt = c.T + el2;
+        if (Math.abs(ty - this.pY) > 250) {
+          this.pY = ty;
+          this.t = tt;
+        } else {
+          const k = Math.min(1, dt * 4);
+          this.pY += (ty - this.pY) * k;
+          this.t += (tt - this.t) * k;
+        }
+      }
+      const f = this.fork;
+      if (this.pAlive) {
+        this.movePlayer(dt, f);
+        const P = CFG.PR;
+        for (const o of this.lvl.orbs) {
+          if (o.y > this.pY + 24) break;
+          if (!o.taken && o.y > this.pY - 24 && Math.abs(o.y - this.pY) < P + 8 && Math.abs(o.x - this.px) < P + 8) o.taken = true;
+        }
+        this.sendT -= dt;
+        if (this.sendT <= 0) {
+          this.sendT = SEND_EVERY;
+          this.send({ t: "in", x: Math.round(this.px * 10) / 10, y: Math.round(this.pY * 10) / 10 });
+        }
+      }
+      const a = clamp((performance.now() - this.snapAt) / 1e3 / SNAP_DT, 0, 1), cr = this.crowd;
+      for (let i = 0; i < this.n; i++) if (cr.alive[i]) cr.x[i] = cr.x0[i] + (cr.x1[i] - cr.x0[i]) * a;
+      for (const o of this.others) o.x = o.x0 + (o.x1 - o.x0) * a;
+    }
+    // ---------- Mensajes del servidor ----------
+    onSnap(m) {
+      const now = performance.now();
+      this.clock = { T: m.T, y: m.y, sp: m.sp, at: now };
+      if (!this.running) {
+        this.running = true;
+        this.pY = m.y;
+        this.t = m.T;
+      }
+      this.speed = m.sp;
+      this.aliveBots = m.ab;
+      this.aliveH = m.ah;
+      if (m.me) {
+        this.score = m.me.sc;
+        this.combo = m.me.cb;
+        if (this.dashFork !== (this.fork && this.fork.i) || m.me.ch <= this.charges) this.charges = m.me.ch;
+      }
+      const bx = b64bytes(m.bx), cr = this.crowd;
+      for (let i = 0; i < this.n; i++) {
+        const v = bx[i];
+        if (!v) {
+          cr.alive[i] = 0;
+          continue;
+        }
+        const x = (v - 1) / 254 * CFG.W;
+        cr.x0[i] = cr.alive[i] ? cr.x[i] : x;
+        cr.x1[i] = x;
+      }
+      for (const [idx, x, alive] of m.hs) {
+        const o = this.others.find((p) => p.idx === idx);
+        if (!o) continue;
+        o.x0 = o.x;
+        o.x1 = x;
+        o.alive = !!alive;
+      }
+      this.snapAt = now;
+      if (m.f) {
+        const f = this.lvl.forks[m.f.i];
+        if (f) {
+          f.intent = m.f.in;
+          f.counts = m.f.c;
+          f.trend = m.f.tr;
+        }
+      }
+    }
+    onEvents(m) {
+      const personal = m.p || [];
+      for (const e of m.g || []) {
+        switch (e.type) {
+          case "forkAnnounce": {
+            const f = this.lvl.forks[e.fork];
+            if (f && !f.announced) {
+              f.announced = true;
+              this.events.push({ type: "forkAnnounce", fork: f });
+            }
+            break;
+          }
+          case "forkResolved": {
+            const f = this.lvl.forks[e.fork];
+            if (!f) break;
+            f.resolved = true;
+            f.resolvedAt = this.t;
+            f.collapsed = e.collapsed;
+            f.counts = e.counts;
+            f.lottery = e.lottery;
+            const surv = personal.find((p) => p.type === "survived");
+            const died = personal.find((p) => p.type === "playerDied" && p.why !== "wall");
+            let outcome = null, gold = false;
+            if (surv) {
+              outcome = "survived";
+              gold = surv.gold;
+              this.forkLog.push("ok");
+            } else if (died) {
+              outcome = "died";
+              this.forkLog.push("lost");
+            }
+            const fx2 = [];
+            for (let k = 0; k + 1 < e.fx.length; k += 2) fx2.push(e.fx[k], e.fx[k + 1] - (this.clock ? this.clock.y - this.pY : 0));
+            this.events.push({ type: "forkResolved", fork: f, collapsed: e.collapsed, fallen: e.fallen, fx: fx2, outcome, gold, lottery: e.lottery });
+            this.cf = Math.max(this.cf, e.fork + 1);
+            this.pLane = -1;
+            break;
+          }
+          case "overtime": {
+            const L = this.lvl, s = e.seg;
+            L.gates.push(...s.gates);
+            L.forks.push(s.fork);
+            for (const o of s.orbs) {
+              o.taken = false;
+              L.orbs.push(o);
+            }
+            L.orbs.sort((a, b) => a.y - b.y);
+            L.endY = e.endY;
+            this.overtime = e.n;
+            this.events.push({ type: "overtime", n: e.n, alive: e.alive });
+            break;
+          }
+          case "humanDown":
+            if (!this.humans[this.meIdx] || e.id !== this.humans[this.meIdx].id) this.events.push({ type: "humanDown", name: e.name, why: e.why });
+            break;
+          default:
+            break;
+        }
+      }
+      for (const e of personal) {
+        switch (e.type) {
+          case "orb": {
+            const o = this.lvl.orbs[e.k];
+            if (o) o.taken = true;
+            this.events.push(e);
+            break;
+          }
+          case "charge":
+            this.charges = e.charges;
+            this.events.push(e);
+            break;
+          case "nearMiss":
+          case "gatePass":
+          case "milestone":
+            this.events.push(e);
+            break;
+          case "playerDied":
+            this.pAlive = false;
+            this.pDeath = this.t;
+            this.combo = 0;
+            this.events.push({ ...e, x: this.px, y: this.pY });
+            break;
+          default:
+            break;
+        }
+      }
+    }
+    onEnd(m, myId) {
+      this.ended = true;
+      this.result = m.sum;
+      this.standings = m.standings;
+      const o = m.outlier || {};
+      this.outlier = { you: !!(o.human && o.id === myId), name: o.name || "—", score: o.score || 0, human: !!o.human };
+    }
+    summary() {
+      return this.result;
+    }
+  };
+
+  // src/util/name.js
+  var cleanName = (s) => String(s || "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 16);
+
   // src/main.js
   var store = localStore();
   var save = loadSave(store);
@@ -4682,6 +5330,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   var trail = [];
   var TRAIL_LEN = 44;
   var LANE = ["A", "B", "C", "D"];
+  var mode = "solo";
+  var net = null;
+  var online = { room: null, msg: "", pending: null, url: "", startAt: 0 };
+  var roomRefreshT = 0;
   var randSeed = () => Math.random() * 4294967296 >>> 0;
   var env = () => {
     const now = /* @__PURE__ */ new Date();
@@ -4703,18 +5355,77 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return isOwned(tr, ownedCtx(save)) ? tr : trailById("basica");
   }
   function refreshMenu() {
+    updateOnlineChip();
     return ui.renderMenu(save, env());
+  }
+  function updateOnlineChip() {
+    const r = online.room, el2 = $("onlineSub");
+    if (!el2) return;
+    if (!r) el2.textContent = "Minuto global · salas privadas";
+    else if (r.pub) {
+      const t = nextGlobalText();
+      el2.textContent = t ? `En el minuto global · empieza en ${t}` : "En el minuto global";
+    } else el2.textContent = `En la sala ${r.code} · ${r.players.length} ${r.players.length === 1 ? "jugador" : "jugadores"}`;
+    $("onlineBtn").classList.toggle("in-room", !!r);
   }
   var ui = createUI({
     env,
     getSave: () => save,
     onPlay: () => {
       audio.unlock();
+      leaveOnline();
       startRound();
+    },
+    onAgain: () => {
+      audio.unlock();
+      if (mode === "online" && online.room) {
+        audio.play("ui");
+        ui.openModal("room");
+      } else {
+        leaveOnline();
+        startRound();
+      }
     },
     onHome: () => {
       audio.play("ui");
+      leaveOnline();
       toMenu();
+    },
+    onOnline: () => {
+      audio.unlock();
+      ui.openModal(online.room ? "room" : "online");
+    },
+    onlineState: () => ({
+      status: net ? net.status : "off",
+      msg: online.msg,
+      room: online.room,
+      myId: net && net.id,
+      askUrl: !serverUrl(""),
+      nextGlobal: nextGlobalText()
+    }),
+    onOnlineGo: ({ name, url, action, code }) => onlineGo(name, url, action, code),
+    onRoomStart: () => {
+      audio.play("ui");
+      net && net.send({ t: "start" });
+    },
+    onRoomLeave: () => {
+      audio.play("ui");
+      leaveOnline();
+      ui.closeModal();
+      refreshMenu();
+    },
+    onInvite: async () => {
+      const r = online.room;
+      if (!r) return false;
+      const hosted = /^https?:$/.test(location.protocol) && !/claude|anthropic/.test(location.hostname);
+      const link = hosted ? `${location.origin}${location.pathname}?sala=${r.code}` : "";
+      const text = `¡Sumate a mi sala de Contracorriente! Código: ${r.code}${link ? " · " + link : ""}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        return false;
+      }
     },
     onDash: (dir) => doDash(dir),
     onPredict: (lane) => {
@@ -4725,7 +5436,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       buzz(10);
     },
     onNextNow: () => {
-      if (state !== "playing" || R.pAlive) return;
+      if (state !== "playing" || R.pAlive || R.online) return;
       audio.play("ui");
       R.runToEnd();
       R.events.length = 0;
@@ -4733,7 +5444,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       startRound();
     },
     onSkip: () => {
-      if (state === "playing" && !R.pAlive) {
+      if (state === "playing" && !R.pAlive && !R.online) {
         R.runToEnd();
         drainEvents();
         endAt = 0.05;
@@ -4859,6 +5570,124 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     tickT = 0;
     riserFork = -1;
   }
+  function nextGlobalText() {
+    const r = online.room;
+    if (!r || !r.pub || !net || !r.startAt || r.phase !== "lobby") return "";
+    const s = Math.max(0, Math.ceil((r.startAt - net.serverNow) / 1e3));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  function onlineGo(nameRaw, url, action, code) {
+    const name = cleanName(nameRaw);
+    if (!name) return { error: "Elegí un nombre para que te reconozcan." };
+    if (action === "join" && !/^[A-Z]{4}$/.test(code || "")) return { error: "El código tiene 4 letras." };
+    save.name = name;
+    if (url !== null) save.server = (url || "").trim();
+    persist();
+    const u = serverUrl(save.server);
+    if (!u) return { error: "Poné la dirección del servidor." };
+    online.pending = { action, code };
+    online.msg = "";
+    if (net && net.status === "on" && online.url === u) doJoin();
+    else {
+      if (!net) net = new NetClient(onNet, onNetStatus);
+      online.url = u;
+      net.connect(u, { name, skin: playerSkin().id, trail: playerTrail().id });
+    }
+    return {};
+  }
+  function doJoin() {
+    const p = online.pending;
+    online.pending = null;
+    if (!p || !net) return;
+    net.send({ t: "join", create: p.action === "create", code: p.action === "join" ? p.code : "GLOBAL" });
+  }
+  function leaveOnline() {
+    if (net && online.room) net.send({ t: "leave" });
+    online.room = null;
+    mode = "solo";
+    ui.setOnlineMode(false);
+  }
+  function onNetStatus(status, msg) {
+    if (status !== "error") return;
+    online.msg = msg || "Sin conexión.";
+    const wasIn = !!online.room;
+    online.room = null;
+    if (R && R.online && (state === "playing" || state === "countdown")) {
+      ui.toast("Sin conexión", online.msg);
+      mode = "solo";
+      ui.setOnlineMode(false);
+      toMenu();
+    } else if (mode === "online") {
+      mode = "solo";
+      ui.setOnlineMode(false);
+    }
+    if (ui.modalKind === "online" || ui.modalKind === "room") ui.openModal("online");
+    else if (wasIn) ui.toast("Online", online.msg);
+    refreshMenu();
+  }
+  function onNet(m) {
+    switch (m.t) {
+      case "welcome":
+        doJoin();
+        break;
+      case "room": {
+        const first = !online.room;
+        online.room = m;
+        if (first) mode = "online";
+        if (ui.modalKind === "online" || first && ui.modalKind !== "room" && state !== "playing" && state !== "countdown") ui.openModal("room");
+        else if (ui.modalKind === "room") ui.refreshModal();
+        refreshMenu();
+        break;
+      }
+      case "err":
+        online.msg = m.msg;
+        ui.toast("Online", m.msg);
+        if (ui.modalKind === "online") ui.refreshModal();
+        break;
+      case "start":
+        startOnline(m);
+        break;
+      case "s":
+        if (R && R.online && R.seed === online.seed) R.onSnap(m);
+        break;
+      case "ev":
+        if (R && R.online && R.seed === online.seed) R.onEvents(m);
+        break;
+      case "end":
+        if (R && R.online && R.seed === online.seed) R.onEnd(m, net.id);
+        break;
+      default:
+        break;
+    }
+  }
+  function startOnline(m) {
+    if (R && !R.demo && !R.online && (state === "playing" || state === "countdown")) return;
+    ui.closeModal();
+    mode = "online";
+    online.seed = m.seed;
+    online.startAt = m.at;
+    R = new NetRound(m, net.id, (o) => net.send(o));
+    resetView();
+    pred = null;
+    predStats.hits = 0;
+    predStats.coins = 0;
+    ui.hideDash();
+    ui.setOnlineMode(true);
+    state = "countdown";
+    countT = (m.at - net.serverNow) / 1e3;
+    endAt = null;
+    tutorial = null;
+    ui.showScreen("none");
+    ui.showHud(true);
+    const r = online.room, hn = m.humans.length;
+    ui.setRival(r && !r.pub ? `Sala ${r.code}` : "Minuto global", `${hn} ${hn === 1 ? "real" : "reales"}`, "Online");
+    ui.hideSpectator();
+    ui.hideBanner();
+    ui.hideHint();
+    ui.banner(String(Math.max(1, Math.ceil(countT))), `${fmt(R.total)} jugadores · ${hn} ${hn === 1 ? "real" : "reales"}`, "count", 900);
+    audio.play("count");
+    ui.hint(hn > 1 ? "Los otros jugadores reales llevan su nombre encima." : "Invitá amigos con el código de la sala.", 2600);
+  }
   function toMenu() {
     state = "menu";
     R = new Round({ seed: randSeed(), demo: true });
@@ -4881,6 +5710,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ui.closeModal();
     const guided = save.rounds === 0 ? 3 : save.rounds === 1 ? 1 : 0;
     R = new Round({ seed: randSeed(), guided });
+    ui.setOnlineMode(false);
     resetView();
     pred = null;
     predStats.hits = 0;
@@ -4902,6 +5732,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     else ui.hint(`Tu rival es ${R.rivalName}: durá más que él.`, 2600);
   }
   function finishRound({ quick = false } = {}) {
+    if (R.online && !R.summary()) {
+      toMenu();
+      if (online.room) ui.openModal("room");
+      return;
+    }
     lastSum = { ...R.summary(), predHits: predStats.hits, predCoins: predStats.coins };
     const rep = applyRound(save, lastSum);
     persist();
@@ -4919,7 +5754,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     ui.renderResults(lastSum, rep, R.outlier);
     ui.showScreen("results");
     nextT = CFG.NEXT_S;
-    ui.setNext(nextT);
+    if (R.online) {
+      ui.renderStandings(R.standings, net && net.id);
+      ui.setAgain("Volver a la sala", null);
+    } else ui.setAgain("Jugar otra", nextT);
     if (lastSum.outlier) {
       audio.play("outlier");
       buzz([30, 50, 30, 50, 60]);
@@ -5040,6 +5878,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
           ui.hint("Cada 10 chispas ganás un impulso para cambiarte de camino.", 3200);
         }
         break;
+      case "humanDown":
+        ui.feed("hot", "", e.name, e.why === "wall" ? " chocó contra un muro" : " cayó");
+        break;
       case "rivalDown":
         ui.feed("good", "Tu rival ", e.name, " cayó");
         audio.play("rival");
@@ -5113,7 +5954,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     buzz(160);
     const sub = e.why === "wall" ? "Te llevaste puesto un muro" : e.why === "lottery" ? "Nadie se separó y la corriente te llevó" : e.why === "inverted" ? `Era una inversión: caía el más vacío (${fmt(e.sameEvent + 1)} cayeron con vos)` : `Elegiste el camino de la mayoría (${fmt(e.sameEvent + 1)} cayeron con vos)`;
     ui.banner(e.why === "wall" ? "Chocaste" : "Caíste", sub, "bad", 1800);
-    ui.showSpectator(e.rank, R.n + 1, e.pct);
+    ui.showSpectator(e.rank, R.total, e.pct);
   }
   function tensionTick(dt) {
     const f = R.fork;
@@ -5176,6 +6017,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     return state === "menu" ? 0.18 : 0.12;
   }
   function simulate(dt) {
+    if (R.online) {
+      R.step(dt);
+      drainEvents();
+      return;
+    }
     acc += dt;
     while (acc >= CFG.FIXED_DT) {
       R.step(CFG.FIXED_DT);
@@ -5190,21 +6036,26 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     const sk = playerSkin(), tr = playerTrail();
     if (state === "countdown") {
       const before = Math.ceil(countT);
-      countT -= dt;
-      R.movePlayer(dt, null);
+      if (R.online) {
+        countT = (online.startAt - net.serverNow) / 1e3;
+        R.idle(dt);
+      } else {
+        countT -= dt;
+        R.movePlayer(dt, null);
+      }
       if (countT <= 0) {
         state = "playing";
-        ui.banner("¡Ya!", `${fmt(R.n + 1)} jugadores cayendo a la vez`, "ok", 900);
+        ui.banner("¡Ya!", `${fmt(R.total)} jugadores cayendo a la vez`, "ok", 900);
         audio.play("go");
         buzz(30);
       } else if (Math.ceil(countT) !== before) {
-        ui.banner(String(Math.ceil(countT)), `${fmt(R.n + 1)} jugadores listos`, "count", 900);
+        ui.banner(String(Math.ceil(countT)), `${fmt(R.total)} jugadores listos`, "count", 900);
         audio.play("count");
       }
     } else if (state === "playing") {
       if (slowT > 0) slowT -= dt;
       else slow = Math.min(1, slow + dt * 2.5);
-      simulate(dt * slow);
+      simulate(R.online ? dt : dt * slow);
       tensionTick(dt);
       emitTrail(dt, sk, tr);
       if (tutorial && !tutorial.dash && R.canDash()) {
@@ -5223,7 +6074,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     } else {
       simulate(dt);
       if (state === "menu" && R.ended) R = new Round({ seed: randSeed(), demo: true });
-      if (state === "results" && !ui.modalOpen) {
+      if (state === "results" && mode === "online") {
+        const txt = nextGlobalText();
+        if (txt !== ui.lastNext) {
+          ui.lastNext = txt;
+          ui.setAgain("Volver a la sala", txt || null);
+        }
+      } else if (state === "results" && !ui.modalOpen) {
         const before = Math.ceil(nextT);
         nextT -= dt;
         if (Math.ceil(nextT) !== before) {
@@ -5241,6 +6098,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
       ui.hud(R);
       ui.dashButtons(R);
       ui.predict(R, pred, predStats);
+    }
+    roomRefreshT -= dt;
+    if (roomRefreshT <= 0) {
+      roomRefreshT = 1;
+      if (ui.modalKind === "room") ui.refreshModal();
+      if (state === "menu") updateOnlineChip();
     }
     fx.update(dt);
     audio.setIntensity(intensity());
@@ -5347,6 +6210,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   audio.onBeat = (strong) => renderer.beat(strong ? 1 : 0.55);
   setupPWA();
   toMenu();
+  try {
+    const code = new URLSearchParams(location.search).get("sala");
+    if (code && /^[A-Za-z]{4}$/.test(code)) setTimeout(() => ui.openModal("online", { code: code.toUpperCase() }), 400);
+  } catch (e) {
+  }
   requestAnimationFrame(frame);
   window.__contracorriente = {
     get round() {
@@ -5357,6 +6225,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
     },
     get save() {
       return save;
+    },
+    get online() {
+      return { mode, room: online.room, net };
     },
     startRound,
     finishRound,

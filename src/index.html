@@ -43,7 +43,7 @@
     <div id="predictBtns" class="predict-btns"></div>
     <small id="predictInfo"></small>
   </div>
-  <div class="spect-actions">
+  <div id="spectActions" class="spect-actions">
     <button id="skip" class="btn btn-ghost btn-sm" type="button">Ver resultado</button>
     <button id="nextNow" class="btn btn-primary btn-sm" type="button">Otra ronda</button>
   </div>
@@ -83,7 +83,10 @@
       <span id="pathBadge" class="path-badge" title="Racha de caminos"></span>
     </button>
     <button id="play" class="btn-play" type="button">Jugar</button>
-    <p class="online"><span class="live-dot" aria-hidden="true"></span><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
+    <button id="onlineBtn" class="btn-online" type="button">
+      <span class="live-dot" aria-hidden="true"></span><span class="bo-main">Online con amigos</span><small id="onlineSub">Minuto global · salas privadas</small>
+    </button>
+    <p class="online"><span id="lobbyCount">1.201</span> en la sala · bots simulados</p>
     <nav class="menu-grid" aria-label="Secciones">
       <button class="tile" type="button" data-open="missions">
         <span id="icMissions"></span><span>Misiones</span><small id="tMissions">0/3</small><em id="bMissions" class="badge" hidden>!</em>
@@ -143,6 +146,7 @@
       <span class="lbl">Outlier del minuto</span>
       <strong id="rOutlier"></strong>
     </div>
+    <div id="rStandings" class="standings" hidden></div>
     <div class="actions">
       <button id="again" class="btn btn-primary" type="button">Jugar otra <span id="rNext" class="count-pill">10</span></button>
       <div class="row">
