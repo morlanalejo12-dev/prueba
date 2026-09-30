@@ -4,6 +4,7 @@ import { CFG } from './config.js';
 import { fmt } from './util/math.js';
 import { hash01 } from './util/rng.js';
 import { Round } from './sim/round.js';
+import { ORB_TIERS } from './sim/level.js';
 import { AudioEngine } from './audio/audio.js';
 import { Renderer, skinColor } from './render/renderer.js';
 import { Fx, SHAPE } from './render/fx.js';
@@ -17,6 +18,8 @@ import { rankOf, botRankLabel, TIERS, TIER_PERKS } from './game/ranks.js';
 import { ensureMissions, buySkin, claimDaily, missionText } from './game/meta.js';
 import { createUI, $ } from './ui/ui.js';
 import { redeemCode } from './game/codes.js';
+import { claimPass, claimablePass, passInfo } from './game/pass.js';
+import { claimAchievement, claimableAch } from './game/progress.js';
 import { musicById } from './game/music.js';
 import { nameStyleById } from './game/names.js';
 import { NetClient, serverUrl } from './net/client.js';
@@ -146,13 +149,14 @@ const ui = createUI({
   onShare: openShare,
   onUi: () => { audio.unlock(); audio.play('ui'); },
   onModal: kind => {
+    if (kind === 'friends') { if (ensureConnected()) requestPresence(); }
     if (kind === 'shop' && save.shopSeen !== env().today) { save.shopSeen = env().today; persist(); refreshMenu(); }
     if (kind !== 'music' && previewTrack) { previewTrack = null; applyTrack(); }
   },
   onModalClosed: kind => {
     if (previewTrack) { previewTrack = null; applyTrack(); }
     // Si estabas en una sala y cambiaste tu aspecto, volver a la sala
-    if (online.room && ['collection', 'names', 'music'].includes(kind) && (state === 'menu' || state === 'results')) setTimeout(() => { if (!ui.modalOpen && online.room) ui.openModal('room'); }, 50);
+    if (online.room && ['collection', 'names', 'music', 'friends'].includes(kind) && (state === 'menu' || state === 'results')) setTimeout(() => { if (!ui.modalOpen && online.room) ui.openModal('room'); }, 50);
   },
   onSelectSkin: id => { save.skin = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); sendProfile(); },
   onSelectTrail: id => { save.trail = id; persist(); refreshMenu(); ui.refreshModal(); audio.play('ui'); sendProfile(); },
@@ -198,6 +202,65 @@ const ui = createUI({
     refreshMenu();
     ui.refreshModal();
   },
+  roomStatusText: () => roomStatusText(),
+  // Pase de temporada
+  onClaimPass: lvl => {
+    const levels = lvl === 'all' ? claimablePass(save).map(r => r.lvl) : [lvl];
+    let coins = 0;
+    const items = [];
+    for (const l of levels) {
+      const r = claimPass(save, l);
+      if (!r) continue;
+      if (r.kind === 'coins') coins += r.amount;
+      else items.push(r.item);
+    }
+    if (!coins && !items.length) return;
+    persist();
+    audio.play(items.length ? 'buy' : 'claim');
+    buzz([20, 30, 20]);
+    if (items.length === 1 && levels.length === 1) ui.openModal('prize', { ok: true, reward: { kind: kindOf(items[0]), item: items[0] } });
+    else {
+      ui.toast('Pase de temporada', `${items.length ? items.length + ' premios' : ''}${items.length && coins ? ' + ' : ''}${coins ? fmt(coins) + ' destellos' : ''}`);
+      ui.refreshModal();
+    }
+    refreshMenu();
+  },
+  onClaimAch: id => {
+    const r = claimAchievement(save, id);
+    if (!r) return;
+    persist();
+    audio.play('claim');
+    buzz([15, 30, 15]);
+    ui.toast('Logro reclamado', `+${fmt(r.coins)} destellos${r.item ? ' · ' + r.item.name : ''}`);
+    refreshMenu();
+    ui.openModal('profile', { tab: 'ach' });
+  },
+  onBuyPremium: () => {
+    audio.play('ui');
+    ui.toast('Próximamente', 'Las compras se habilitan en la versión 1.0');
+  },
+  // Amigos
+  friendsState: () => ({ status: net ? net.status : 'off', presence, msg: friendsMsg, room: online.room }),
+  onCopyFriendCode: async () => { try { await navigator.clipboard.writeText(save.friendId); return true; } catch (e) { return false; } },
+  onAddFriend: raw => {
+    const id = String(raw || '').toUpperCase().trim();
+    if (!/^[A-Z0-9]{6}$/.test(id)) return { error: 'El código de amigo tiene 6 caracteres.' };
+    if (id === save.friendId) return { error: 'Ese es tu propio código.' };
+    if (save.friends.some(f => f.id === id)) return { error: 'Ya está en tu lista.' };
+    if (save.friends.length >= 100) return { error: 'Llegaste al máximo de 100 amigos.' };
+    save.friends.push({ id, name: '' });
+    persist();
+    audio.play('claim');
+    friendsMsg = '';
+    ensureConnected();
+    requestPresence();
+    ui.refreshModal();
+    return {};
+  },
+  onRemoveFriend: id => { save.friends = save.friends.filter(f => f.id !== id); persist(); audio.play('ui'); ui.refreshModal(); },
+  onInviteFriend: id => { audio.play('ui'); if (net) net.send({ t: 'invite', to: id }); },
+  onJoinFriend: code => { audio.play('ui'); onlineGo(save.name || 'Jugador', null, code === 'GLOBAL' ? 'global' : 'join', code); },
+  onAcceptInvite: code => { audio.play('ui'); online.invite = null; onlineGo(save.name || 'Jugador', null, 'join', code); },
   onRoomOpen: kind => { audio.play('ui'); ui.openModal(kind, kind === 'collection' ? { tab: 'skins' } : undefined); },
   onCollectionTab: tab => { audio.play('ui'); ui.openModal('collection', { tab }); },
   onBuy: offer => {
@@ -247,6 +310,8 @@ const ui = createUI({
     ui.openModal('daily', { claimed: r });
   },
   canInstall: () => !!installPrompt,
+  // Avisos apagados: sin toasts ni feed mientras se juega
+  quiet: () => !save.notif && (state === 'playing' || state === 'countdown'),
   onInstall: async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
@@ -275,13 +340,49 @@ const ui = createUI({
 });
 
 // ---------- Transiciones de estado ----------
+let orbTierSeen = 0;
 function resetView() {
+  orbTierSeen = 0;
   fx.reset();
   trail.length = 0;
   acc = 0; slow = 1; slowT = 0; tickT = 0; riserFork = -1;
 }
 
 // ---------- Online ----------
+function roomStatusText() {
+  const r = online.room;
+  if (!r) return '';
+  if (r.phase === 'playing' || r.phase === 'countdown') return 'Hay una ronda en curso: entrás en la próxima.';
+  if (r.pub) { const t = nextGlobalText(); return t ? `La próxima ronda empieza en ${t}` : 'Esperando la próxima ronda…'; }
+  return r.host === (net && net.id) ? 'Sos el anfitrión: empezá cuando estén todos.' : 'Esperando que el anfitrión empiece la ronda…';
+}
+function updateRoomStatus() {
+  const el = document.getElementById('roomStatus');
+  const t = roomStatusText();
+  if (el && el.textContent !== t) el.textContent = t;
+}
+
+// ---------- Amigos ----------
+const presence = {};
+let friendsMsg = '';
+function ensureConnected() {
+  const u = serverUrl(save.server);
+  if (!u) return false;
+  if (net && (net.status === 'on' || net.status === 'connecting') && online.url === u) return true;
+  if (!net) net = new NetClient(onNet, onNetStatus);
+  online.url = u;
+  net.connect(u, profile());
+  return true;
+}
+function requestPresence() {
+  if (net && net.status === 'on' && save.friends.length) net.send({ t: 'friends', ids: save.friends.map(f => f.id) });
+}
+function refreshFriends() {
+  // No reconstruir mientras se escribe un código
+  const inp = document.getElementById('friendInput');
+  if (ui.modalKind === 'friends' && !(inp && (inp.value || document.activeElement === inp))) ui.refreshModal();
+}
+
 function nextGlobalText() {
   const r = online.room;
   if (!r || !r.pub || !net || !r.startAt || r.phase !== 'lobby') return '';
@@ -310,8 +411,9 @@ function onlineGo(nameRaw, url, action, code) {
 }
 
 function profile() {
-  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id };
+  return { name: save.name, skin: playerSkin().id, trail: playerTrail().id, nameStyle: playerNameStyle().id, friendId: save.friendId };
 }
+const kindOf = item => (item.shape ? 'skin' : item.track ? 'music' : item.fx ? 'name' : 'trail');
 function playerNameStyle() {
   const st = nameStyleById(save.nameStyle);
   return isOwned(st, ownedCtx(save)) ? st : nameStyleById('nm-blanco');
@@ -364,14 +466,35 @@ function onNetStatus(status, msg) {
 
 function onNet(m) {
   switch (m.t) {
-    case 'welcome': retries = 0; doJoin(); break;
+    case 'welcome': retries = 0; doJoin(); requestPresence(); break;
+    case 'friends': {
+      let changed = false;
+      for (const p of m.list) {
+        if (JSON.stringify(presence[p.id]) !== JSON.stringify(p)) { presence[p.id] = p; changed = true; }
+        const f = save.friends.find(x => x.id === p.id);
+        if (f && p.name && f.name !== p.name) { f.name = p.name; persist(); }
+      }
+      if (changed) refreshFriends();
+      break;
+    }
+    case 'invited': {
+      const inv = { from: m.from, code: m.code, nameStyle: m.nameStyle };
+      if (state === 'playing' || state === 'countdown') { online.invite = inv; ui.toast('Invitación', `${m.from} te invitó a su sala`); }
+      else { audio.play('claim'); ui.openModal('invite', inv); }
+      break;
+    }
+    case 'invSent': ui.toast('Amigos', 'Invitación enviada'); break;
     case 'room': {
       const first = !online.room;
       online.room = m;
       if (R && R.online) R.updateProfiles(m.players);
       if (first) mode = 'online';
+      // Solo reconstruir la ventana si cambió algo visible (jugadores, anfitrión o fase)
+      const sig = JSON.stringify([m.host, m.phase, m.players]);
+      const changed = sig !== online.sig;
+      online.sig = sig;
       if (ui.modalKind === 'online' || (first && ui.modalKind !== 'room' && state !== 'playing' && state !== 'countdown')) ui.openModal('room');
-      else if (ui.modalKind === 'room') ui.refreshModal();
+      else if (ui.modalKind === 'room') { if (changed) ui.refreshModal(); else updateRoomStatus(); }
       refreshMenu();
       break;
     }
@@ -475,6 +598,7 @@ function finishRound({ quick = false } = {}) {
   ui.renderResults(lastSum, rep, R.outlier);
   ui.showScreen('results');
   nextT = CFG.NEXT_S;
+  if (online.invite) { const inv = online.invite; online.invite = null; setTimeout(() => ui.openModal('invite', inv), 1200); }
   if (R.online) {
     ui.renderStandings(R.standings, net && net.id);
     ui.setAgain('Volver a la sala', null);
@@ -484,7 +608,8 @@ function finishRound({ quick = false } = {}) {
   if (rep.after.level > rep.before.level) setTimeout(() => { audio.play('levelup'); buzz([20, 30, 20]); }, 700);
   let delay = 1000;
   const later = fn => { setTimeout(fn, delay); delay += 800; };
-  for (const a of rep.newAch) later(() => { ui.toast('Logro desbloqueado', a.name); audio.play('ach'); });
+  for (const a of rep.newAch) later(() => { ui.toast('Logro desbloqueado', `${a.name} · reclamá tu premio en el perfil`); audio.play('ach'); });
+  if (rep.passAfter > rep.passBefore) later(() => { ui.toast('Pase de temporada', `Nivel ${rep.passAfter} · tenés premios para reclamar`); audio.play('levelup'); });
   for (const m of rep.missionsDone) later(() => { ui.toast('Misión lista para reclamar', missionText(m)); audio.play('claim'); });
   for (const k of rep.newSkins) later(() => { ui.toast('Skin desbloqueada', k.name); audio.play('buy'); });
   for (const k of rep.newTrails) later(() => { ui.toast('Estela desbloqueada', k.name); audio.play('buy'); });
@@ -522,12 +647,20 @@ function drainEvents() {
 
 function handle(e) {
   switch (e.type) {
-    case 'orb':
-      fx.burst(e.x, e.y, 8, C.gold, 140);
-      fx.pop(e.x, e.y, `+${e.pts}`, C.gold);
-      audio.play('orb', e.chain);
+    case 'orb': {
+      const T = ORB_TIERS[e.tier || 0], col = T.col || '#ffffff';
+      fx.burst(e.x, e.y, 8 + (e.tier || 0) * 4, col, 140 + (e.tier || 0) * 30);
+      fx.pop(e.x, e.y, `+${e.pts}`, col);
+      audio.play('orb', e.chain + (e.tier || 0) * 2);
       buzz(6);
+      // Primera chispa de un tipo nuevo: avisar que ahora valen más
+      if ((e.tier || 0) > orbTierSeen) {
+        orbTierSeen = e.tier;
+        ui.feed('gold', 'Las chispas ahora son ', `${T.name}s`, `: valen x${T.mult}`);
+        fx.ring(e.x, e.y, col, 120, 0.5, 3);
+      }
       break;
+    }
     case 'nearMiss': {
       const col = skinColor(playerSkin(), R.t);
       fx.burst(e.x, e.y, 12, col, 200);
@@ -749,7 +882,7 @@ function frame(now) {
     }
     if (tutorial && !tutorial.chips && R.t > 0.6) {
       tutorial.chips = true;
-      ui.hint('Juntá las chispas doradas y pasá por el hueco de cada muro.', 3600);
+      ui.hint('Juntá chispas y pasá por el hueco de cada muro: valen más en cada etapa.', 3600);
     }
     if (R.ended) {
       if (endAt === null) endAt = 1.4;
@@ -796,7 +929,8 @@ function frame(now) {
   roomRefreshT -= dt;
   if (roomRefreshT <= 0) {
     roomRefreshT = 1;
-    if (ui.modalKind === 'room') ui.refreshModal();
+    if (ui.modalKind === 'room') updateRoomStatus();
+    if (ui.modalKind === 'friends') requestPresence();
     if (state === 'menu') updateOnlineChip();
   }
   fx.update(dt);
@@ -913,6 +1047,18 @@ function setupPWA() {
 $('lobbyCount').textContent = fmt(CFG.BOTS + 1);
 $('appVersion').textContent = 'v' + CFG.VERSION;
 audio.onBeat = strong => renderer.beat(strong ? 1 : 0.55);
+// Temas grabados: embebidos en la página (archivo suelto / artifact) o descargados del sitio
+audio.loadSample = async name => {
+  const el = document.getElementById('sample-' + name);
+  if (el) {
+    const bin = atob(el.textContent.trim()), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8.buffer;
+  }
+  const res = await fetch(`music/${name}.mp3`);
+  if (!res.ok) throw new Error('sin audio');
+  return res.arrayBuffer();
+};
 setupPWA();
 applyTrack();
 toMenu();

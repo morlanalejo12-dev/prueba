@@ -6,7 +6,7 @@ import { CFG } from '../config.js';
 import { clamp } from '../util/math.js';
 import { hash01 } from '../util/rng.js';
 import { Round, pickCollapse, MILESTONES } from './round.js';
-import { buildOvertime, laneAt } from './level.js';
+import { buildOvertime, laneAt, orbTier, ORB_TIERS } from './level.js';
 import { clearance, GATE_HALF } from './gates.js';
 import { resetCrowdForFork } from './crowd.js';
 
@@ -153,9 +153,10 @@ export class MultiRound extends Round {
     h.orbs++;
     h.orbChain = this.t - h.lastOrbT < 1.4 ? h.orbChain + 1 : 1;
     h.lastOrbT = this.t;
-    const pts = 10 * Math.min(h.orbChain, 5);
+    const tier = orbTier(this.lvl.forks, o);
+    const pts = 10 * Math.min(h.orbChain, 5) * ORB_TIERS[tier].mult;
     h.score += pts;
-    this.hev(h, 'orb', { k, x: o.x, y: o.y, chain: h.orbChain, pts });
+    this.hev(h, 'orb', { k, x: o.x, y: o.y, chain: h.orbChain, pts, tier });
     if (++h.chargeOrbs >= CFG.ORBS_PER_DASH) {
       h.chargeOrbs = 0;
       if (h.charges < CFG.DASH_MAX) {

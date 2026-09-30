@@ -2,7 +2,8 @@
 // No conoce la simulación por dentro: recibe datos ya calculados y avisa acciones por callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText, easeOutCubic } from '../util/math.js';
-import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames } from '../game/progress.js';
+import { levelInfo, titleOf, streakNow, instinct, ownedSkins, ownedTrails, ownedMusic, ownedNames, claimableAch } from '../game/progress.js';
+import { claimablePass, passInfo } from '../game/pass.js';
 import { SKINS, TRAILS, skinById } from '../game/skins.js';
 import { MUSIC } from '../game/music.js';
 import { NAME_STYLES, nameStyleById } from '../game/names.js';
@@ -67,6 +68,7 @@ export function createUI(h) {
   }
 
   function toast(kicker, title) {
+    if (h.quiet && h.quiet()) return;
     const el = document.createElement('div');
     el.className = 'toast';
     el.innerHTML = `${ICON.trophy}<div><small></small><b></b></div>`;
@@ -78,6 +80,7 @@ export function createUI(h) {
 
   // Feed en vivo: `parts` alterna texto normal y resaltado, empezando por texto normal
   function feed(kind, ...parts) {
+    if (h.quiet && h.quiet()) return;
     const box = $('feed');
     box.hidden = false;
     const p = document.createElement('p');
@@ -252,7 +255,13 @@ export function createUI(h) {
     $('bMissions').textContent = claim;
     $('bShop').hidden = save.shopSeen === env.today;
     $('tSkins').textContent = `${ownedSkins(save).length + ownedTrails(save).length}/${SKINS.length + TRAILS.length}`;
-    $('tSeason').textContent = `Nv ${li.level}`;
+    const passN = claimablePass(save).length, achN = claimableAch(save).length;
+    $('bSeason').hidden = !passN;
+    $('bSeason').textContent = passN;
+    $('tSeason').textContent = `Nv ${passInfo(save.passXp || 0).level}`;
+    $('bProfile').hidden = !achN;
+    $('bProfile').textContent = achN;
+    $('tFriends').textContent = save.friends.length ? `${save.friends.length}` : 'Agregar';
     $('tMusic').textContent = `${ownedMusic(save).length}/${MUSIC.length}`;
     $('tNames').textContent = `${ownedNames(save).length}/${NAME_STYLES.length}`;
     // Chip de perfil: el nombre con su estilo (o el título si todavía no eligió nombre)

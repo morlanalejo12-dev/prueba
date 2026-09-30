@@ -4,7 +4,8 @@ import { SKINS, TRAILS, isOwned } from './skins.js';
 import { MUSIC } from './music.js';
 import { NAME_STYLES } from './names.js';
 import { rankOf, prDelta, applyPR, TIER_PERKS } from './ranks.js';
-import { progressMissions, seasonCoins, ensureMissions, MISSION_XP, missionReward } from './meta.js';
+import { progressMissions, ensureMissions, MISSION_XP, missionReward } from './meta.js';
+import { passInfo, claimablePass } from './pass.js';
 
 export const SAVE_KEY = 'cc-save-v3';
 const LEGACY_KEY = 'cc-stats';
@@ -17,7 +18,21 @@ const DEFAULTS = {
   forksSeen: 0, forksWon: 0, pathStreak: 0, bestPathStreak: 0, rivalsBeaten: 0, shopSeen: '',
   // v0.7
   codes: {}, name: '', server: '', relTouch: true, track: 'mus-corriente', nameStyle: 'nm-blanco',
+  // v0.9
+  passXp: 0, passClaimed: {}, premiumPass: false, achClaimed: {}, ownerAll: false, notif: true,
+  friendId: '', friends: [],
 };
+
+// Lo que cada jugador tenía con las reglas anteriores a la v0.9 (por nivel, liga o logro) se conserva
+const LEGACY = {
+  level: { menta: 2, coral: 3, rosa: 4, hielo: 6, luna: 8, solar: 9, prisma: 12, nebula: 16, chispas: 5, arcoiris: 10, burbujas: 14,
+    'mus-cascada': 3, 'mus-chip': 7, 'nm-menta': 2, 'nm-ambar': 4, 'nm-cielo': 5, 'nm-lavanda': 8, 'nm-arcoiris': 10, 'nm-hielo': 15 },
+  rank: { cristal: 4, fenix: 5, eclipse: 6, constelacion: 4, brasas: 5, vacio: 6, 'nm-oro': 4, 'nm-galaxia': 6 },
+  ach: { soln: 'path10', corona: 'outlier', boreal: 'rival5' },
+};
+
+const FRIEND_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const newFriendId = () => Array.from({ length: 6 }, () => FRIEND_CHARS[Math.floor(Math.random() * FRIEND_CHARS.length)]).join('');
 
 export { SKINS, TRAILS, MUSIC, NAME_STYLES };
 
@@ -29,27 +44,41 @@ export const TITLES = [
   { lvl: 12, name: 'Outlier' },
 ];
 
+// reward: destellos que se reclaman a mano, y a veces un cosmético (item)
 export const ACHIEVEMENTS = [
-  { id: 'first', name: 'Primera caída', desc: 'Jugá tu primera ronda.', test: () => true },
-  { id: 'fork1', name: 'A contracorriente', desc: 'Sobreviví a una bifurcación.', test: s => s.forksOk >= 1 },
-  { id: 'fork3', name: 'Mitad del camino', desc: 'Sobreviví a 3 bifurcaciones en una ronda.', test: s => s.forksOk >= 3 },
-  { id: 'final', name: 'Hasta el final', desc: 'Llegá con vida al final de una ronda.', test: s => s.alive },
-  { id: 'outlier', name: 'Outlier del minuto', desc: 'Sé el último en pie.', test: s => s.outlier },
-  { id: 'top10', name: 'Top 10', desc: 'Terminá entre los 10 primeros.', test: s => s.rank <= 10 },
-  { id: 'near5', name: 'Al filo', desc: 'Hacé 5 pasadas justas en una ronda.', test: s => s.near >= 5 },
-  { id: 'combo3', name: 'En racha', desc: 'Encadená 3 pasadas justas seguidas.', test: s => s.maxCombo >= 3 },
-  { id: 'orbs15', name: 'Coleccionista', desc: 'Juntá 15 chispas en una ronda.', test: s => s.orbs >= 15 },
-  { id: 'gold', name: 'Fiebre del oro', desc: 'Sobreviví eligiendo un camino dorado.', test: s => s.feats.gold },
-  { id: 'fog', name: 'A ciegas', desc: 'Sobreviví a una bifurcación con niebla.', test: s => s.feats.fog },
-  { id: 'invert', name: 'Leíste la trampa', desc: 'Sobreviví a una inversión.', test: s => s.feats.invert },
-  { id: 'streak3', name: 'Constante', desc: 'Jugá 3 días seguidos.', test: (s, save) => save.streak >= 3 },
-  { id: 'veteran', name: 'Veterano', desc: 'Jugá 25 rondas.', test: (s, save) => save.rounds >= 25 },
-  { id: 'path10', name: 'Imparable', desc: 'Sobreviví a 10 bifurcaciones seguidas, aunque sea entre rondas.', test: (s, save) => save.bestPathStreak >= 10 },
-  { id: 'rival5', name: 'Némesis', desc: 'Ganale a 5 rivales.', test: (s, save) => save.rivalsBeaten >= 5 },
-  { id: 'gold_rank', name: 'Liga de Oro', desc: 'Llegá a la liga Oro.', test: (s, save) => rankOf(save.peakPR).tier >= 2 },
-  { id: 'dash_save', name: 'Último segundo', desc: 'Sobreviví a una bifurcación después de usar un impulso.', test: s => !!(s.feats && s.feats.dashSave) },
-  { id: 'oracle', name: 'Oráculo', desc: 'Acertá 3 predicciones mientras mirás una ronda.', test: s => (s.predHits || 0) >= 3 },
+  { id: 'first', name: 'Primera caída', desc: 'Jugá tu primera ronda.', test: () => true, coins: 50 },
+  { id: 'fork1', name: 'A contracorriente', desc: 'Sobreviví a una bifurcación.', test: s => s.forksOk >= 1, coins: 50 },
+  { id: 'fork3', name: 'Mitad del camino', desc: 'Sobreviví a 3 bifurcaciones en una ronda.', test: s => s.forksOk >= 3, coins: 100 },
+  { id: 'final', name: 'Hasta el final', desc: 'Llegá con vida al final de una ronda.', test: s => s.alive, coins: 150 },
+  { id: 'outlier', name: 'Outlier del minuto', desc: 'Sé el último en pie.', test: s => s.outlier, coins: 250, item: 'corona' },
+  { id: 'top10', name: 'Top 10', desc: 'Terminá entre los 10 primeros.', test: s => s.rank <= 10, coins: 150 },
+  { id: 'near5', name: 'Al filo', desc: 'Hacé 5 pasadas justas en una ronda.', test: s => s.near >= 5, coins: 100 },
+  { id: 'combo3', name: 'En racha', desc: 'Encadená 3 pasadas justas seguidas.', test: s => s.maxCombo >= 3, coins: 100 },
+  { id: 'orbs15', name: 'Coleccionista', desc: 'Juntá 15 chispas en una ronda.', test: s => s.orbs >= 15, coins: 75 },
+  { id: 'gold', name: 'Fiebre del oro', desc: 'Sobreviví eligiendo un camino dorado.', test: s => s.feats.gold, coins: 75 },
+  { id: 'fog', name: 'A ciegas', desc: 'Sobreviví a una bifurcación con niebla.', test: s => s.feats.fog, coins: 75 },
+  { id: 'invert', name: 'Leíste la trampa', desc: 'Sobreviví a una inversión.', test: s => s.feats.invert, coins: 100 },
+  { id: 'streak3', name: 'Constante', desc: 'Jugá 3 días seguidos.', test: (s, save) => save.streak >= 3, coins: 150 },
+  { id: 'veteran', name: 'Veterano', desc: 'Jugá 25 rondas.', test: (s, save) => save.rounds >= 25, coins: 200 },
+  { id: 'path10', name: 'Imparable', desc: 'Sobreviví a 10 bifurcaciones seguidas, aunque sea entre rondas.', test: (s, save) => save.bestPathStreak >= 10, coins: 200, item: 'soln' },
+  { id: 'rival5', name: 'Némesis', desc: 'Ganale a 5 rivales.', test: (s, save) => save.rivalsBeaten >= 5, coins: 150, item: 'boreal' },
+  { id: 'gold_rank', name: 'Liga de Oro', desc: 'Llegá a la liga Oro.', test: (s, save) => rankOf(save.peakPR).tier >= 2, coins: 200 },
+  { id: 'dash_save', name: 'Último segundo', desc: 'Sobreviví a una bifurcación después de usar un impulso.', test: s => !!(s.feats && s.feats.dashSave), coins: 100 },
+  { id: 'oracle', name: 'Oráculo', desc: 'Acertá 3 predicciones mientras mirás una ronda.', test: s => (s.predHits || 0) >= 3, coins: 100 },
 ];
+
+export const achItem = a => (a.item ? [...SKINS, ...TRAILS].find(k => k.id === a.item) : null);
+export const claimableAch = save => ACHIEVEMENTS.filter(a => save.ach[a.id] && !save.achClaimed[a.id]);
+
+export function claimAchievement(save, id) {
+  const a = ACHIEVEMENTS.find(x => x.id === id);
+  if (!a || !save.ach[id] || save.achClaimed[id]) return null;
+  save.achClaimed[id] = true;
+  save.coins += a.coins;
+  const item = achItem(a);
+  if (item) save.owned[item.id] = true;
+  return { coins: a.coins, item };
+}
 
 // ---------- Niveles ----------
 export const levelNeed = n => 120 + (n - 1) * 60; // XP para pasar del nivel n al siguiente
@@ -75,7 +104,7 @@ export const instinct = save => (save.forksSeen ? Math.round(save.forksWon / sav
 
 // ---------- Colección ----------
 export function ownedCtx(save) {
-  return { level: levelInfo(save.xp).level, peakTier: rankOf(save.peakPR).tier, ach: save.ach, owned: save.owned };
+  return { level: levelInfo(save.xp).level, peakTier: rankOf(save.peakPR).tier, ach: save.ach, owned: save.owned, all: !!save.ownerAll };
 }
 export const ownedSkins = save => { const ctx = ownedCtx(save); return SKINS.filter(k => isOwned(k, ctx)); };
 export const ownedTrails = save => { const ctx = ownedCtx(save); return TRAILS.filter(k => isOwned(k, ctx)); };
@@ -121,16 +150,29 @@ export function loadSave(store) {
     'forksSeen', 'forksWon', 'pathStreak', 'bestPathStreak', 'rivalsBeaten']) {
     if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = DEFAULTS[k];
   }
-  for (const k of ['ach', 'owned', 'codes']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
+  for (const k of ['passXp']) if (typeof save[k] !== 'number' || !isFinite(save[k])) save[k] = 0;
+  for (const k of ['ach', 'owned', 'codes', 'passClaimed', 'achClaimed']) if (!save[k] || typeof save[k] !== 'object') save[k] = {};
   if (!save.daily || typeof save.daily !== 'object') save.daily = { last: '', next: 0 };
   if (!Array.isArray(save.records)) save.records = [];
   if (typeof save.name !== 'string') save.name = '';
   if (typeof save.server !== 'string') save.server = '';
+  if (!Array.isArray(save.friends)) save.friends = [];
+  save.friends = save.friends.filter(f => f && typeof f.id === 'string').slice(0, 100);
+  if (typeof save.friendId !== 'string' || !/^[A-Z0-9]{6}$/.test(save.friendId)) save.friendId = newFriendId();
+  // Migración a la v0.9: conservar lo conseguido con las reglas viejas y los logros ya ganados
+  if (data && (data.v || 0) < 5) {
+    const lvl = levelInfo(save.xp).level, tier = rankOf(save.peakPR).tier;
+    for (const [id, n] of Object.entries(LEGACY.level)) if (lvl >= n) save.owned[id] = true;
+    for (const [id, n] of Object.entries(LEGACY.rank)) if (tier >= n) save.owned[id] = true;
+    for (const [id, a] of Object.entries(LEGACY.ach)) if (save.ach[a]) save.owned[id] = true;
+    for (const a of ACHIEVEMENTS) if (save.ach[a.id]) save.achClaimed[a.id] = true;
+    save.passXp = save.xp;
+  }
   if (!SKINS.some(k => k.id === save.skin)) save.skin = DEFAULTS.skin;
   if (!TRAILS.some(k => k.id === save.trail)) save.trail = DEFAULTS.trail;
   if (!MUSIC.some(k => k.id === save.track)) save.track = DEFAULTS.track;
   if (!NAME_STYLES.some(k => k.id === save.nameStyle)) save.nameStyle = DEFAULTS.nameStyle;
-  save.v = 4;
+  save.v = 5;
   return save;
 }
 
@@ -139,18 +181,18 @@ export function writeSave(store, save) {
 }
 
 export function resetSave(store) {
-  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, daily: { last: '', next: 0 } };
+  const fresh = { ...DEFAULTS, ach: {}, records: [], owned: {}, codes: {}, passClaimed: {}, achClaimed: {}, friends: [], friendId: newFriendId(), daily: { last: '', next: 0 } };
   writeSave(store, fresh);
   return fresh;
 }
 
-// Suma XP y aplica las recompensas del pase por los niveles ganados
+// Suma XP al nivel del jugador y al pase de temporada (los premios del pase se reclaman a mano)
 function addXP(save, xp) {
-  const before = levelInfo(save.xp);
+  const before = levelInfo(save.xp), passBefore = passInfo(save.passXp).level;
   save.xp += xp;
-  const after = levelInfo(save.xp);
-  save.coins += seasonCoins(before.level, after.level);
-  return { before, after };
+  save.passXp += xp;
+  const after = levelInfo(save.xp), passAfter = passInfo(save.passXp).level;
+  return { before, after, passBefore, passAfter };
 }
 
 export function claimMission(save, index) {
@@ -219,7 +261,8 @@ export function applyRound(save, sum, now = new Date()) {
   const promoted = rankAfter.tier > rankBefore.tier || (rankAfter.tier === rankBefore.tier && rankAfter.div < rankBefore.div);
 
   return {
-    gain, coins, predCoins, before: lv.before, after: lv.after, newAch, newSkins, newTrails, newMusic, newNames, missionsDone,
+    gain, coins, predCoins, before: lv.before, after: lv.after, passBefore: lv.passBefore, passAfter: lv.passAfter,
+    passClaimable: claimablePass(save).length, achClaimable: claimableAch(save).length, newAch, newSkins, newTrails, newMusic, newNames, missionsDone,
     recordPos, recordCount: save.records.length, newBestPct: !first && sum.pct > prevBest,
     pr: { before: prBefore, after: save.pr, delta: save.pr - prBefore, raw: delta, rankBefore, rankAfter, promoted },
     pathStreak: save.pathStreak,

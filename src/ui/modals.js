@@ -1,10 +1,11 @@
 // Contenido de cada ventana. Cada constructor recibe el cuerpo vacío, el guardado y los callbacks.
 import { CFG } from '../config.js';
 import { fmt, pctText } from '../util/math.js';
-import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx } from '../game/progress.js';
-import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards } from '../game/skins.js';
+import { TITLES, ACHIEVEMENTS, levelInfo, titleOf, streakNow, instinct, ownedCtx, achItem } from '../game/progress.js';
+import { SKINS, TRAILS, RARITY, RARITY_ORDER, isOwned, unlockText, skinById, trailById, rankRewards, usd } from '../game/skins.js';
+import { PASS, PASS_FREE, PASS_PRICE_USD, passInfo } from '../game/pass.js';
 import { TIERS, TIER_PERKS, rankOf, MASTER_PR, LEGEND_PR, DIV_PR } from '../game/ranks.js';
-import { SEASON, seasonTrack, shopOffers, dailyState, DAILY_REWARDS, missionText, missionReward, MISSION_XP, msToMidnight } from '../game/meta.js';
+import { SEASON, shopOffers, dailyState, DAILY_REWARDS, missionText, missionReward, MISSION_XP, msToMidnight } from '../game/meta.js';
 import { ICON, emblem, skinPreview, trailPreview, nameTag, MUSIC_ICON } from './icons.js';
 import { MUSIC, musicById } from '../game/music.js';
 import { NAME_STYLES, nameStyleById } from '../game/names.js';
@@ -40,7 +41,7 @@ function coinAmount(n, sign = '') {
 export const TITLES_BY_KIND = {
   how: 'Reglas', missions: 'Misiones diarias', shop: 'Tienda', collection: 'Colección', season: `Temporada ${SEASON.number}`,
   rank: 'Tu rango', profile: 'Tu perfil', settings: 'Ajustes', share: 'Compartir resultado', daily: 'Recompensa diaria',
-  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', codes: 'Canjear código', redeemed: '¡Código canjeado!',
+  rankup: 'Ascenso', online: 'Jugar online', room: 'Sala', music: 'Música', names: 'Tu nombre', premium: 'Tienda Premium', friends: 'Amigos', prize: '¡Premio!', invite: 'Invitación', codes: 'Canjear código', redeemed: '¡Código canjeado!',
 };
 
 // Caja para canjear códigos promocionales (se usa en Ajustes, Tienda y su propia ventana)
@@ -81,7 +82,7 @@ const BUILDERS = {
     body.innerHTML = `
       <ol class="steps">
         <li><span class="n">1</span><div><b>Movete</b><p>Arrastrá el dedo o el mouse. En la compu también funcionan ← → y A D.</p></div></li>
-        <li><span class="n">2</span><div><b>Esquivá y juntá</b><p>Pasá por los huecos y agarrá las chispas doradas. Pasar muy cerca de un muro suma más.</p></div></li>
+        <li><span class="n">2</span><div><b>Esquivá y juntá</b><p>Pasá por los huecos y agarrá chispas: cambian de forma y color y valen más en cada etapa (x2, x3, x5). Pasar muy cerca de un muro suma más.</p></div></li>
         <li><span class="n">3</span><div><b>Elegí el camino</b><p>Cuando el túnel se divide, el camino con más gente se derrumba. La multitud cambia de idea: leela.</p></div></li>
         <li><span class="n">4</span><div><b>Llegá al final</b><p>Sobreviví a las ${CFG.FORKS} bifurcaciones. Quedar entre los últimos 100, 50, 10 y 3 da puntos extra. El último en pie es el Outlier del minuto.</p></div></li>
       </ol>
@@ -167,7 +168,7 @@ const BUILDERS = {
       card.append(offer.kind === 'trail' ? trailPreview(sk, skinById(save.skin).col || undefined) : skinPreview(sk), info, btn);
       body.append(card);
     }
-    body.append(el('p', 'note', 'Ganás destellos jugando rondas, completando misiones, subiendo de nivel y con la recompensa diaria.'));
+    body.append(el('p', 'note', 'Ganás destellos jugando rondas, completando misiones, con el pase, los logros y la recompensa diaria. Todo es solo visual: no da ventaja en el juego.'));
     body.append(redeemBox(env));
   },
 
@@ -239,11 +240,11 @@ const BUILDERS = {
       head.append(share);
     }
     body.append(head);
-    const status = el('p', 'room-status');
     const inRound = r.phase === 'playing' || r.phase === 'countdown';
-    if (inRound) status.textContent = 'Hay una ronda en curso: entrás en la próxima.';
-    else if (r.pub) status.textContent = o.nextGlobal ? `La próxima ronda empieza en ${o.nextGlobal}` : 'Esperando la próxima ronda…';
-    else status.textContent = r.host === o.myId ? 'Sos el anfitrión: empezá cuando estén todos.' : 'Esperando que el anfitrión empiece la ronda…';
+    // El estado (con la cuenta regresiva) se actualiza en su lugar, sin reconstruir la ventana
+    const status = el('p', 'room-status', env.h.roomStatusText());
+    status.id = 'roomStatus';
+    status.setAttribute('aria-live', 'polite');
     body.append(status);
     const ul = el('ul', 'room-players');
     const skinCol = sk => sk.col || '#ff7ad9';
@@ -268,7 +269,7 @@ const BUILDERS = {
       body.append(start);
     }
     const look = el('div', 'row room-look');
-    for (const [label, kind] of [['Cambiar skin', 'collection'], ['Nombre', 'names'], ['Música', 'music']]) {
+    for (const [label, kind] of [['Skin', 'collection'], ['Nombre', 'names'], ['Música', 'music'], ['Amigos', 'friends']]) {
       const b = el('button', 'btn btn-ghost btn-sm', label);
       b.type = 'button';
       b.addEventListener('click', () => env.h.onRoomOpen(kind));
@@ -369,7 +370,18 @@ const BUILDERS = {
   redeemed(body, env, data) {
     const r = data.reward;
     const hero = el('div', 'rank-hero redeemed' + (r.item && r.item.rarity === 'fundador' ? ' founder' : ''));
-    if (r.kind === 'coins') {
+    if (r.kind === 'owner') {
+      const c = el('div', 'redeem-coins');
+      c.innerHTML = ICON.trophy;
+      hero.classList.add('founder');
+      hero.append(c, el('small', '', 'Modo dueños'), el('strong', '', 'Todo desbloqueado'));
+      body.append(hero, el('p', 'unlock', 'Tenés todos los cosméticos, el pase Premium y 20.000 destellos para probar.'));
+      const ok = el('button', 'btn btn-primary', '¡Genial!');
+      ok.type = 'button';
+      ok.setAttribute('data-close', '');
+      body.append(ok);
+      return;
+    } else if (r.kind === 'coins') {
       const c = el('div', 'redeem-coins');
       c.innerHTML = ICON.coin;
       hero.append(c, el('small', '', 'Recibiste'), el('strong', '', `${fmt(r.amount)} destellos`));
@@ -409,7 +421,7 @@ const BUILDERS = {
       b.addEventListener('click', () => env.h.onCollectionTab(k));
       tabs.append(b);
     }
-    body.append(tabs, el('p', '', tab === 'skins' ? 'La skin es tu núcleo. Tocá una para usarla.' : 'La estela es el rastro que dejás. Se combina con cualquier skin.'));
+    body.append(tabs, el('p', '', (tab === 'skins' ? 'La skin es tu núcleo. Tocá una para usarla.' : 'La estela es el rastro que dejás. Se combina con cualquier skin.') + ' Son solo visuales: no dan ventaja.'));
     const grid = el('div', 'col-grid');
     grid.setAttribute('role', 'radiogroup');
     const isSkin = tab === 'skins';
@@ -434,32 +446,187 @@ const BUILDERS = {
     body.append(grid);
   },
 
+  // Pase de temporada: 100 niveles, del 1 al 20 gratis y del 21 al 100 con el pase Premium
   season(body, env) {
-    const { save } = env;
-    const li = levelInfo(save.xp);
-    const hero = el('div', 'rank-hero');
-    hero.append(el('strong', '', SEASON.name), el('small', '', `Nivel ${li.level} · ${fmt(li.into)} / ${fmt(li.need)} XP`));
+    const { save } = env, pi = passInfo(save.passXp || 0);
+    const hero = el('div', 'rank-hero pass-hero');
+    hero.append(el('strong', '', `Temporada ${SEASON.number} · ${SEASON.name}`),
+      el('small', '', pi.max ? 'Nivel 100 · pase completo' : `Nivel ${pi.level} · ${fmt(pi.into)} / ${fmt(pi.need)} XP para el siguiente`));
     const bar = el('div', 'xpbar');
-    bar.style.width = '100%';
-    const f = el('span'); f.style.width = (li.into / li.need * 100) + '%'; bar.append(f);
+    const f = el('span'); f.style.width = (pi.into / pi.need * 100) + '%'; bar.append(f);
     hero.append(bar);
-    body.append(hero, el('p', '', 'El pase es gratis: cada nivel que subís te da una recompensa.'));
-    const ul = el('ul', 'track');
-    for (const r of seasonTrack()) {
-      const got = li.level >= r.lvl;
-      const item = el('li', got ? 'got' : r.lvl === li.level + 1 ? 'next' : '');
-      const rw = el('span', 'rw');
-      if (r.type === 'skin') { const sk = skinById(r.skin); rw.append(skinPreview(sk), `Skin ${sk.name}`); }
-      else if (r.type === 'trail') { const tr = trailById(r.trail); rw.append(trailPreview(tr, skinById(save.skin).col || undefined), `Estela ${tr.name}`); }
-      else rw.append(coinAmount(r.coins), ' destellos');
-      for (const id of r.extra || []) {
-        const m = MUSIC.find(k => k.id === id), n = NAME_STYLES.find(k => k.id === id);
-        rw.append(el('small', 'rw-extra', m ? `+ Música: ${m.name}` : `+ Nombre: ${n.name}`));
+    body.append(hero);
+    // Banner del pase Premium
+    const prem = el('div', 'premium-banner' + (save.premiumPass ? ' owned' : ''));
+    const pt = el('div');
+    pt.append(el('b', '', save.premiumPass ? 'Pase Premium activo' : 'Pase Premium'),
+      el('span', '', save.premiumPass ? 'Tenés los 100 niveles desbloqueados.' : `Desbloquea los niveles 21 a 100: skins Legendarias, la Mítica del nivel 100, música, estelas, estilos de nombre y destellos.`));
+    const buy = el('button', 'btn btn-sm ' + (save.premiumPass ? 'btn-ghost' : 'btn-primary'));
+    buy.type = 'button';
+    if (save.premiumPass) { buy.textContent = 'Activo'; buy.disabled = true; }
+    else { buy.append(usd(PASS_PRICE_USD)); buy.addEventListener('click', () => env.h.onBuyPremium('pass')); }
+    prem.append(pt, buy);
+    body.append(prem);
+    const claim = PASS.filter(r => r.lvl <= pi.level && !save.passClaimed[r.lvl] && (!r.premium || save.premiumPass));
+    const head = el('div', 'shop-head');
+    head.append(el('p', '', 'Subís de nivel jugando. Los premios se reclaman a mano.'));
+    if (claim.length > 1) {
+      const all = el('button', 'btn btn-primary btn-sm', `Reclamar todo (${claim.length})`);
+      all.type = 'button';
+      all.addEventListener('click', () => env.h.onClaimPass('all'));
+      head.append(all);
+    }
+    body.append(head);
+    const ul = el('ul', 'track pass-track');
+    for (const r of PASS) {
+      const reached = pi.level >= r.lvl, claimed = !!save.passClaimed[r.lvl], locked = r.premium && !save.premiumPass;
+      const item = el('li', (claimed ? 'got' : reached && !locked ? 'ready' : r.lvl === pi.level + 1 ? 'next' : '') + (r.premium ? ' prem' : ''));
+      if (r.lvl === PASS_FREE + 1) ul.append(el('li', 'pass-divider', 'Pase Premium · niveles 21 a 100'));
+      const rw = el('span', 'rw'), x = r.reward;
+      if (x.kind === 'coins') rw.append(coinAmount(x.amount), ' destellos');
+      else {
+        const it = x.item, rar = RARITY[it.rarity];
+        if (x.kind === 'skin') rw.append(skinPreview(it), `Skin ${it.name}`);
+        else if (x.kind === 'trail') rw.append(trailPreview(it, skinById(save.skin).col || undefined), `Estela ${it.name}`);
+        else if (x.kind === 'music') { const ic = el('span', 'mini-ic'); ic.innerHTML = MUSIC_ICON; rw.append(ic, `Música: ${it.name}`); }
+        else rw.append(nameTag(save.name || it.name, it), ` Estilo ${it.name}`);
+        const tag = el('em', 'rw-rar', rar.name); tag.style.color = rar.col;
+        rw.append(tag);
       }
-      item.append(el('span', 'lv', `Nv ${r.lvl}`), rw, el('span', 'st', got ? 'Obtenida' : r.lvl === li.level + 1 ? 'Siguiente' : ''));
+      let st;
+      if (claimed) st = el('span', 'st', 'Reclamado');
+      else if (reached && !locked) {
+        st = el('button', 'btn btn-primary btn-sm', 'Reclamar');
+        st.type = 'button';
+        st.addEventListener('click', () => env.h.onClaimPass(r.lvl));
+      } else if (locked) { st = el('span', 'st lock'); st.innerHTML = ICON.lock; }
+      else st = el('span', 'st', r.lvl === pi.level + 1 ? 'Siguiente' : '');
+      item.append(el('span', 'lv', `Nv ${r.lvl}`), rw, st);
       ul.append(item);
     }
+    body.append(ul, el('p', 'note', 'Todos los cosméticos son solo visuales: no dan ninguna ventaja en el juego.'));
+  },
+
+  // Tienda Premium: Legendarias y Míticas. Precios listos; la compra se habilita en la v1.0
+  premium(body, env) {
+    const { save } = env, ctx = ownedCtx(save);
+    body.append(el('p', 'premium-note', 'Acá van los cosméticos Legendarios y Míticos. Son solo visuales: no dan ninguna ventaja en el juego. Jugando gratis conseguís hasta la calidad Épica.'));
+    const soon = el('p', 'soon-banner', 'Las compras se habilitan en la versión 1.0');
+    body.append(soon);
+    // El pase Premium también se vende acá
+    const passCard = el('div', 'offer premium-offer pass-offer');
+    passCard.style.setProperty('--rc', RARITY.mitica.col);
+    const pic = el('span', 'pass-ic', '100');
+    const pinfo = el('div');
+    const ptag = el('span', 'rarity', 'Pase de temporada');
+    ptag.style.color = RARITY.mitica.col;
+    pinfo.append(el('b', '', 'Pase Premium'), ptag, el('small', 'track-meta', 'Niveles 21 a 100 · Mítica en el nivel 100'));
+    const pbtn = el('button', 'btn btn-sm ' + (save.premiumPass ? 'btn-ghost' : 'btn-primary'));
+    pbtn.type = 'button';
+    if (save.premiumPass) { pbtn.textContent = 'Activo'; pbtn.disabled = true; }
+    else { pbtn.textContent = usd(PASS_PRICE_USD); pbtn.addEventListener('click', () => env.h.onBuyPremium('pass')); }
+    passCard.append(pic, pinfo, pbtn);
+    body.append(passCard);
+    const items = [
+      ...SKINS.filter(k => k.src.type === 'premium').map(item => ({ kind: 'skin', item })),
+      ...TRAILS.filter(k => k.src.type === 'premium').map(item => ({ kind: 'trail', item })),
+      ...NAME_STYLES.filter(k => k.src.type === 'premium').map(item => ({ kind: 'name', item })),
+    ].sort((a, b) => RARITY_ORDER.indexOf(b.item.rarity) - RARITY_ORDER.indexOf(a.item.rarity));
+    for (const { kind, item } of items) {
+      const rar = RARITY[item.rarity], own = isOwned(item, ctx);
+      const card = el('div', 'offer premium-offer');
+      card.style.setProperty('--rc', rar.col);
+      let prev;
+      if (kind === 'skin') prev = skinPreview(item);
+      else if (kind === 'trail') prev = trailPreview(item, skinById(save.skin).col || undefined);
+      else { prev = el('span', 'name-prev'); prev.append(nameTag(save.name || 'Nombre', item)); }
+      const info = el('div');
+      const tag = el('span', 'rarity', `${{ skin: 'Skin', trail: 'Estela', name: 'Estilo de nombre' }[kind]} · ${rar.name}`);
+      tag.style.color = rar.col;
+      info.append(el('b', '', item.name), tag);
+      const btn = el('button', 'btn btn-sm ' + (own ? 'btn-ghost' : 'btn-primary'));
+      btn.type = 'button';
+      if (own) { btn.textContent = 'Tuya'; btn.disabled = true; }
+      else { btn.textContent = usd(item.src.usd); btn.addEventListener('click', () => env.h.onBuyPremium(item.id)); }
+      card.append(prev, info, btn);
+      body.append(card);
+    }
+  },
+
+  prize(body, env, data) { BUILDERS.redeemed(body, env, data); },
+
+  invite(body, env, data) {
+    const hero = el('div', 'rank-hero');
+    hero.append(el('small', '', 'Te invitan a jugar'), nameTag(data.from || 'Un amigo', nameStyleById(data.nameStyle || 'nm-blanco')), el('strong', 'room-code', data.code));
+    body.append(hero, el('p', '', 'Tu amigo te invita a su sala privada.'));
+    const join = el('button', 'btn btn-primary', 'Unirme');
+    join.type = 'button';
+    join.addEventListener('click', () => env.h.onAcceptInvite(data.code));
+    const no = el('button', 'btn btn-ghost', 'Ahora no');
+    no.type = 'button';
+    no.setAttribute('data-close', '');
+    body.append(join, no);
+  },
+
+  // Amigos: tu código, agregar por código, ver quién está conectado e invitar a tu sala
+  friends(body, env) {
+    const { save } = env, o = env.h.friendsState();
+    const me = el('div', 'friend-me');
+    me.append(el('small', '', 'Tu código de amigo'), el('strong', 'friend-code', save.friendId));
+    const copy = el('button', 'btn btn-ghost btn-sm', 'Copiar');
+    copy.type = 'button';
+    copy.addEventListener('click', async () => { copy.textContent = (await env.h.onCopyFriendCode()) ? '¡Copiado!' : save.friendId; });
+    me.append(copy);
+    body.append(me);
+    const row = el('div', 'redeem-row');
+    const input = el('input', 'redeem-input');
+    input.id = 'friendInput';
+    Object.assign(input, { type: 'text', maxLength: 6, placeholder: 'CÓDIGO DE AMIGO', autocomplete: 'off', spellcheck: false });
+    input.setAttribute('aria-label', 'Código de amigo');
+    input.addEventListener('input', () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+    const add = el('button', 'btn btn-primary btn-sm', 'Agregar');
+    add.type = 'button';
+    const msg = el('p', 'redeem-msg', o.msg || '');
+    const doAdd = () => { const r = env.h.onAddFriend(input.value); if (r && r.error) msg.textContent = r.error; };
+    add.addEventListener('click', doAdd);
+    onEnter(input, doAdd);
+    row.append(input, add);
+    body.append(row, msg);
+    if (o.status !== 'on') body.append(el('p', 'note', o.status === 'connecting' ? 'Conectando para ver quién está en línea…' : 'Sin conexión: no se puede ver quién está en línea.'));
+    if (!save.friends.length) { body.append(el('p', 'empty', 'Todavía no agregaste amigos. Pasales tu código y agregá el de ellos.')); return; }
+    const ul = el('ul', 'room-players friend-list');
+    const room = o.room;
+    for (const fr of save.friends) {
+      const st = o.presence[fr.id] || {};
+      const li = el('li', st.online ? 'on' : 'off');
+      const look = el('span', 'rp-look');
+      look.append(skinPreview(skinById(st.skin || 'ambar')));
+      const who = el('span', 'rp-who');
+      who.append(nameTag(st.name || fr.name || fr.id, nameStyleById(st.nameStyle || 'nm-blanco')));
+      who.append(el('small', '', st.online ? (st.room ? `En línea · ${st.room === 'GLOBAL' ? 'Minuto global' : 'en una sala'}` : 'En línea') : 'Desconectado'));
+      const acts = el('span', 'friend-acts');
+      if (st.online && room && !room.pub) {
+        const inv = el('button', 'btn btn-primary btn-sm', 'Invitar');
+        inv.type = 'button';
+        inv.addEventListener('click', () => { env.h.onInviteFriend(fr.id); inv.textContent = 'Invitado'; inv.disabled = true; });
+        acts.append(inv);
+      } else if (st.online && st.room && st.room !== (room && room.code)) {
+        const join = el('button', 'btn btn-ghost btn-sm', 'Unirme');
+        join.type = 'button';
+        join.addEventListener('click', () => env.h.onJoinFriend(st.room));
+        acts.append(join);
+      }
+      const del = el('button', 'icon-btn friend-del');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Quitar amigo');
+      del.textContent = '×';
+      del.addEventListener('click', () => env.h.onRemoveFriend(fr.id));
+      acts.append(del);
+      li.append(look, who, acts);
+      ul.append(li);
+    }
     body.append(ul);
+    if (!room || room.pub) body.append(el('p', 'note', 'Para invitar, creá una sala privada desde Online con amigos.'));
   },
 
   rank(body, env) {
@@ -547,7 +714,7 @@ const BUILDERS = {
     body.append(btn);
   },
 
-  profile(body, env) {
+  profile(body, env, data) {
     const { save } = env;
     const tabs = el('div', 'tabs');
     tabs.setAttribute('role', 'tablist');
@@ -556,7 +723,7 @@ const BUILDERS = {
     const show = key => {
       [...tabs.children].forEach(b => b.setAttribute('aria-selected', String(b.dataset.k === key)));
       panel.innerHTML = '';
-      PROFILE_TABS[key](panel, save);
+      PROFILE_TABS[key](panel, save, env);
     };
     for (const [k, n] of names) {
       const b = el('button', '', n);
@@ -567,7 +734,7 @@ const BUILDERS = {
       tabs.append(b);
     }
     body.append(tabs, panel);
-    show('sum');
+    show((data && data.tab) || 'sum');
   },
 
   settings(body, env) {
@@ -576,6 +743,7 @@ const BUILDERS = {
       ['sfx', 'Sonido', 'Efectos del juego'],
       ['music', 'Música', 'Se intensifica con la tensión de la ronda'],
       ['vib', 'Vibración', 'En celulares compatibles'],
+      ['notif', 'Avisos durante la partida', 'Logros, misiones y el feed de la ronda. Apagalo para jugar sin distracciones'],
       ['relTouch', 'Control por arrastre', 'Táctil: arrastrá desde cualquier parte de la pantalla (si lo apagás, la bola va adonde tocás)'],
     ];
     for (const [key, name, desc] of rows) {
@@ -676,17 +844,26 @@ const PROFILE_TABS = {
     }
     panel.append(head, grid, el('p', '', 'El Instinto es el porcentaje de bifurcaciones que superaste en toda tu historia.'), el('h3', '', 'Títulos'), ul);
   },
-  ach(panel, save) {
+  ach(panel, save, env) {
     const got = Object.keys(save.ach).length;
-    panel.append(el('p', '', `Desbloqueaste ${got} de ${ACHIEVEMENTS.length}.`));
+    panel.append(el('p', '', `Desbloqueaste ${got} de ${ACHIEVEMENTS.length}. Cada logro tiene un premio que se reclama a mano.`));
     const ul = el('ul', 'ach-list');
     for (const a of ACHIEVEMENTS) {
-      const on = !!save.ach[a.id];
+      const on = !!save.ach[a.id], claimed = !!save.achClaimed[a.id], item = achItem(a);
       const li = el('li', on ? 'on' : '');
       li.innerHTML = `<span class="ic">${on ? ICON.check : ICON.lock}</span>`;
       const d = el('div');
-      d.append(el('b', '', a.name), el('span', '', a.desc));
+      const prize = el('small', 'ach-prize');
+      prize.append(coinAmount(a.coins));
+      if (item) prize.append(` + ${item.type ? 'estela' : 'skin'} ${item.name}`);
+      d.append(el('b', '', a.name), el('span', '', a.desc), prize);
       li.append(d);
+      if (on && !claimed) {
+        const b = el('button', 'btn btn-primary btn-sm', 'Reclamar');
+        b.type = 'button';
+        b.addEventListener('click', () => env.h.onClaimAch(a.id));
+        li.append(b);
+      } else if (claimed) li.append(el('span', 'st', 'Reclamado'));
       ul.append(li);
     }
     panel.append(ul);

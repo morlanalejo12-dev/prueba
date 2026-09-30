@@ -2,10 +2,8 @@
 // Todo es determinista por fecha, así dos jugadores ven las mismas misiones y ofertas el mismo día.
 import { fmt } from '../util/math.js';
 import { SKINS, TRAILS, SHOP_SKINS, SHOP_TRAILS } from './skins.js';
-import { MUSIC } from './music.js';
-import { NAME_STYLES } from './names.js';
 
-export const SEASON = { number: 1, name: 'Primera corriente', maxLevel: 20 };
+export const SEASON = { number: 1, name: 'Primera corriente' };
 
 function hashStr(s) {
   let h = 2166136261;
@@ -116,28 +114,6 @@ export function buySkin(save, offer) {
   save.coins -= offer.price;
   save.owned[offer.id] = true;
   return true;
-}
-
-// ---------- Pase de temporada (gratis, se avanza subiendo de nivel) ----------
-export function seasonTrack() {
-  const out = [];
-  for (let lvl = 2; lvl <= SEASON.maxLevel; lvl++) {
-    const sk = SKINS.find(k => k.src.type === 'level' && k.src.lvl === lvl);
-    const tr = TRAILS.find(k => k.src.type === 'level' && k.src.lvl === lvl);
-    if (sk) out.push({ lvl, type: 'skin', skin: sk.id });
-    else if (tr) out.push({ lvl, type: 'trail', trail: tr.id });
-    else out.push({ lvl, type: 'coins', coins: 40 + lvl * 10 });
-    // Temas y estilos de nombre que también se desbloquean en ese nivel
-    const extra = [...MUSIC, ...NAME_STYLES].filter(k => k.src.type === 'level' && k.src.lvl === lvl);
-    if (extra.length) out[out.length - 1].extra = extra.map(k => k.id);
-  }
-  return out;
-}
-
-// Destellos que dan los niveles del pase entre dos niveles (excluye el inicial)
-export function seasonCoins(fromLevel, toLevel) {
-  return seasonTrack().filter(r => r.type === 'coins' && r.lvl > fromLevel && r.lvl <= toLevel)
-    .reduce((a, r) => a + r.coins, 0);
 }
 
 export function msToMidnight(now = new Date()) {

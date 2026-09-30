@@ -22,6 +22,7 @@ const CODES = {
   ozmy39to6l: { kind: 'coins', amount: 250 },
   '2a83psrjeng': { kind: 'music', id: 'mus-voltaje' },
   '19evwxxecmi': { kind: 'name', id: 'nm-fundador' },
+  sshihw12mt: { kind: 'owner' },
 };
 
 export const normalizeCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -36,6 +37,13 @@ export function redeemCode(save, input) {
   if (!save.codes || typeof save.codes !== 'object') save.codes = {};
   if (save.codes[h]) return { ok: false, error: 'Ya canjeaste este código.' };
   save.codes[h] = Date.now();
+  // Dueños: todos los cosméticos, el pase Premium y destellos para probar la tienda
+  if (reward.kind === 'owner') {
+    save.ownerAll = true;
+    save.premiumPass = true;
+    save.coins += 20000;
+    return { ok: true, reward: { ...reward } };
+  }
   if (reward.kind === 'coins') {
     save.coins += reward.amount;
     return { ok: true, reward: { ...reward } };

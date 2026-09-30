@@ -3,7 +3,7 @@
 import { CFG } from '../config.js';
 import { clamp } from '../util/math.js';
 import { mulberry32, hash01 } from '../util/rng.js';
-import { buildLevel, buildOvertime, laneAt } from './level.js';
+import { buildLevel, buildOvertime, laneAt, orbTier, ORB_TIERS } from './level.js';
 import { clearance, GATE_HALF } from './gates.js';
 import { createCrowd, updateCrowd, resetCrowdForFork } from './crowd.js';
 
@@ -254,9 +254,10 @@ export class Round {
     this.orbs++;
     this.orbChain = this.t - this.lastOrbT < 1.4 ? this.orbChain + 1 : 1;
     this.lastOrbT = this.t;
-    const pts = 10 * Math.min(this.orbChain, 5);
+    const tier = orbTier(this.lvl.forks, o);
+    const pts = 10 * Math.min(this.orbChain, 5) * ORB_TIERS[tier].mult;
     this.score += pts;
-    this.emit('orb', { x: o.x, y: o.y, chain: this.orbChain, pts });
+    this.emit('orb', { x: o.x, y: o.y, chain: this.orbChain, pts, tier });
     if (++this.chargeOrbs >= CFG.ORBS_PER_DASH) {
       this.chargeOrbs = 0;
       if (this.charges < CFG.DASH_MAX) {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rankOf, tierFloor, applyPR, prDelta, MASTER_PR, LEGEND_PR } from '../src/game/ranks.js';
-import { dailyMissions, ensureMissions, progressMissions, dailyState, claimDaily, shopOffers, buySkin, seasonTrack, seasonCoins, DAILY_REWARDS } from '../src/game/meta.js';
+import { dailyMissions, ensureMissions, progressMissions, dailyState, claimDaily, shopOffers, buySkin, DAILY_REWARDS } from '../src/game/meta.js';
 import { SKINS, TRAILS, isOwned } from '../src/game/skins.js';
 import { claimMission } from '../src/game/progress.js';
 
@@ -72,18 +72,15 @@ test('tienda: dos skins y dos estelas por día, una rebajada, y compra', () => {
   assert.ok(save.coins < 5000);
 });
 
-test('pase de temporada y dueños de skins', () => {
-  const track = seasonTrack();
-  assert.equal(track[0].lvl, 2);
-  assert.ok(track.some(t => t.type === 'skin' && t.skin === 'menta'));
-  assert.ok(track.some(t => t.type === 'trail' && t.trail === 'chispas'));
-  assert.ok(seasonCoins(1, 8) > 0);
-  const ctx = { level: 4, peakTier: 2, ach: { outlier: '2026-10-01' }, owned: {} };
+test('dueños de skins según su origen', () => {
+  const ctx = { level: 4, peakTier: 2, ach: { outlier: '2026-10-01' }, owned: { rosa: true } };
   const own = id => isOwned(SKINS.find(k => k.id === id), ctx);
-  assert.ok(own('rosa') && !own('hielo'));
-  assert.ok(own('laurel') && !own('cristal'));
-  assert.ok(own('corona'));
+  assert.ok(own('ambar'), 'la inicial siempre es tuya');
+  assert.ok(own('rosa') && !own('hielo'), 'las del pase son tuyas cuando las reclamás');
+  assert.ok(own('laurel') && !own('glaciar'), 'las de liga, por la liga máxima');
+  assert.ok(!own('corona'), 'la del logro se reclama a mano');
   assert.ok(!own('brasa'));
   const ownT = id => isOwned(TRAILS.find(k => k.id === id), ctx);
   assert.ok(ownT('plata') && !ownT('rayo') && !ownT('chispas'));
+  assert.ok(isOwned(SKINS.find(k => k.id === 'quasar'), { ...ctx, all: true }), 'el código de dueños desbloquea todo');
 });

@@ -161,48 +161,11 @@ export const TRACKS = {
     },
   },
 
-  // Exclusivo (código DKO01): electro house con supersierras, pluck pegadizo,
-  // bombeo de sidechain, redobles y un drop cada 8 compases.
+  // Exclusivo (código DKO01): la canción del archivo music/dko.mp3, adaptada al juego.
+  // Dos loops de 16 compases: el tramo tranquilo suena en el menú y lejos de las bifurcaciones,
+  // y el drop entra cuando sube la tensión. Los cambios caen siempre al empezar un compás.
   voltaje: {
-    bpm: 128, bpmStep: 2, bars: 8,
-    step(E, s, t, STEP, L, S) {
-      const prog = [CH.Fsm, CH.D, CH.A, CH.E, CH.Fsm, CH.D, CH.A, CH.E];
-      const bar = s >> 4, k = s & 15, out = E.music, u = up(S);
-      const ch = prog[bar], root = ch[0];
-      const hype = Math.max(L, S / 7);
-      const build = bar === 7;
-      // Bombo con sidechain (en el compás del redoble se frena y crece la caja)
-      if (!build || k < 8) {
-        if (k % 4 === 0) { E.kick(out, t, 0.5 + 0.2 * hype); E.duck(t, 0.62, STEP * 3); }
-      }
-      if (build) {
-        if (k >= 8 || hype > 0.5) E.snare(out, t, 0.03 + 0.07 * (k / 16));
-        if (k === 0) E.riser(out, t, STEP * 16, 0.05);
-      }
-      if (k === 0 && bar === 0) E.noise(out, t, 0.09, 1.6, 'highpass', 4500);
-      // Bajo en contratiempo (octavas)
-      if (k % 4 === 2) E.supersaw(out, hz(root - 24 + u), 0.07, STEP * 1.6, t, 0.006, 2, 0.005);
-      if (hype > 0.55 && k % 4 === 3) E.voice(out, hz(root - 12 + u), 'sawtooth', 0.04, STEP * 0.7, t);
-      // Acordes de supersierra en contratiempo (el sidechain los hace "bombear")
-      if (k % 4 === 2 || (hype > 0.7 && k % 4 === 3)) ch.forEach(m => E.supersaw(out, hz(m + 12 + u), 0.012 + 0.01 * hype, STEP * 1.4, t, 0.012, 3, 0.005));
-      // Percusión
-      if (k === 4 || k === 12) E.clap(out, t, 0.09);
-      E.hat(out, t, k % 2 ? 0.018 : 0.03);
-      if (k % 4 === 2) E.openHat(out, t, 0.04);
-      // Pluck principal: el gancho del tema
-      const hook = [
-        [73, -1, 73, 76, -1, 73, -1, 71, -1, 69, -1, 71, 73, -1, -1, -1],
-        [74, -1, 74, 73, -1, 71, -1, 69, -1, 66, -1, 69, 71, -1, 69, -1],
-        [69, -1, 69, 71, -1, 73, -1, 76, -1, 73, -1, 71, 69, -1, -1, -1],
-        [68, -1, 68, 71, -1, 73, -1, 76, -1, 80, -1, 78, 76, -1, 73, 71],
-      ];
-      const mel = hook[bar % 4][k];
-      if (mel > 0 && (L > 0.2 || S >= 1)) {
-        E.pluck(out, hz(mel + u), 0.05 + 0.02 * hype, STEP * 1.6, t);
-        if (hype > 0.6) E.pluck(out, hz(mel + 12 + u), 0.02, STEP * 1.2, t);
-      }
-      // Arpegio de brillo en las etapas altas
-      if (S >= 4 && k % 2 === 1) E.voice(out, hz(ch[(k >> 1) % 3] + 24 + u), 'square', 0.014, STEP * 0.6, t);
-    },
+    sample: 'dko', bpm: 128.7, bars: 16, gain: 0.2,
+    sections: { calm: [60.11, 89.95], hype: [30.272, 60.11] },
   },
 };

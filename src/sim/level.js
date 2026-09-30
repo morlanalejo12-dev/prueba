@@ -161,3 +161,20 @@ export function laneAt(f, x) {
   }
   return best;
 }
+
+// Las chispas valen más (y cambian de color y forma) a medida que avanza la ronda
+export const ORB_TIERS = [
+  { mult: 1, name: 'Chispa', col: '#ffd166', shape: 'diamond' },
+  { mult: 2, name: 'Gema', col: '#5ef2c2', shape: 'hex' },
+  { mult: 3, name: 'Estrella', col: '#ff7ad9', shape: 'star' },
+  { mult: 5, name: 'Prisma', col: null, shape: 'crystal' },
+];
+
+export function orbTier(forks, o) {
+  if (o.tier === undefined) {
+    let k = 0;
+    for (const f of forks) if (f.endY < o.y) k++;
+    o.tier = k < 2 ? 0 : k < 4 ? 1 : k < 6 ? 2 : 3;
+  }
+  return o.tier;
+}

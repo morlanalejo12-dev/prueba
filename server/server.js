@@ -6,12 +6,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Lobby, GLOBAL, PROTOCOL, cleanName } from './rooms.js';
+import { Friends } from './friends.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'site');
 const PORT = Number(process.env.PORT) || 8080;
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg',
 };
 
 const server = http.createServer((req, res) => {
@@ -35,6 +36,7 @@ const server = http.createServer((req, res) => {
 });
 
 const lobby = new Lobby();
+const friends = new Friends();
 const clients = new Map();
 let nextId = 1;
 
@@ -68,6 +70,7 @@ wss.on('connection', ws => {
       case 'hello':
         if (m.v !== PROTOCOL) { err('Actualizá el juego: la versión no coincide con el servidor.'); return; }
         setProfile(m);
+        friends.register(me, String(m.friendId || ''));
         me.send(JSON.stringify({ t: 'welcome', id, now: Date.now() }));
         break;
       case 'join': {
@@ -87,6 +90,8 @@ wss.on('connection', ws => {
         if (me.room) me.room.profileChanged(me);
         break;
       case 'leave': leave(); break;
+      case 'friends': me.send(JSON.stringify({ t: 'friends', list: friends.presence(m.ids) })); break;
+      case 'invite': { const e = friends.invite(me, String(m.to || '')); if (e) err(e); else me.send(JSON.stringify({ t: 'invSent', to: m.to })); break; }
       case 'start': if (me.room && !me.room.requestStart(id)) err('Solo el anfitrión puede empezar la ronda.'); break;
       case 'in': if (me.room) me.room.input(id, +m.x, +m.y); break;
       case 'dash': if (me.room) me.room.dash(id, +m.d); break;
@@ -95,7 +100,7 @@ wss.on('connection', ws => {
     }
   });
 
-  ws.on('close', () => { leave(); clients.delete(id); });
+  ws.on('close', () => { leave(); friends.unregister(me); clients.delete(id); });
 });
 
 // Mantener vivas las conexiones (y cerrar las muertas)

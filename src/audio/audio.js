@@ -28,9 +28,82 @@ export class AudioEngine {
   setTrack(id) {
     const tr = TRACKS[id] || TRACKS.corriente;
     if (tr === this.track) return;
+    this.stopSample();
     this.track = tr;
     this.trackId = TRACKS[id] ? id : 'corriente';
     this.step = 0;
+    if (this.ctx) this.nextTime = Math.max(this.nextTime, this.ctx.currentTime + 0.05);
+    if (tr.sample) this.prepareSample(tr);
+  }
+
+  // ---------- Temas grabados (archivo de audio) ----------
+  // loadSample(nombre) → Promise<ArrayBuffer>; lo define main según cómo se abrió el juego
+  prepareSample(tr) {
+    this.buffers = this.buffers || {};
+    if (this.buffers[tr.sample] || !this.ctx || !this.loadSample) return;
+    this.buffers[tr.sample] = 'loading';
+    this.loadSample(tr.sample)
+      .then(ab => this.ctx.decodeAudioData(ab))
+      .then(buf => { this.buffers[tr.sample] = buf; })
+      .catch(() => { this.buffers[tr.sample] = null; });
+  }
+
+  stopSample(when) {
+    const cur = this.cur;
+    if (!cur) return;
+    const t = when || (this.ctx ? this.ctx.currentTime : 0);
+    try {
+      cur.gain.gain.setValueAtTime(cur.gain.gain.value, t);
+      cur.gain.gain.linearRampToValueAtTime(0.0001, t + 0.08);
+      cur.node.stop(t + 0.1);
+    } catch (e) { /* ya detenido */ }
+    this.cur = null;
+  }
+
+  // Programa el tramo (calm | hype) para que arranque en el instante `when`
+  startSection(tr, buf, name, when) {
+    const c = this.ctx, [a, z] = tr.sections[name];
+    const node = c.createBufferSource(), gain = c.createGain();
+    node.buffer = buf;
+    node.loop = true;
+    node.loopStart = a;
+    node.loopEnd = z;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.linearRampToValueAtTime(tr.gain || 0.9, when + 0.03);
+    node.connect(gain).connect(this.music);
+    node.start(when, a);
+    if (this.cur) this.stopSample(when);
+    this.cur = { node, gain, name, start: when, loop: z - a };
+  }
+
+  // Cada ciclo del programador: elegir tramo según la tensión y avisar los pulsos
+  scheduleSample(tr) {
+    const c = this.ctx, buf = this.buffers && this.buffers[tr.sample];
+    if (!buf || buf === 'loading') { if (!buf) this.prepareSample(tr); return; }
+    const beat = 60 / tr.bpm, bar = beat * 4, now = c.currentTime;
+    const want = this.level > 0.5 || this.stage >= 3 ? 'hype' : 'calm';
+    if (!this.cur) this.startSection(tr, buf, want, now + 0.05);
+    else if (this.cur.name !== want && !this.cur.pending) {
+      // Cambiar al empezar el próximo compás
+      const el = now - this.cur.start, next = this.cur.start + Math.ceil((el + 0.02) / bar) * bar;
+      this.cur.pending = true;
+      this.startSection(tr, buf, want, next);
+    }
+    // Pulsos para el fondo (sincronizados con la canción)
+    const cur = this.cur;
+    if (this.onBeat && cur) {
+      if (this.nextBeat === undefined || this.nextBeat < now - 1 || this.beatSrc !== cur) {
+        this.beatSrc = cur;
+        this.nextBeat = cur.start + Math.max(0, Math.ceil((now - cur.start) / beat)) * beat;
+        this.beatN = Math.round((this.nextBeat - cur.start) / beat);
+      }
+      while (this.nextBeat < now + LOOKAHEAD) {
+        const strong = this.beatN % 4 === 0, at = this.nextBeat;
+        setTimeout(() => this.onBeat && this.onBeat(strong), Math.max(0, (at - now) * 1000));
+        this.nextBeat += beat;
+        this.beatN++;
+      }
+    }
   }
 
   setStage(n) { this.stage = Math.max(0, Math.min(MAX_STAGE, n)); }
@@ -63,6 +136,7 @@ export class AudioEngine {
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.nextTime = c.currentTime + 0.1;
       this.timer = setInterval(() => this.schedule(), 25);
+      if (this.track.sample) this.prepareSample(this.track);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
   }
@@ -84,8 +158,15 @@ export class AudioEngine {
     const c = this.ctx;
     if (!c || c.state !== 'running') return;
     this.level += (this.target - this.level) * 0.06;
-    this.lp.frequency.setTargetAtTime(450 + this.level * this.level * 4800, c.currentTime, 0.15);
     const tr = this.track, loop = tr.bars * 16;
+    if (tr.sample) {
+      // Un tema grabado se filtra menos: suena apagado en el menú y se abre del todo en la tensión
+      this.lp.frequency.setTargetAtTime(1400 + this.level * this.level * 17000, c.currentTime, 0.2);
+      this.scheduleSample(tr);
+      this.nextTime = c.currentTime + 0.05;
+      return;
+    }
+    this.lp.frequency.setTargetAtTime(450 + this.level * this.level * 4800, c.currentTime, 0.15);
     const stepDur = 60 / (tr.bpm + this.stage * tr.bpmStep) / 4;
     while (this.nextTime < c.currentTime + LOOKAHEAD) {
       if (this.musicOn) tr.step(this, this.step % loop, this.nextTime, stepDur, this.level, this.stage);

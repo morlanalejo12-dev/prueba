@@ -69,3 +69,22 @@ test('sala: los cambios de perfil llegan a todos en vivo', () => {
   const pb = last.players.find(p => p.id === 'b');
   assert.deepEqual([pb.skin, pb.trail, pb.nameStyle], ['singularidad', 'supernova', 'nm-fundador']);
 });
+
+test('amigos: presencia en línea e invitación a la sala privada', async () => {
+  const { Friends } = await import('../server/friends.js');
+  const fr = new Friends(), lobby = new Lobby();
+  const a = { ...fakePlayer('a'), name: 'Ana', nameStyle: 'nm-blanco' }, b = { ...fakePlayer('b'), name: 'Beto' };
+  a.inbox = []; a.send = s => a.inbox.push(JSON.parse(s));
+  b.inbox = []; b.send = s => b.inbox.push(JSON.parse(s));
+  fr.register(a, 'AAAAAA'); fr.register(b, 'BBBBBB');
+  const pres = fr.presence(['BBBBBB', 'ZZZZZZ', 'mal']);
+  assert.deepEqual(pres.map(p => [p.id, p.online]), [['BBBBBB', true], ['ZZZZZZ', false]]);
+  assert.ok(fr.invite(a, 'BBBBBB'), 'sin sala privada no se puede invitar');
+  const room = lobby.create(); room.add(a); a.room = room;
+  assert.equal(fr.invite(a, 'BBBBBB', 10000), null);
+  const inv = b.inbox.find(m => m.t === 'invited');
+  assert.equal(inv.code, room.code);
+  assert.equal(inv.from, 'Ana');
+  fr.unregister(b);
+  assert.equal(fr.presence(['BBBBBB'])[0].online, false);
+});

@@ -4,6 +4,7 @@ import { CFG } from '../config.js';
 import { clamp, fmt, TAU } from '../util/math.js';
 import { hash01 } from '../util/rng.js';
 import { gapsAt, altOpen, altPhase } from '../sim/gates.js';
+import { orbTier, ORB_TIERS } from '../sim/level.js';
 import { SHAPE } from './fx.js';
 import { skinById, trailById } from '../game/skins.js';
 import { nameStyleById } from '../game/names.js';
@@ -37,6 +38,7 @@ function novaHue(v) {
 export class Renderer {
   constructor(canvas) {
     this.cv = canvas;
+    this.aMul = 1;       // opacidad extra al dibujar a otros jugadores
     this.cx = canvas.getContext('2d', { alpha: false });
     const css = getComputedStyle(document.documentElement);
     const tok = n => css.getPropertyValue(n).trim();
@@ -121,7 +123,7 @@ export class Renderer {
 
     const f = R.fork;
     const fogOn = !!(f && f.variant === 'fog' && R.pY >= f.startY - 100 && !f.resolved);
-    this.drawCrowd(R, Y, fogOn ? 0.1 : 0.8);
+    this.drawCrowd(R, Y, fogOn ? 0.08 : R.demo ? 0.7 : 0.42);
     if (R.others && R.others.length) this.drawOthers(R, Y, opts.dt);
     this.drawRings(fx, Y);
     this.drawParticles(fx, Y);
@@ -243,22 +245,39 @@ export class Renderer {
   }
 
   drawOrbs(R, Y) {
-    const { cx, C } = this, orbs = R.lvl.orbs;
-    cx.fillStyle = C.gold;
+    const { cx } = this, orbs = R.lvl.orbs;
     for (let k = Math.max(0, R.pOrb - 2); k < orbs.length; k++) {
       const o = orbs[k], oy = Y(o.y);
       if (oy > this.viewH + 20) break;
       if (o.taken || oy < -20) continue;
-      const rr = 5 + Math.sin(R.t * 6 + o.y) * 0.8 + this.pulse;
-      cx.globalAlpha = 0.22;
-      cx.beginPath(); cx.arc(o.x, oy, rr * 2.3, 0, TAU); cx.fill();
+      const ti = orbTier(R.lvl.forks, o), T = ORB_TIERS[ti];
+      const col = T.col || `hsl(${Math.round((R.t * 120 + o.y) % 360)} 95% 70%)`;
+      const rr = 5 + ti * 0.6 + Math.sin(R.t * 6 + o.y) * 0.8 + this.pulse;
+      cx.fillStyle = col;
+      cx.globalAlpha = 0.22 + ti * 0.04;
+      cx.beginPath(); cx.arc(o.x, oy, rr * (2.3 + ti * 0.2), 0, TAU); cx.fill();
       cx.globalAlpha = 1;
       cx.save();
       cx.translate(o.x, oy);
-      cx.rotate(R.t * 2 + o.y);
-      cx.fillRect(-rr * 0.7, -rr * 0.7, rr * 1.4, rr * 1.4);
+      cx.rotate(R.t * (2 + ti * 0.6) + o.y);
+      if (T.shape === 'diamond') cx.fillRect(-rr * 0.7, -rr * 0.7, rr * 1.4, rr * 1.4);
+      else if (T.shape === 'hex') {
+        cx.beginPath();
+        for (let j = 0; j < 6; j++) cx.lineTo(Math.cos(j * TAU / 6) * rr, Math.sin(j * TAU / 6) * rr);
+        cx.closePath(); cx.fill();
+      } else if (T.shape === 'star') {
+        cx.beginPath();
+        for (let j = 0; j < 10; j++) { const rj = j % 2 ? rr * 0.45 : rr * 1.15; cx.lineTo(Math.cos(j * Math.PI / 5) * rj, Math.sin(j * Math.PI / 5) * rj); }
+        cx.closePath(); cx.fill();
+      } else {
+        cx.beginPath(); cx.moveTo(0, -rr * 1.3); cx.lineTo(rr * 0.9, 0); cx.lineTo(0, rr * 1.3); cx.lineTo(-rr * 0.9, 0); cx.closePath(); cx.fill();
+        cx.fillStyle = '#ffffff';
+        cx.globalAlpha = 0.7;
+        cx.beginPath(); cx.moveTo(0, -rr * 1.3); cx.lineTo(rr * 0.35, 0); cx.lineTo(0, rr * 0.3); cx.closePath(); cx.fill();
+      }
       cx.restore();
     }
+    cx.globalAlpha = 1;
   }
 
   // Online: los demás jugadores reales, con su skin, su estela y su nombre con estilo
@@ -267,9 +286,11 @@ export class Renderer {
     for (const o of R.others) {
       if (!o.alive) continue;
       const sk = skinById(o.skin), tr = trailById(o.trail);
-      this.cx.globalAlpha = 1;
+      this.aMul = 0.72;
       this.drawPlayer({ px: o.x, pY: R.pY, t: R.t }, Y, { skin: sk, trail: tr, trailPts: o.pts || [], dt, aura: 'none' });
     }
+    this.aMul = 1;
+    this.cx.globalAlpha = 1;
   }
 
   // Nombres encima de todo (los demás y el tuyo)
@@ -351,7 +372,7 @@ export class Renderer {
       for (let k = 2; k < n; k += 2) {
         const a = k / n;
         cx.strokeStyle = (k >> 1) % 2 ? c1 : c2;
-        cx.globalAlpha = a * a1;
+        cx.globalAlpha = (a * a1) * this.aMul;
         cx.lineWidth = width * a;
         cx.beginPath(); cx.moveTo(tr[k - 2], Y(tr[k - 1])); cx.lineTo(tr[k], Y(tr[k + 1])); cx.stroke();
       }
@@ -370,7 +391,7 @@ export class Renderer {
       case 'bolt': {
         cx.lineJoin = 'miter';
         for (const [w, a, c] of [[6, 0.25, tc], [2.2, 0.9, tc], [1, 1, tc2]]) {
-          cx.strokeStyle = c; cx.globalAlpha = a; cx.lineWidth = w;
+          cx.strokeStyle = c; cx.globalAlpha = (a) * this.aMul; cx.lineWidth = w;
           cx.beginPath();
           for (let k = 0; k < n; k += 4) {
             const off = k === n - 2 ? 0 : (Math.random() - 0.5) * 10;
@@ -384,7 +405,7 @@ export class Renderer {
       case 'glitch':
         for (let k = 0; k < n; k += 2) {
           const a = k / n, off = (((k * 7919 + Math.floor(t * 18)) % 7) - 3) * 2.2, sz = P * (0.5 + a * 0.9);
-          cx.globalAlpha = a * 0.55;
+          cx.globalAlpha = (a * 0.55) * this.aMul;
           cx.fillStyle = (k >> 1) % 2 ? tc : tc2;
           cx.fillRect(tr[k] + off - sz / 2, Y(tr[k + 1]) - sz / 2, sz, sz);
         }
@@ -395,13 +416,13 @@ export class Renderer {
         const soft = trail.type !== 'dots' && !rainbow ? 0.25 : 0.5;
         for (let k = 0; k < n; k += 2) {
           const a = k / n;
-          cx.globalAlpha = a * soft;
+          cx.globalAlpha = (a * soft) * this.aMul;
           cx.fillStyle = rainbow ? `hsl(${Math.round((t * 90 + k * 9) % 360)} 95% 68%)` : tc;
           cx.beginPath(); cx.arc(tr[k], Y(tr[k + 1]), P * (0.3 + a * 0.6), 0, TAU); cx.fill();
         }
       }
     }
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
     const py = Y(R.pY);
     this.drawAura(R.px, py, P, t, opts.aura, opts.tierCol);
     this.drawShape(sk.shape, R.px, py, P, col, col2, t);
@@ -415,14 +436,14 @@ export class Renderer {
     cx.lineWidth = 1.5;
     const ring = (rad, rot, dash) => {
       cx.save(); cx.translate(x, y); cx.rotate(rot);
-      cx.setLineDash(dash); cx.globalAlpha = 0.75;
+      cx.setLineDash(dash); cx.globalAlpha = (0.75) * this.aMul;
       cx.beginPath(); cx.arc(0, 0, rad, 0, TAU); cx.stroke();
       cx.restore();
     };
     ring(r * 2.8, t * 1.4, [6, 5]);
     if (aura === 'halo2' || aura === 'orbit' || aura === 'crown') ring(r * 3.5, -t * 0.9, [2, 7]);
     cx.setLineDash([]);
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
     if (aura === 'orbit' || aura === 'crown') {
       cx.fillStyle = col;
       for (let k = 0; k < 3; k++) {
@@ -452,14 +473,14 @@ export class Renderer {
       for (let k = 2; k < n; k += 2) {
         const a = k / n;
         cx.strokeStyle = `hsl(${Math.round(hue(k))} 100% ${light}%)`;
-        cx.globalAlpha = alpha * a;
+        cx.globalAlpha = (alpha * a) * this.aMul;
         cx.lineWidth = P * wMul * (0.25 + a * 0.75) * (1 + 0.12 * Math.sin(t * 14 + k * 0.5));
         cx.beginPath(); cx.moveTo(tr[k - 2], Y(tr[k - 1])); cx.lineTo(tr[k], Y(tr[k + 1])); cx.stroke();
       }
     }
     // Núcleo blanco
     cx.strokeStyle = '#fffbe8';
-    cx.globalAlpha = 0.95;
+    cx.globalAlpha = (0.95) * this.aMul;
     cx.lineWidth = 1.6;
     cx.beginPath();
     for (let k = Math.floor(n * 0.35) & ~1; k < n; k += 2) cx.lineTo(tr[k], Y(tr[k + 1]));
@@ -469,7 +490,7 @@ export class Renderer {
     const flick = Math.floor(t * 20);
     for (let j = 0; j < 2; j++) {
       cx.strokeStyle = j ? '#ff9cf0' : '#9ff4ff';
-      cx.globalAlpha = 0.7;
+      cx.globalAlpha = (0.7) * this.aMul;
       cx.lineWidth = 1;
       cx.beginPath();
       for (let k = n - 2; k > n * 0.3; k -= 4) {
@@ -480,7 +501,7 @@ export class Renderer {
       cx.stroke();
     }
     cx.restore();
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
   }
 
   // Skin Fundador: un agujero negro con disco de acreción inclinado, anillo de fotones
@@ -523,14 +544,14 @@ export class Renderer {
           const a0 = from + (to - from) * k / seg, a1 = from + (to - from) * (k + 1) / seg;
           const h = novaHue((a0 + spin) / TAU + w * 0.15);
           cx.strokeStyle = `hsl(${Math.round(h)} 100% ${w === 1 ? 70 : 60}%)`;
-          cx.globalAlpha = 0.55 + 0.45 * Math.sin(a0 * 3 + spin * 2 + w);
+          cx.globalAlpha = (0.55 + 0.45 * Math.sin(a0 * 3 + spin * 2 + w)) * this.aMul;
           cx.beginPath(); cx.ellipse(0, 0, rx, rx * tilt, -0.35, a0, a1); cx.stroke();
         }
       }
     };
     disk(Math.PI, TAU);
     // Anillo de fotones
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
     cx.shadowColor = '#ffd166';
     cx.shadowBlur = 12;
     cx.strokeStyle = '#fff1c2';
@@ -548,13 +569,13 @@ export class Renderer {
     // Brillo interno que gira
     cx.globalCompositeOperation = 'lighter';
     cx.strokeStyle = '#b48cff';
-    cx.globalAlpha = 0.6;
+    cx.globalAlpha = (0.6) * this.aMul;
     cx.lineWidth = 1;
     cx.beginPath(); cx.arc(0, 0, r * 0.62, -t * 4, -t * 4 + 1.6); cx.stroke();
     // Disco (mitad delantera, pasa por delante del núcleo)
     disk(0, Math.PI);
     // Chispas en órbita
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
     for (let k = 0; k < 6; k++) {
       const a = t * (1.8 + k * 0.23) + k * TAU / 6, rr = RX * (0.95 + 0.25 * Math.sin(t * 2 + k));
       const sx = Math.cos(a) * rr, sy = Math.sin(a) * rr * tilt;
@@ -563,7 +584,7 @@ export class Renderer {
       cx.beginPath(); cx.arc(rx, ry, 1.3 + (k % 3) * 0.4, 0, TAU); cx.fill();
     }
     cx.restore();
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
   }
 
   drawShape(shape, x, y, r, col, col2, t) {
@@ -571,9 +592,9 @@ export class Renderer {
     if (shape === 'singularity') { this.drawSingularity(x, y, r, t); return; }
     const core = col2 === col ? C.text : col2;
     cx.fillStyle = col;
-    cx.globalAlpha = 0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1;
+    cx.globalAlpha = (0.18 + Math.sin(t * 8) * 0.06 + this.pulse * 0.1) * this.aMul;
     cx.beginPath(); cx.arc(x, y, r * 2.3, 0, TAU); cx.fill();
-    cx.globalAlpha = 1;
+    cx.globalAlpha = (1) * this.aMul;
     cx.save();
     cx.translate(x, y);
     switch (shape) {
@@ -603,6 +624,72 @@ export class Renderer {
         cx.fillStyle = col2;
         cx.beginPath(); cx.arc(0, 0, r * 0.45, 0, TAU); cx.fill();
         break;
+      case 'tri':
+        cx.rotate(t * 1.6);
+        cx.beginPath();
+        for (let k = 0; k < 3; k++) cx.lineTo(Math.cos(k * TAU / 3 - Math.PI / 2) * r * 1.25, Math.sin(k * TAU / 3 - Math.PI / 2) * r * 1.25);
+        cx.closePath(); cx.fill();
+        cx.fillStyle = core;
+        cx.beginPath(); cx.arc(0, 0, r * 0.3, 0, TAU); cx.fill();
+        break;
+      case 'cross':
+        cx.rotate(Math.PI / 4 + Math.sin(t * 2.4) * 0.3);
+        cx.fillRect(-r * 1.1, -r * 0.34, r * 2.2, r * 0.68);
+        cx.fillRect(-r * 0.34, -r * 1.1, r * 0.68, r * 2.2);
+        cx.fillStyle = core;
+        cx.fillRect(-r * 0.3, -r * 0.3, r * 0.6, r * 0.6);
+        break;
+      case 'crystal': {
+        // Cristal facetado que gira y destella (legendaria)
+        const sp = t * 1.1;
+        for (let k = 0; k < 6; k++) {
+          const a0 = sp + k * TAU / 6, a1 = a0 + TAU / 6;
+          cx.fillStyle = k % 2 ? col : col2;
+          cx.globalAlpha = (0.75 + 0.25 * Math.sin(t * 4 + k)) * this.aMul;
+          cx.beginPath(); cx.moveTo(0, 0);
+          cx.lineTo(Math.cos(a0) * r * 1.3, Math.sin(a0) * r * 1.3 * 0.8);
+          cx.lineTo(Math.cos(a1) * r * 1.3, Math.sin(a1) * r * 1.3 * 0.8);
+          cx.closePath(); cx.fill();
+        }
+        cx.globalAlpha = this.aMul;
+        cx.strokeStyle = '#ffffff'; cx.lineWidth = 1;
+        cx.beginPath();
+        for (let k = 0; k < 6; k++) cx.lineTo(Math.cos(sp + k * TAU / 6) * r * 1.3, Math.sin(sp + k * TAU / 6) * r * 1.3 * 0.8);
+        cx.closePath(); cx.stroke();
+        const g = (t * 0.8) % 1;
+        if (g < 0.25) {
+          cx.fillStyle = '#ffffff';
+          cx.globalAlpha = (1 - g * 4) * this.aMul;
+          cx.fillRect(-r * 1.6, -0.8, r * 3.2, 1.6); cx.fillRect(-0.8, -r * 1.6, 1.6, r * 3.2);
+          cx.globalAlpha = this.aMul;
+        }
+        break;
+      }
+      case 'plasma': {
+        // Núcleo de plasma (mítica): esfera que late, anillos cruzados y arcos eléctricos
+        const pl = 1 + Math.sin(t * 7) * 0.1;
+        const grd = cx.createRadialGradient(0, 0, 0, 0, 0, r * 1.4 * pl);
+        grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.35, col); grd.addColorStop(1, col2);
+        cx.fillStyle = grd;
+        cx.beginPath(); cx.arc(0, 0, r * 1.05 * pl, 0, TAU); cx.fill();
+        cx.lineWidth = 1.4;
+        for (let k = 0; k < 3; k++) {
+          cx.strokeStyle = k % 2 ? col2 : col;
+          cx.beginPath(); cx.ellipse(0, 0, r * 1.9, r * 0.55, t * (1.5 + k * 0.4) + k * TAU / 3, 0, TAU); cx.stroke();
+        }
+        cx.strokeStyle = '#ffffff'; cx.lineWidth = 1;
+        const f = Math.floor(t * 18);
+        for (let k = 0; k < 3; k++) {
+          const a0 = ((f * 7 + k * 13) % 17) / 17 * TAU;
+          cx.beginPath(); cx.moveTo(Math.cos(a0) * r, Math.sin(a0) * r);
+          for (let j = 1; j <= 3; j++) {
+            const rr = r * (1 + j * 0.3), aa = a0 + Math.sin(f * 3.1 + j * k) * 0.4;
+            cx.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr);
+          }
+          cx.stroke();
+        }
+        break;
+      }
       case 'star':
         cx.beginPath();
         for (let k = 0; k < 10; k++) {

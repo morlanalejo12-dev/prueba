@@ -41,9 +41,25 @@ Abrí `index.html` en cualquier navegador, en el celular o en la PC. Para jugar 
 - Tarjeta de resultado para compartir.
 - **Online:** Minuto global (una ronda pública al comenzar cada minuto) y salas privadas con código de 4 letras.
 - **Códigos promocionales** en Ajustes y en la Tienda.
-- Catálogo de **música** (8 temas) y **estilos de nombre** (19).
+- Catálogo de **música** (8 temas) y **estilos de nombre** (21).
+- **Pase de temporada** de 100 niveles (20 gratis), **Tienda Premium** (se habilita en la v1.0) y **amigos**.
 
 ## Novedades
+
+### v0.9
+- **DKO · Play Me** (código DKO01): ahora es la canción *Play Me* (SETO / Albert Harvey), adaptada al juego. En el menú y lejos de las bifurcaciones suena un tramo tranquilo en loop; cuando sube la tensión entra el drop (16 compases en loop). Los cambios caen siempre al empezar un compás. Viene dentro del `index.html` y en el sitio se descarga aparte, solo si se usa.
+- **Pase de temporada de 100 niveles:** del 1 al 20 es gratis; del 21 al 100 es el **pase Premium (US$ 3,99)**, con skins Legendarias y una **Mítica en el nivel 100** (Núcleo de Plasma), además de música, estelas, estilos de nombre y destellos. Todos los premios se reclaman a mano (hay un botón para reclamar todo).
+- **Tienda Premium:** skins, estelas y estilos Legendarios y Míticos con su precio en dólares. Las compras se habilitan en la versión 1.0.
+- **Calidades:** jugando gratis se consigue hasta calidad Épica (pase gratuito, ligas, logros, recompensa diaria y tienda de destellos). Legendaria y Mítica son de pago. Fundador sigue siendo solo por código y es la calidad más alta. **Todos los cosméticos son solo visuales: no dan ninguna ventaja.**
+- **Logros con premio:** cada logro da destellos (y algunos una skin o estela) que se reclaman a mano en el perfil.
+- **Chispas por etapas:** Chispa (x1), Gema (x2), Estrella (x3) y Prisma (x5), cada una con su forma y color.
+- **Amigos:** cada jugador tiene un código de amigo. Agregás amigos con su código, ves quién está en línea y dónde, los invitás a tu sala privada o te unís a la suya.
+- **Avisos durante la partida:** se pueden apagar en Ajustes.
+- **La multitud es más translúcida** y los otros jugadores también, un poco menos, para que tu bola se destaque.
+- **Sala sin parpadeos:** la lista de jugadores ya no se reconstruye cada segundo; solo cambia cuando alguien entra, sale o cambia su aspecto.
+- **Código de dueños** para probar todo desbloqueado.
+- Formas nuevas de skins (Vértice, Cruz, Cristal y Plasma) y 12 skins y estelas nuevas.
+- Quien ya tenía cosméticos por nivel, liga o logro los conserva.
 
 ### v0.8
 - **Control táctil nuevo:** en el celular arrastrás desde cualquier parte de la pantalla y la bola se mueve lo mismo (con un poco más de sensibilidad), sin taparla con el dedo. Un segundo dedo (por ejemplo en IMPULSO) no la desvía. Se puede volver al modo anterior en Ajustes.
@@ -168,6 +184,9 @@ npm start        # servidor online en http://localhost:8080 (sirve dist/site)
 | `src/render/` | Dibujo en canvas, partículas y tarjeta para compartir |
 | `src/audio/` | Efectos y música sintetizados con Web Audio; `tracks.js` tiene los 8 temas |
 | `src/game/music.js`, `src/game/names.js` | Catálogos de música y de estilos de nombre |
+| `src/game/pass.js` | Pase de temporada: niveles, premios y reclamos |
+| `server/friends.js` | Presencia de amigos e invitaciones |
+| `assets/music/` | Temas grabados (MP3); el build los embebe en el `index.html` |
 | `src/ui/` | Menú, HUD, resultados, ventanas e íconos |
 | `src/main.js` | Máquina de estados y bucle principal (paso fijo de 1/120 s) |
 | `test/` | Tests con `node --test` |
